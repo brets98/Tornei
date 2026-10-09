@@ -1,4 +1,5 @@
 import { useState, type FormEvent } from 'react';
+import { Link } from 'react-router';
 import { authClient } from '../lib/auth-client';
 
 type Mode = 'sign-in' | 'sign-up' | 'forgot';
@@ -134,6 +135,7 @@ export function AuthPage() {
             Forgot your password?
           </button>
         )}
+        <Link to="/">← Back to the latest result</Link>
       </nav>
     </main>
   );

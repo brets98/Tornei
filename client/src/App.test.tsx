@@ -1,6 +1,6 @@
 import { fireEvent, render, screen } from '@testing-library/react';
 import { MemoryRouter } from 'react-router';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { App } from './App';
 import { authClient } from './lib/auth-client';
 
@@ -34,10 +34,37 @@ function fill(label: string, value: string) {
 describe('App', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    // Latest result shown on the landing pages
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(() =>
+        Promise.resolve(
+          new Response(
+            JSON.stringify({
+              text: 'Team A 2 - 1 Team B',
+              publishedAt: '2026-10-09T18:00:00.000Z',
+            }),
+          ),
+        ),
+      ),
+    );
+  });
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
   });
 
   describe('signed out', () => {
-    it('shows the sign-in form on any page', () => {
+    it('shows the public landing page with the latest result', async () => {
+      signedOut();
+      renderAt('/');
+
+      expect(await screen.findByText('Team A 2 - 1 Team B')).toBeInTheDocument();
+      expect(screen.getByRole('link', { name: 'Sign in' })).toHaveAttribute('href', '/sign-in');
+      expect(screen.queryByRole('navigation', { name: 'Main' })).not.toBeInTheDocument();
+    });
+
+    it('shows the sign-in form for pages that need an account', () => {
       signedOut();
       renderAt('/users');
 
@@ -49,7 +76,7 @@ describe('App', () => {
     it('signs up with name and surname, then asks to verify the email', async () => {
       signedOut();
       mocked.signUp.email.mockResolvedValue({ data: {}, error: null } as never);
-      renderAt('/');
+      renderAt('/sign-in');
 
       fireEvent.click(screen.getByRole('button', { name: 'Create an account' }));
       fill('Name', 'Mario');
@@ -70,7 +97,7 @@ describe('App', () => {
         data: null,
         error: { status: 403, message: 'Email not verified' },
       } as never);
-      renderAt('/');
+      renderAt('/sign-in');
 
       fill('Email', 'mario@example.com');
       fill('Password', 'correct-horse-battery');
@@ -94,13 +121,22 @@ describe('App', () => {
     it('hides the Users menu item from regular users', () => {
       signedInAs('user');
       renderAt('/');
+      expect(screen.queryByRole('link', { name: 'Results' })).not.toBeInTheDocument();
       expect(screen.queryByRole('link', { name: 'Users' })).not.toBeInTheDocument();
     });
 
-    it('shows the Users menu item to admins', () => {
+    it('shows the Results and Users menu items to admins', () => {
       signedInAs('admin');
       renderAt('/');
+      expect(screen.getByRole('link', { name: 'Results' })).toBeInTheDocument();
       expect(screen.getByRole('link', { name: 'Users' })).toBeInTheDocument();
+    });
+
+    it('shows the latest result on the home page', async () => {
+      signedInAs('user');
+      renderAt('/');
+
+      expect(await screen.findByText('Team A 2 - 1 Team B')).toBeInTheDocument();
     });
 
     it('shows a not-found page for unknown paths', () => {

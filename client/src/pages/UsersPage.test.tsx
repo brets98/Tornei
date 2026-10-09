@@ -38,7 +38,7 @@ describe('UsersPage', () => {
     expect(await screen.findByText('mario@example.com')).toBeInTheDocument();
     expect(screen.getByText('anna@example.com')).toBeInTheDocument();
     expect(screen.getAllByRole('row')).toHaveLength(3);
-    expect(fetch).toHaveBeenCalledWith('/api/users');
+    expect(fetch).toHaveBeenCalledWith('/api/users', undefined);
   });
 
   it('explains when the user is not an admin', async () => {

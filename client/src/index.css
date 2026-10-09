@@ -35,18 +35,24 @@ label {
 }
 
 input,
-button {
+textarea,
+button,
+a.button {
   font: inherit;
   padding: 0.5rem 0.75rem;
   border-radius: 0.375rem;
 }
 
-input {
+input,
+textarea {
   border: 1px solid #9ca3af;
+  resize: vertical;
 }
 
-button {
+button,
+a.button {
   border: none;
+  text-decoration: none;
   background: var(--accent);
   color: white;
   cursor: pointer;
@@ -187,4 +193,49 @@ td {
   .content {
     padding: 1.5rem 1rem;
   }
+}
+
+/* Latest published result */
+.result {
+  margin: 1.5rem 0;
+  padding: 1.25rem 1.5rem;
+  border: 1px solid var(--border);
+  border-left: 4px solid var(--accent);
+  border-radius: 0.5rem;
+}
+
+.result h2 {
+  margin: 0 0 0.75rem;
+  font-size: 0.875rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  opacity: 0.7;
+}
+
+.result-text {
+  margin: 0 0 0.75rem;
+  font-size: 1.5rem;
+  font-weight: 600;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.muted {
+  margin: 0;
+  opacity: 0.7;
+  font-size: 0.875rem;
+}
+
+/* Public page for visitors who are not signed in */
+.public-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 1rem 1.5rem;
+  border-bottom: 1px solid var(--border);
+}
+
+.public-main {
+  margin: 0 auto;
+  padding: 1rem 1.5rem;
 }

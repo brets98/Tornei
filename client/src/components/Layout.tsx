@@ -22,6 +22,7 @@ export function Layout({ user }: Props) {
           <NavLink to="/" end>
             Home
           </NavLink>
+          {isAdmin && <NavLink to="/results">Results</NavLink>}
           {isAdmin && <NavLink to="/users">Users</NavLink>}
           <NavLink to="/account/password">Change password</NavLink>
         </nav>
