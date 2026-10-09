@@ -17,6 +17,12 @@ services:
         required: false
     environment:
       MONGODB_URI: mongodb://mongo:27017/tornei
+      BETTER_AUTH_URL: http://localhost:5173
+      # Development-only fallback; production requires a real secret in .env
+      BETTER_AUTH_SECRET: ${BETTER_AUTH_SECRET:-dev-only-secret-not-for-production-0123456789}
+      SMTP_HOST: mailpit
+      SMTP_PORT: 1025
+      MAIL_FROM: Tornei <no-reply@tornei.local>
     ports:
       - '3000:3000'
     volumes:
@@ -24,6 +30,13 @@ services:
       - /app/server/node_modules
     depends_on:
       - mongo
+      - mailpit
+
+  # Catches every email the app sends: read them at http://localhost:8025
+  mailpit:
+    image: axllent/mailpit:v1.31.4
+    ports:
+      - '127.0.0.1:8025:8025'
 
   client:
     build:
