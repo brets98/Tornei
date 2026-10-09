@@ -1,117 +1,77 @@
-import request from 'supertest';
-import { describe, expect, it } from 'vitest';
-import { createApp } from '../src/app.js';
-import { UserModel } from '../src/models/user.js';
+import { beforeEach, describe, expect, it } from 'vitest';
+import { createTestApp, signUp, type TestApp } from './app.js';
 import { useTestDatabase } from './db.js';
 
-const app = createApp();
+const mario = { name: 'Mario', surname: 'Rossi', email: 'mario@example.com' };
+const anna = { name: 'Anna', surname: 'Bianchi', email: 'anna@example.com' };
 
-describe('POST /api/users', () => {
+describe('users API', () => {
   useTestDatabase();
 
-  it('creates a user with id and timestamps', async () => {
-    const res = await request(app)
-      .post('/api/users')
-      .send({ name: ' Mario ', surname: 'Rossi', email: 'Mario.Rossi@Example.com' });
-
-    expect(res.status).toBe(201);
-    expect(res.body).toEqual({
-      id: expect.any(String),
-      name: 'Mario',
-      surname: 'Rossi',
-      email: 'mario.rossi@example.com',
-      createdAt: expect.any(String),
-      updatedAt: expect.any(String),
-    });
-    expect(await UserModel.findById(res.body.id)).not.toBeNull();
+  let t: TestApp;
+  beforeEach(() => {
+    t = createTestApp();
   });
 
-  it('rejects missing or invalid fields', async () => {
-    const res = await request(app).post('/api/users').send({ name: 'Mario', email: 'nope' });
+  describe('GET /api/users', () => {
+    it('is forbidden for regular users', async () => {
+      const { agent } = await signUp(t, mario);
 
-    expect(res.status).toBe(400);
-    expect(Object.keys(res.body.errors).sort()).toEqual(['email', 'surname']);
-  });
-
-  it('rejects a duplicate email', async () => {
-    const user = { name: 'Mario', surname: 'Rossi', email: 'mario@example.com' };
-    await request(app).post('/api/users').send(user);
-
-    const res = await request(app)
-      .post('/api/users')
-      .send({ ...user, email: 'MARIO@example.com' });
-
-    expect(res.status).toBe(409);
-  });
-
-  it('ignores fields that are not part of the user', async () => {
-    const res = await request(app).post('/api/users').send({
-      name: 'Mario',
-      surname: 'Rossi',
-      email: 'mario@example.com',
-      id: 'hacked',
-      createdAt: '2000-01-01T00:00:00.000Z',
+      expect((await agent.get('/api/users')).status).toBe(403);
     });
 
-    expect(res.status).toBe(201);
-    expect(res.body.id).not.toBe('hacked');
-    expect(res.body.createdAt).not.toBe('2000-01-01T00:00:00.000Z');
-  });
-});
+    it('lists users in creation order for admins', async () => {
+      const { agent } = await signUp(t, mario, { role: 'admin' });
+      await signUp(t, anna);
 
-describe('GET /api/users', () => {
-  useTestDatabase();
+      const res = await agent.get('/api/users');
 
-  it('returns an empty list when there are no users', async () => {
-    const res = await request(app).get('/api/users');
-
-    expect(res.status).toBe(200);
-    expect(res.body).toEqual([]);
+      expect(res.status).toBe(200);
+      expect(res.body.map((u: { email: string }) => u.email)).toEqual([mario.email, anna.email]);
+      expect(res.body[0]).toHaveProperty('id');
+      expect(res.body[0]).not.toHaveProperty('_id');
+    });
   });
 
-  it('lists users in creation order', async () => {
-    await request(app)
-      .post('/api/users')
-      .send({ name: 'Mario', surname: 'Rossi', email: 'mario@example.com' });
-    await request(app)
-      .post('/api/users')
-      .send({ name: 'Anna', surname: 'Bianchi', email: 'anna@example.com' });
+  describe('GET /api/users/:id', () => {
+    it('returns your own profile with id and timestamps', async () => {
+      const { agent, id } = await signUp(t, mario);
 
-    const res = await request(app).get('/api/users');
+      const res = await agent.get(`/api/users/${id}`);
 
-    expect(res.status).toBe(200);
-    expect(res.body.map((u: { email: string }) => u.email)).toEqual([
-      'mario@example.com',
-      'anna@example.com',
-    ]);
-    expect(res.body[0]).toHaveProperty('id');
-    expect(res.body[0]).not.toHaveProperty('_id');
-  });
-});
+      expect(res.status).toBe(200);
+      expect(res.body).toMatchObject({
+        id,
+        ...mario,
+        emailVerified: true,
+        role: 'user',
+        createdAt: expect.any(String),
+        updatedAt: expect.any(String),
+      });
+    });
 
-describe('GET /api/users/:id', () => {
-  useTestDatabase();
+    it("is forbidden for someone else's profile", async () => {
+      const { agent } = await signUp(t, mario);
+      const { id: annaId } = await signUp(t, anna);
 
-  it('returns the user', async () => {
-    const created = await request(app)
-      .post('/api/users')
-      .send({ name: 'Mario', surname: 'Rossi', email: 'mario@example.com' });
+      expect((await agent.get(`/api/users/${annaId}`)).status).toBe(403);
+    });
 
-    const res = await request(app).get(`/api/users/${created.body.id}`);
+    it('lets admins read any profile', async () => {
+      const { agent } = await signUp(t, mario, { role: 'admin' });
+      const { id: annaId } = await signUp(t, anna);
 
-    expect(res.status).toBe(200);
-    expect(res.body).toEqual(created.body);
-  });
+      const res = await agent.get(`/api/users/${annaId}`);
 
-  it('returns 404 for an unknown id', async () => {
-    const res = await request(app).get('/api/users/000000000000000000000000');
+      expect(res.status).toBe(200);
+      expect(res.body.email).toBe(anna.email);
+    });
 
-    expect(res.status).toBe(404);
-  });
+    it('returns 404 to admins for unknown or malformed ids', async () => {
+      const { agent } = await signUp(t, mario, { role: 'admin' });
 
-  it('returns 404 for a malformed id', async () => {
-    const res = await request(app).get('/api/users/not-an-id');
-
-    expect(res.status).toBe(404);
+      expect((await agent.get('/api/users/000000000000000000000000')).status).toBe(404);
+      expect((await agent.get('/api/users/not-an-id')).status).toBe(404);
+    });
   });
 });

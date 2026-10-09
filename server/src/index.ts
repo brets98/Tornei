@@ -1,13 +1,21 @@
 import mongoose from 'mongoose';
 import { createApp } from './app.js';
+import { createAuth } from './auth/auth.js';
 import { loadConfig } from './config.js';
+import { createSmtpMailer } from './mail/mailer.js';
 
 const config = loadConfig();
 
 await mongoose.connect(config.mongodbUri);
 console.log('Connected to MongoDB');
 
-const server = createApp().listen(config.port, () => {
+const auth = createAuth({
+  db: mongoose.connection.db!,
+  config: config.auth,
+  mailer: createSmtpMailer(config.smtp),
+});
+
+const server = createApp({ auth }).listen(config.port, () => {
   console.log(`API listening on port ${config.port}`);
 });
 
