@@ -1,0 +1,45 @@
+# Development: docker compose up
+services:
+  mongo:
+    image: mongo:8
+    ports:
+      - '127.0.0.1:27017:27017'
+    volumes:
+      - mongo-data:/data/db
+
+  server:
+    build:
+      context: .
+      dockerfile: docker/server.Dockerfile
+      target: dev
+    env_file:
+      - path: .env
+        required: false
+    environment:
+      MONGODB_URI: mongodb://mongo:27017/tornei
+    ports:
+      - '3000:3000'
+    volumes:
+      - ./server:/app/server
+      - /app/server/node_modules
+    depends_on:
+      - mongo
+
+  client:
+    build:
+      context: .
+      dockerfile: docker/web.Dockerfile
+      target: dev
+    environment:
+      API_PROXY_TARGET: http://server:3000
+      VITE_USE_POLLING: 'true'
+    ports:
+      - '5173:5173'
+    volumes:
+      - ./client:/app/client
+      - /app/client/node_modules
+    depends_on:
+      - server
+
+volumes:
+  mongo-data:
