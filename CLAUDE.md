@@ -68,6 +68,8 @@ docker-compose.prod.yml      # production
 
 - GitHub Actions: on every push runs lint, format check, typecheck, tests and build; on `main` it builds the Docker images and publishes them to GitHub Container Registry (`ghcr.io/brets98/tornei-server`, `ghcr.io/brets98/tornei-web`, tagged `latest` and the commit SHA).
 - The VPS pulls the new images and restarts with `docker-compose.prod.yml`.
+- **Secrets in production live only on the VPS**, in a `.env` created by hand and readable only by the deploy user (`chmod 600`). Images and CI never contain app secrets: the deploy job only needs an SSH key (GitHub Actions secret) to run `docker compose pull && docker compose up -d`. Possible later step: SOPS + age to version encrypted secrets in git. OpenBao/Vault only if there are multiple servers or people.
+- Never put secrets in the client: `VITE_*` variables end up in the public JavaScript bundle.
 - Periodic backup of the MongoDB volume (to be defined together with the server).
 
 ## Commands
