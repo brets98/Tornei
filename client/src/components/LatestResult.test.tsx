@@ -1,60 +1,61 @@
-import { render, screen } from '@testing-library/react';
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { act, render, screen } from '@testing-library/react';
+import { describe, expect, it } from 'vitest';
+import { FakeEventSource } from '../test/fake-event-source';
 import { LatestResult } from './LatestResult';
 
-function mockFetch(...responses: Array<{ status: number; body: unknown }>) {
-  const fn = vi.fn();
-  for (const { status, body } of responses) {
-    fn.mockResolvedValueOnce(new Response(JSON.stringify(body), { status }));
-  }
-  vi.stubGlobal('fetch', fn);
-  return fn;
-}
+const push = (data: unknown) => act(() => FakeEventSource.latest().emit(data));
 
 describe('LatestResult', () => {
-  afterEach(() => {
-    vi.unstubAllGlobals();
-  });
-
-  it('shows the latest result', async () => {
-    mockFetch({
-      status: 200,
-      body: { text: 'Team A 2 - 1 Team B', publishedAt: '2026-10-09T18:00:00.000Z' },
-    });
-
+  it('listens to the live result stream', () => {
     render(<LatestResult />);
 
-    expect(await screen.findByText('Team A 2 - 1 Team B')).toBeInTheDocument();
-    expect(screen.getByText(/^Updated/)).toBeInTheDocument();
-    expect(fetch).toHaveBeenCalledWith('/api/results/latest', undefined);
+    expect(FakeEventSource.latest().url).toBe('/api/results/stream');
+    expect(screen.getByText('Loading…')).toBeInTheDocument();
   });
 
-  it('says when nothing has been published', async () => {
-    mockFetch({ status: 200, body: null });
-
+  it('shows the result sent on connect, then each new one as it is pushed', () => {
     render(<LatestResult />);
 
-    expect(await screen.findByText('No result has been published yet.')).toBeInTheDocument();
+    push({ text: 'Team A 1 - 0 Team B', publishedAt: '2026-10-09T18:00:00.000Z' });
+    expect(screen.getByText('Team A 1 - 0 Team B')).toBeInTheDocument();
+    expect(screen.getByText('Live')).toBeInTheDocument();
+
+    push({ text: 'Team A 2 - 0 Team B', publishedAt: '2026-10-09T18:05:00.000Z' });
+    expect(screen.getByText('Team A 2 - 0 Team B')).toBeInTheDocument();
+    expect(screen.queryByText('Team A 1 - 0 Team B')).not.toBeInTheDocument();
   });
 
-  it('shows an error when the result cannot be loaded', async () => {
-    mockFetch({ status: 500, body: {} });
-
+  it('says when nothing has been published', () => {
     render(<LatestResult />);
 
-    expect(await screen.findByText('Could not load the result.')).toBeInTheDocument();
+    push(null);
+
+    expect(screen.getByText('No result has been published yet.')).toBeInTheDocument();
   });
 
-  it('reloads when refreshKey changes', async () => {
-    mockFetch(
-      { status: 200, body: { text: 'Old', publishedAt: '2026-10-09T18:00:00.000Z' } },
-      { status: 200, body: { text: 'New', publishedAt: '2026-10-09T18:05:00.000Z' } },
-    );
+  it('keeps the last result and shows when the connection is down', () => {
+    render(<LatestResult />);
+    push({ text: 'Team A 1 - 0 Team B', publishedAt: '2026-10-09T18:00:00.000Z' });
 
-    const { rerender } = render(<LatestResult refreshKey={0} />);
-    expect(await screen.findByText('Old')).toBeInTheDocument();
+    act(() => FakeEventSource.latest().fail());
 
-    rerender(<LatestResult refreshKey={1} />);
-    expect(await screen.findByText('New')).toBeInTheDocument();
+    expect(screen.getByText('Team A 1 - 0 Team B')).toBeInTheDocument();
+    expect(screen.getByText('Reconnecting…')).toBeInTheDocument();
+  });
+
+  it('shows an error if it cannot connect at all', () => {
+    render(<LatestResult />);
+
+    act(() => FakeEventSource.latest().fail());
+
+    expect(screen.getByText('Could not load the result.')).toBeInTheDocument();
+  });
+
+  it('closes the connection when it is no longer shown', () => {
+    const { unmount } = render(<LatestResult />);
+
+    unmount();
+
+    expect(FakeEventSource.latest().closed).toBe(true);
   });
 });
