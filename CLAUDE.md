@@ -29,7 +29,8 @@ Web app with user authentication. Features will be defined and added gradually: 
 - **Apple Sign In: do NOT implement** until explicitly requested (it requires the paid Apple Developer Program).
 - Server-side sessions stored in MongoDB, cookies `httpOnly`, `sameSite=lax`, and `secure` in production (HTTPS).
 - A user can link multiple providers to the same account (same email). Linking only happens when the email is verified on both sides (protects against account takeover).
-- Better Auth owns the `users`, `sessions`, `accounts` and `verifications` collections. `users` has the extra fields `surname` (required on email sign-up) and `role` (`user` | `admin`, cannot be set by the client). `server/src/models/user.ts` is a Mongoose read model of `users`: new users are created only through sign-up or Google login.
+- Better Auth owns the `users`, `sessions`, `accounts` and `verifications` collections. `users` has the extra fields `surname` (required on email sign-up) and `role` (cannot be set by the client).
+- **Roles** are stored in the `roles` collection (`server/src/models/role.ts`); `user.role` holds the role's `name`. Current roles: `admin`, `user` (default), created on server startup by `ensureDefaultRoles()`. Use the `ROLES` constants in code, never string literals. `server/src/models/user.ts` is a Mongoose read model of `users`: new users are created only through sign-up or Google login.
 - To make someone an admin (no UI yet): open `docker compose exec mongo mongosh tornei` and run `db.users.updateOne({ email: '...' }, { $set: { role: 'admin' } })`.
 ### Auth: still to do
 
@@ -62,6 +63,8 @@ docker-compose.prod.yml      # production
 .env.example                 # all required variables, without real values
 .github/workflows/ci.yml     # CI/CD with GitHub Actions
 ```
+
+Client: React Router (`client/src/App.tsx` defines routes; signed-in pages render inside `components/Layout.tsx`, with the left menu), pages in `client/src/pages/`, API calls via `apiGet()` in `client/src/lib/api.ts`. Tests mock the auth client with `vi.mock('…/lib/auth-client')` (mock in `lib/__mocks__/`).
 
 `client` and `server` are independent npm packages (no workspaces), each with its own `package-lock.json`. Docker builds use the repository root as context.
 

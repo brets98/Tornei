@@ -1,5 +1,6 @@
 import { fromNodeHeaders } from 'better-auth/node';
 import type { RequestHandler } from 'express';
+import { ROLES } from '../models/role.js';
 import type { Auth, AuthUser } from './auth.js';
 
 declare global {
@@ -25,7 +26,7 @@ export function requireAuth(auth: Auth): RequestHandler {
 }
 
 export const requireAdmin: RequestHandler = (req, res, next) => {
-  if (req.user?.role !== 'admin') {
+  if (req.user?.role !== ROLES.admin) {
     res.status(403).json({ error: 'Forbidden' });
     return;
   }
