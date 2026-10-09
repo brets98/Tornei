@@ -1,25 +1,27 @@
 import { Router } from 'express';
 import { isValidObjectId } from 'mongoose';
+import { requireAdmin } from '../auth/middleware.js';
 import { UserModel } from '../models/user.js';
 
+// Users are created through registration (/api/auth/sign-up/email) or Google login.
 export const usersRouter = Router();
 
-usersRouter.get('/', async (_req, res) => {
+usersRouter.get('/', requireAdmin, async (_req, res) => {
   const users = await UserModel.find().sort({ createdAt: 1 });
   res.json(users);
 });
 
 usersRouter.get('/:id', async (req, res) => {
-  const user = isValidObjectId(req.params.id) ? await UserModel.findById(req.params.id) : null;
+  const { id } = req.params;
+  if (req.user!.id !== id && req.user!.role !== 'admin') {
+    res.status(403).json({ error: 'Forbidden' });
+    return;
+  }
+
+  const user = isValidObjectId(id) ? await UserModel.findById(id) : null;
   if (!user) {
     res.status(404).json({ error: 'User not found' });
     return;
   }
   res.json(user);
-});
-
-usersRouter.post('/', async (req, res) => {
-  const { name, surname, email } = req.body ?? {};
-  const user = await UserModel.create({ name, surname, email });
-  res.status(201).json(user);
 });
