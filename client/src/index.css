@@ -1,0 +1,78 @@
+:root {
+  font-family: system-ui, sans-serif;
+  color-scheme: light dark;
+  --accent: #2563eb;
+  --error: #dc2626;
+  --ok: #16a34a;
+}
+
+body {
+  margin: 0;
+  padding: 2rem 1rem;
+}
+
+.card {
+  max-width: 24rem;
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+form,
+nav {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+label {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+input,
+button {
+  font: inherit;
+  padding: 0.5rem 0.75rem;
+  border-radius: 0.375rem;
+}
+
+input {
+  border: 1px solid #9ca3af;
+}
+
+button {
+  border: none;
+  background: var(--accent);
+  color: white;
+  cursor: pointer;
+}
+
+button:disabled {
+  opacity: 0.6;
+}
+
+button.secondary {
+  background: transparent;
+  color: inherit;
+  border: 1px solid #9ca3af;
+}
+
+button.link {
+  background: none;
+  color: var(--accent);
+  padding: 0;
+  text-align: left;
+}
+
+.error {
+  color: var(--error);
+  margin: 0;
+}
+
+.message {
+  color: var(--ok);
+  margin: 0;
+}
