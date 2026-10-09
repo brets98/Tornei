@@ -31,6 +31,16 @@ Web app with user authentication. Features will be defined and added gradually: 
 - A user can link multiple providers to the same account (same email). Linking only happens when the email is verified on both sides (protects against account takeover).
 - Better Auth owns the `users`, `sessions`, `accounts` and `verifications` collections. `users` has the extra fields `surname` (required on email sign-up) and `role` (`user` | `admin`, cannot be set by the client). `server/src/models/user.ts` is a Mongoose read model of `users`: new users are created only through sign-up or Google login.
 - To make someone an admin (no UI yet): open `docker compose exec mongo mongosh tornei` and run `db.users.updateOne({ email: '...' }, { $set: { role: 'admin' } })`.
+### Auth: still to do
+
+Before going live:
+- MongoDB indexes for Better Auth collections (`sessions.token`, `sessions.userId`, `accounts.userId`, `verifications.identifier`) and TTL indexes on `expiresAt` so expired sessions/tokens are deleted.
+- Test Google login and account linking end to end with real credentials.
+- Verify Better Auth's rate limiting sees the real client IP behind Caddy (`X-Forwarded-For`).
+
+When a feature needs it:
+- Account page (edit profile, change email), account deletion (GDPR) and privacy policy, admin user management UI, HTML email templates.
+
 ### API access: private by default
 
 - **Every `/api` route requires an authenticated user**, enforced by one global check (`requireAuth` in `server/src/app.ts`), not per route. Unauthenticated requests get `401`. Inside protected routes the user is `req.user`; use `requireAdmin` for admin-only routes.
