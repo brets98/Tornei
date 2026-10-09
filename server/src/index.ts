@@ -24,6 +24,8 @@ const server = createApp({ auth }).listen(config.port, () => {
 async function shutdown(signal: string) {
   console.log(`${signal} received, shutting down`);
   server.close();
+  // Open live-result streams would otherwise keep the server alive
+  server.closeAllConnections();
   await mongoose.disconnect();
   process.exit(0);
 }
