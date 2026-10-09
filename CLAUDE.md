@@ -29,6 +29,13 @@ Web app with user authentication. Features will be defined and added gradually: 
 - Server-side sessions stored in MongoDB, cookies `httpOnly`, `secure` and `sameSite`.
 - A user can link multiple providers to the same account (same email).
 
+### API access: private by default
+
+- **Every `/api` route requires an authenticated user**, enforced by one global check, not per route. Unauthenticated requests get `401`.
+- Public routes are an explicit, short allowlist: health check and the auth routes (login, registration, logout). Make any other route public only when there is a concrete need, and only after asking.
+- Per-route authorization (roles, ownership) goes on top of authentication where needed. Never expose other users' personal data (e.g. emails) publicly.
+- The frontend calls protected routes with the session cookie, sent automatically on same-origin requests: no tokens in client code, and no "secret" API keys in the frontend.
+
 ## Repository structure
 
 ```
@@ -50,7 +57,8 @@ docker-compose.prod.yml      # production
 
 - Secrets and credentials only in `.env` (never committed). Every new variable must be added to `.env.example` with a comment.
 - Lint and formatting with ESLint + Prettier (shared `.prettierrc.json` at the root).
-- Tests: Vitest for the client; Vitest + Supertest for the API.
+- Every collection has an id and a last-change time: always build Mongoose schemas with `createSchema()` from `server/src/db/schema.ts` (adds `createdAt`/`updatedAt` and exposes `id` instead of `_id` in JSON).
+- Tests: Vitest for the client; Vitest + Supertest for the API. API tests that need a database use `useTestDatabase()` from `server/test/db.ts` (in-memory MongoDB).
 - Every feature on a dedicated branch, with small, descriptive commits; merge into `main` via pull request.
 - Before declaring a task done: lint and tests must pass and the app must start with Docker Compose.
 
