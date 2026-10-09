@@ -5,6 +5,7 @@ import { APIError, createAuthMiddleware } from 'better-auth/api';
 import type { Db } from 'mongodb';
 import type { Config } from '../config.js';
 import type { Mailer } from '../mail/mailer.js';
+import { ROLES } from '../models/role.js';
 
 interface AuthDeps {
   db: Db;
@@ -26,7 +27,8 @@ export function createAuth({ db, config, mailer }: AuthDeps) {
         // Not required here because Google may not return a family name;
         // email sign-up enforces it in the hook below.
         surname: { type: 'string', required: false, defaultValue: '' },
-        role: { type: 'string', required: false, defaultValue: 'user', input: false },
+        // Name of a document in the `roles` collection
+        role: { type: 'string', required: false, defaultValue: ROLES.user, input: false },
       },
     },
 

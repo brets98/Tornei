@@ -3,11 +3,13 @@ import { createApp } from './app.js';
 import { createAuth } from './auth/auth.js';
 import { loadConfig } from './config.js';
 import { createSmtpMailer } from './mail/mailer.js';
+import { ensureDefaultRoles } from './models/role.js';
 
 const config = loadConfig();
 
 await mongoose.connect(config.mongodbUri);
 console.log('Connected to MongoDB');
+await ensureDefaultRoles();
 
 const auth = createAuth({
   db: mongoose.connection.db!,

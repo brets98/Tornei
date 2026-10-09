@@ -1,5 +1,6 @@
 import { model } from 'mongoose';
 import { createSchema } from '../db/schema.js';
+import { ROLES } from './role.js';
 
 /**
  * Read model for the `users` collection. Users are created and updated by
@@ -11,7 +12,8 @@ export interface User {
   email: string;
   emailVerified: boolean;
   image?: string | null;
-  role: 'user' | 'admin';
+  /** Name of a document in the `roles` collection */
+  role: string;
 }
 
 const userSchema = createSchema<User>({
@@ -20,7 +22,7 @@ const userSchema = createSchema<User>({
   email: { type: String, required: true, trim: true, lowercase: true, unique: true },
   emailVerified: { type: Boolean, default: false },
   image: { type: String },
-  role: { type: String, enum: ['user', 'admin'], default: 'user' },
+  role: { type: String, default: ROLES.user },
 });
 
 export const UserModel = model<User>('User', userSchema);
