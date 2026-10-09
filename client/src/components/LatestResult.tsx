@@ -1,47 +1,40 @@
 import { useEffect, useState } from 'react';
-import { apiGet } from '../lib/api';
 
 export interface PublishedResult {
   text: string;
   publishedAt: string;
 }
 
-const REFRESH_MS = 15_000;
-
-interface Props {
-  /** Change this value to reload immediately (e.g. right after publishing). */
-  refreshKey?: number;
-}
-
-/** Shows the latest published result and checks for a new one every 15 seconds. */
-export function LatestResult({ refreshKey }: Props) {
+/**
+ * Shows the latest published result, updated live: the server pushes each new result
+ * over Server-Sent Events. EventSource reconnects by itself if the connection drops.
+ */
+export function LatestResult() {
   const [result, setResult] = useState<PublishedResult | null | undefined>(undefined);
-  const [failed, setFailed] = useState(false);
+  const [connected, setConnected] = useState(true);
 
   useEffect(() => {
-    let active = true;
-    const load = () =>
-      apiGet<PublishedResult | null>('/results/latest')
-        .then((latest) => {
-          if (!active) return;
-          setResult(latest);
-          setFailed(false);
-        })
-        .catch(() => active && setFailed(true));
-
-    load();
-    const timer = setInterval(load, REFRESH_MS);
-    return () => {
-      active = false;
-      clearInterval(timer);
+    const source = new EventSource('/api/results/stream');
+    source.onmessage = (event: MessageEvent<string>) => {
+      setResult(JSON.parse(event.data) as PublishedResult | null);
+      setConnected(true);
     };
-  }, [refreshKey]);
+    source.onerror = () => setConnected(false);
+    return () => source.close();
+  }, []);
 
   return (
     <section className="result" aria-label="Latest result">
-      <h2>Latest result</h2>
-      {result === undefined && !failed && <p>Loading…</p>}
-      {result === undefined && failed && <p className="error">Could not load the result.</p>}
+      <h2>
+        Latest result
+        {result !== undefined && (
+          <span className={connected ? 'live' : 'muted'}>
+            {connected ? 'Live' : 'Reconnecting…'}
+          </span>
+        )}
+      </h2>
+      {result === undefined &&
+        (connected ? <p>Loading…</p> : <p className="error">Could not load the result.</p>)}
       {result === null && <p className="muted">No result has been published yet.</p>}
       {result && (
         <>

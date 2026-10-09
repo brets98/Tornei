@@ -1,8 +1,9 @@
-import { fireEvent, render, screen } from '@testing-library/react';
+import { act, fireEvent, render, screen } from '@testing-library/react';
 import { MemoryRouter } from 'react-router';
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { App } from './App';
 import { authClient } from './lib/auth-client';
+import { FakeEventSource } from './test/fake-event-source';
 
 vi.mock('./lib/auth-client');
 
@@ -27,6 +28,16 @@ function signedInAs(role: string) {
   } as never);
 }
 
+/** Simulates the server pushing the latest result to the page. */
+function pushResult() {
+  act(() =>
+    FakeEventSource.latest().emit({
+      text: 'Team A 2 - 1 Team B',
+      publishedAt: '2026-10-09T18:00:00.000Z',
+    }),
+  );
+}
+
 function fill(label: string, value: string) {
   fireEvent.change(screen.getByLabelText(label), { target: { value } });
 }
@@ -34,24 +45,6 @@ function fill(label: string, value: string) {
 describe('App', () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    // Latest result shown on the landing pages
-    vi.stubGlobal(
-      'fetch',
-      vi.fn(() =>
-        Promise.resolve(
-          new Response(
-            JSON.stringify({
-              text: 'Team A 2 - 1 Team B',
-              publishedAt: '2026-10-09T18:00:00.000Z',
-            }),
-          ),
-        ),
-      ),
-    );
-  });
-
-  afterEach(() => {
-    vi.unstubAllGlobals();
   });
 
   describe('signed out', () => {
@@ -59,7 +52,8 @@ describe('App', () => {
       signedOut();
       renderAt('/');
 
-      expect(await screen.findByText('Team A 2 - 1 Team B')).toBeInTheDocument();
+      pushResult();
+      expect(screen.getByText('Team A 2 - 1 Team B')).toBeInTheDocument();
       expect(screen.getByRole('link', { name: 'Sign in' })).toHaveAttribute('href', '/sign-in');
       expect(screen.queryByRole('navigation', { name: 'Main' })).not.toBeInTheDocument();
     });
@@ -136,7 +130,8 @@ describe('App', () => {
       signedInAs('user');
       renderAt('/');
 
-      expect(await screen.findByText('Team A 2 - 1 Team B')).toBeInTheDocument();
+      pushResult();
+      expect(screen.getByText('Team A 2 - 1 Team B')).toBeInTheDocument();
     });
 
     it('shows a not-found page for unknown paths', () => {

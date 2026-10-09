@@ -12,7 +12,7 @@ export function ResultsPage({ isAdmin }: Props) {
   const [text, setText] = useState('');
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
-  const [published, setPublished] = useState(0);
+  const [published, setPublished] = useState(false);
 
   if (!isAdmin) {
     return (
@@ -26,11 +26,12 @@ export function ResultsPage({ isAdmin }: Props) {
   async function onSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setError('');
+    setPublished(false);
     setBusy(true);
     try {
       await apiPost('/results', { text });
       setText('');
-      setPublished((n) => n + 1);
+      setPublished(true);
     } catch {
       setError('Could not publish the result.');
     } finally {
@@ -56,13 +57,13 @@ export function ResultsPage({ isAdmin }: Props) {
           />
         </label>
         {error && <p className="error">{error}</p>}
-        {published > 0 && <p className="message">Result published.</p>}
+        {published && <p className="message">Result published.</p>}
         <button type="submit" disabled={busy || !text.trim()}>
           Publish
         </button>
       </form>
 
-      <LatestResult refreshKey={published} />
+      <LatestResult />
     </article>
   );
 }

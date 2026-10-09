@@ -239,3 +239,16 @@ td {
   margin: 0 auto;
   padding: 1rem 1.5rem;
 }
+
+.result h2 span {
+  margin-left: 0.75rem;
+  font-size: 0.75rem;
+}
+
+.live {
+  color: var(--ok);
+}
+
+.live::before {
+  content: '● ';
+}
