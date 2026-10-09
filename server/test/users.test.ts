@@ -58,3 +58,60 @@ describe('POST /api/users', () => {
     expect(res.body.createdAt).not.toBe('2000-01-01T00:00:00.000Z');
   });
 });
+
+describe('GET /api/users', () => {
+  useTestDatabase();
+
+  it('returns an empty list when there are no users', async () => {
+    const res = await request(app).get('/api/users');
+
+    expect(res.status).toBe(200);
+    expect(res.body).toEqual([]);
+  });
+
+  it('lists users in creation order', async () => {
+    await request(app)
+      .post('/api/users')
+      .send({ name: 'Mario', surname: 'Rossi', email: 'mario@example.com' });
+    await request(app)
+      .post('/api/users')
+      .send({ name: 'Anna', surname: 'Bianchi', email: 'anna@example.com' });
+
+    const res = await request(app).get('/api/users');
+
+    expect(res.status).toBe(200);
+    expect(res.body.map((u: { email: string }) => u.email)).toEqual([
+      'mario@example.com',
+      'anna@example.com',
+    ]);
+    expect(res.body[0]).toHaveProperty('id');
+    expect(res.body[0]).not.toHaveProperty('_id');
+  });
+});
+
+describe('GET /api/users/:id', () => {
+  useTestDatabase();
+
+  it('returns the user', async () => {
+    const created = await request(app)
+      .post('/api/users')
+      .send({ name: 'Mario', surname: 'Rossi', email: 'mario@example.com' });
+
+    const res = await request(app).get(`/api/users/${created.body.id}`);
+
+    expect(res.status).toBe(200);
+    expect(res.body).toEqual(created.body);
+  });
+
+  it('returns 404 for an unknown id', async () => {
+    const res = await request(app).get('/api/users/000000000000000000000000');
+
+    expect(res.status).toBe(404);
+  });
+
+  it('returns 404 for a malformed id', async () => {
+    const res = await request(app).get('/api/users/not-an-id');
+
+    expect(res.status).toBe(404);
+  });
+});
