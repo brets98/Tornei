@@ -46,7 +46,8 @@ When a feature needs it:
 
 - **Every `/api` route requires an authenticated user**, enforced by one global check (`requireAuth` in `server/src/app.ts`), not per route. Unauthenticated requests get `401`. Inside protected routes the user is `req.user`; use `requireAdmin` for admin-only routes.
 - Public routes are an explicit, short allowlist: health check and the auth routes (login, registration, logout). Make any other route public only when there is a concrete need, and only after asking.
-- Current public routes: `GET /api/health`, `/api/auth/*`, `GET /api/results/latest` (latest result text and time only, for the public landing page; approved 2026-10-09). Public routers are mounted before `requireAuth` in `server/src/app.ts`.
+- Current public routes: `GET /api/health`, `/api/auth/*`, `GET /api/results/latest` and `GET /api/results/stream` (latest result text and time only, for the public landing page; approved 2026-10-09).
+- Live updates use **Server-Sent Events**: `/api/results/stream` sends the latest result on connect and pushes each new one (`resultEvents` in `server/src/routes/results.ts`); the client listens with `EventSource` in `components/LatestResult.tsx` (tests use `test/fake-event-source.ts`). The event bus is in-process, so it assumes a single server instance. Public routers are mounted before `requireAuth` in `server/src/app.ts`.
 - Client: signed-out visitors see `PublicLandingPage` at `/` and the sign-in form at `/sign-in` (and on any page that needs an account).
 - Per-route authorization (roles, ownership) goes on top of authentication where needed. Never expose other users' personal data (e.g. emails) publicly.
 - The frontend calls protected routes with the session cookie, sent automatically on same-origin requests: no tokens in client code, and no "secret" API keys in the frontend.
