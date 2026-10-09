@@ -50,7 +50,8 @@ docker-compose.prod.yml      # production
 
 - Secrets and credentials only in `.env` (never committed). Every new variable must be added to `.env.example` with a comment.
 - Lint and formatting with ESLint + Prettier (shared `.prettierrc.json` at the root).
-- Tests: Vitest for the client; Vitest + Supertest for the API.
+- Every collection has an id and a last-change time: always build Mongoose schemas with `createSchema()` from `server/src/db/schema.ts` (adds `createdAt`/`updatedAt` and exposes `id` instead of `_id` in JSON).
+- Tests: Vitest for the client; Vitest + Supertest for the API. API tests that need a database use `useTestDatabase()` from `server/test/db.ts` (in-memory MongoDB).
 - Every feature on a dedicated branch, with small, descriptive commits; merge into `main` via pull request.
 - Before declaring a task done: lint and tests must pass and the app must start with Docker Compose.
 
