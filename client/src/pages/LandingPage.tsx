@@ -1,7 +1,10 @@
+import { LatestResult } from '../components/LatestResult';
+
 export function LandingPage() {
   return (
     <article className="page">
       <h1>Welcome to Tornei</h1>
+      <LatestResult />
       <p>
         Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed do eiusmod tempor incididunt ut
         labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco

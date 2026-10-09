@@ -1,4 +1,5 @@
 import { useState, type FormEvent } from 'react';
+import { Link } from 'react-router';
 import { authClient } from '../lib/auth-client';
 
 export function ResetPasswordPage() {
@@ -41,7 +42,7 @@ export function ResetPasswordPage() {
           <button type="submit">Save password</button>
         </form>
       )}
-      <a href="/">Back to sign in</a>
+      <Link to="/sign-in">Back to sign in</Link>
     </main>
   );
 }
