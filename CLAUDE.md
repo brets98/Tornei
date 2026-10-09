@@ -29,6 +29,13 @@ Web app with user authentication. Features will be defined and added gradually: 
 - Server-side sessions stored in MongoDB, cookies `httpOnly`, `secure` and `sameSite`.
 - A user can link multiple providers to the same account (same email).
 
+### API access: private by default
+
+- **Every `/api` route requires an authenticated user**, enforced by one global check, not per route. Unauthenticated requests get `401`.
+- Public routes are an explicit, short allowlist: health check and the auth routes (login, registration, logout). Make any other route public only when there is a concrete need, and only after asking.
+- Per-route authorization (roles, ownership) goes on top of authentication where needed. Never expose other users' personal data (e.g. emails) publicly.
+- The frontend calls protected routes with the session cookie, sent automatically on same-origin requests: no tokens in client code, and no "secret" API keys in the frontend.
+
 ## Repository structure
 
 ```
