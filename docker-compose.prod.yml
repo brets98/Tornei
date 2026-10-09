@@ -1,0 +1,46 @@
+# Production: docker compose -f docker-compose.prod.yml up -d
+services:
+  mongo:
+    image: mongo:8
+    restart: unless-stopped
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: ${MONGO_ROOT_USERNAME:?}
+      MONGO_INITDB_ROOT_PASSWORD: ${MONGO_ROOT_PASSWORD:?}
+    volumes:
+      - mongo-data:/data/db
+
+  server:
+    image: ghcr.io/brets98/tornei-server:${IMAGE_TAG:-latest}
+    build:
+      context: .
+      dockerfile: docker/server.Dockerfile
+      target: prod
+    restart: unless-stopped
+    environment:
+      MONGODB_URI: mongodb://${MONGO_ROOT_USERNAME}:${MONGO_ROOT_PASSWORD}@mongo:27017/tornei?authSource=admin
+    depends_on:
+      - mongo
+
+  web:
+    image: ghcr.io/brets98/tornei-web:${IMAGE_TAG:-latest}
+    build:
+      context: .
+      dockerfile: docker/web.Dockerfile
+      target: prod
+    restart: unless-stopped
+    environment:
+      DOMAIN: ${DOMAIN:?}
+    ports:
+      - '80:80'
+      - '443:443'
+      - '443:443/udp'
+    volumes:
+      - caddy-data:/data
+      - caddy-config:/config
+    depends_on:
+      - server
+
+volumes:
+  mongo-data:
+  caddy-data:
+  caddy-config:
