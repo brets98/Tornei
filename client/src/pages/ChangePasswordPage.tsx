@@ -1,4 +1,5 @@
 import { useEffect, useState, type FormEvent } from 'react';
+import { fill, useI18n } from '../i18n/context';
 import { authClient } from '../lib/auth-client';
 
 interface Props {
@@ -6,6 +7,7 @@ interface Props {
 }
 
 export function ChangePasswordPage({ email }: Props) {
+  const { t } = useI18n();
   // Accounts created with Google have no password until they set one
   const [hasPassword, setHasPassword] = useState<boolean | null>(null);
 
@@ -17,8 +19,8 @@ export function ChangePasswordPage({ email }: Props) {
 
   return (
     <article className="page narrow">
-      <h1>Change password</h1>
-      {hasPassword === null && <p>Loading…</p>}
+      <h1>{t.password.title}</h1>
+      {hasPassword === null && <p>{t.common.loading}</p>}
       {hasPassword === true && <ChangePasswordForm />}
       {hasPassword === false && <SetPassword email={email} />}
     </article>
@@ -26,6 +28,7 @@ export function ChangePasswordPage({ email }: Props) {
 }
 
 function ChangePasswordForm() {
+  const { t } = useI18n();
   const [error, setError] = useState('');
   const [message, setMessage] = useState('');
   const [busy, setBusy] = useState(false);
@@ -40,7 +43,7 @@ function ChangePasswordForm() {
     setMessage('');
 
     if (newPassword !== form.get('confirmPassword')) {
-      setError('The new passwords do not match.');
+      setError(t.password.mismatch);
       return;
     }
 
@@ -53,21 +56,21 @@ function ChangePasswordForm() {
     setBusy(false);
 
     if (error) {
-      setError(error.message ?? 'Could not change the password.');
+      setError(error.message ?? t.password.changeFailed);
     } else {
       formElement.reset();
-      setMessage('Your password has been changed.');
+      setMessage(t.password.changed);
     }
   }
 
   return (
     <form onSubmit={onSubmit}>
       <label>
-        Current password
+        {t.password.current}
         <input name="currentPassword" type="password" required autoComplete="current-password" />
       </label>
       <label>
-        New password
+        {t.password.new}
         <input
           name="newPassword"
           type="password"
@@ -77,7 +80,7 @@ function ChangePasswordForm() {
         />
       </label>
       <label>
-        Confirm new password
+        {t.password.confirm}
         <input
           name="confirmPassword"
           type="password"
@@ -88,18 +91,19 @@ function ChangePasswordForm() {
       </label>
       <label className="checkbox">
         <input name="revokeOtherSessions" type="checkbox" defaultChecked />
-        Sign out of all other devices
+        {t.password.revokeOthers}
       </label>
       {error && <p className="error">{error}</p>}
       {message && <p className="message">{message}</p>}
       <button type="submit" disabled={busy}>
-        Change password
+        {t.password.submit}
       </button>
     </form>
   );
 }
 
 function SetPassword({ email }: { email: string }) {
+  const { t } = useI18n();
   const [sent, setSent] = useState(false);
 
   async function sendLink() {
@@ -109,15 +113,12 @@ function SetPassword({ email }: { email: string }) {
 
   return (
     <>
-      <p>
-        You sign in with Google, so your account does not have a password yet. If you also want to
-        sign in with email and password, we can email you a link to set one.
-      </p>
+      <p>{t.password.googleOnly}</p>
       {sent ? (
-        <p className="message">We sent a link to {email}.</p>
+        <p className="message">{fill(t.password.linkSent, { email })}</p>
       ) : (
         <button type="button" onClick={sendLink}>
-          Email me a link to set a password
+          {t.password.sendLink}
         </button>
       )}
     </>

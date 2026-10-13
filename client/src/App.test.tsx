@@ -1,7 +1,8 @@
 import { act, fireEvent, render, screen } from '@testing-library/react';
 import { MemoryRouter } from 'react-router';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { App } from './App';
+import { LanguageProvider } from './i18n/LanguageProvider';
 import { authClient } from './lib/auth-client';
 import { FakeEventSource } from './test/fake-event-source';
 
@@ -10,10 +11,13 @@ vi.mock('./lib/auth-client');
 const mocked = vi.mocked(authClient, { deep: true });
 
 function renderAt(path: string) {
+  // Like main.tsx: the language comes from the saved choice or the browser (English in jsdom)
   render(
-    <MemoryRouter initialEntries={[path]}>
-      <App />
-    </MemoryRouter>,
+    <LanguageProvider>
+      <MemoryRouter initialEntries={[path]}>
+        <App />
+      </MemoryRouter>
+    </LanguageProvider>,
   );
 }
 
@@ -45,6 +49,16 @@ function fill(label: string, value: string) {
 describe('App', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    // The signed-in home loads the tournament list
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(() => Promise.resolve(new Response('[]', { status: 200 }))),
+    );
+  });
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+    localStorage.clear();
   });
 
   describe('signed out', () => {
@@ -102,14 +116,42 @@ describe('App', () => {
   });
 
   describe('signed in', () => {
-    it('shows the landing page with the menu and the current user', () => {
+    it('shows the tournament list with the menu and the current user', async () => {
       signedInAs('user');
       renderAt('/');
 
-      expect(screen.getByRole('heading', { name: 'Welcome to Tornei' })).toBeInTheDocument();
-      expect(screen.getByRole('link', { name: 'Home' })).toBeInTheDocument();
+      expect(screen.getByRole('heading', { name: 'My tournaments' })).toBeInTheDocument();
+      expect(
+        await screen.findByText("You haven't created any tournament yet."),
+      ).toBeInTheDocument();
+      expect(screen.getByRole('link', { name: 'Tournaments' })).toBeInTheDocument();
       expect(screen.getByRole('link', { name: 'Change password' })).toBeInTheDocument();
       expect(screen.getByText('Mario Rossi')).toBeInTheDocument();
+    });
+
+    it('switches the whole interface between English and Italian, remembering the choice', async () => {
+      signedInAs('user');
+      renderAt('/');
+      await screen.findByText("You haven't created any tournament yet.");
+
+      fireEvent.change(screen.getByLabelText('Language'), { target: { value: 'it' } });
+
+      expect(screen.getByRole('heading', { name: 'I miei tornei' })).toBeInTheDocument();
+      expect(screen.getByRole('link', { name: 'Cambia password' })).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: 'Esci' })).toBeInTheDocument();
+      expect(document.documentElement.lang).toBe('it');
+      expect(localStorage.getItem('tornei.language')).toBe('it');
+
+      fireEvent.change(screen.getByLabelText('Lingua'), { target: { value: 'en' } });
+      expect(screen.getByRole('heading', { name: 'My tournaments' })).toBeInTheDocument();
+    });
+
+    it('starts in the language chosen before', () => {
+      localStorage.setItem('tornei.language', 'it');
+      signedInAs('user');
+      renderAt('/');
+
+      expect(screen.getByRole('heading', { name: 'I miei tornei' })).toBeInTheDocument();
     });
 
     it('hides the Users menu item from regular users', () => {
@@ -124,14 +166,6 @@ describe('App', () => {
       renderAt('/');
       expect(screen.getByRole('link', { name: 'Results' })).toBeInTheDocument();
       expect(screen.getByRole('link', { name: 'Users' })).toBeInTheDocument();
-    });
-
-    it('shows the latest result on the home page', async () => {
-      signedInAs('user');
-      renderAt('/');
-
-      pushResult();
-      expect(screen.getByText('Team A 2 - 1 Team B')).toBeInTheDocument();
     });
 
     it('shows a not-found page for unknown paths', () => {

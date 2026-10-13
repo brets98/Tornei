@@ -1,5 +1,6 @@
 import { useState, type FormEvent } from 'react';
 import { LatestResult } from '../components/LatestResult';
+import { useI18n } from '../i18n/context';
 import { apiPost } from '../lib/api';
 
 const MAX_LENGTH = 2000;
@@ -9,6 +10,7 @@ interface Props {
 }
 
 export function ResultsPage({ isAdmin }: Props) {
+  const { t } = useI18n();
   const [text, setText] = useState('');
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
@@ -17,8 +19,8 @@ export function ResultsPage({ isAdmin }: Props) {
   if (!isAdmin) {
     return (
       <article className="page">
-        <h1>Results</h1>
-        <p className="error">Only administrators can publish results.</p>
+        <h1>{t.results.title}</h1>
+        <p className="error">{t.results.adminOnly}</p>
       </article>
     );
   }
@@ -33,7 +35,7 @@ export function ResultsPage({ isAdmin }: Props) {
       setText('');
       setPublished(true);
     } catch {
-      setError('Could not publish the result.');
+      setError(t.results.publishFailed);
     } finally {
       setBusy(false);
     }
@@ -41,12 +43,12 @@ export function ResultsPage({ isAdmin }: Props) {
 
   return (
     <article className="page narrow">
-      <h1>Results</h1>
-      <p>What you publish here is shown to everyone, including visitors who are not signed in.</p>
+      <h1>{t.results.title}</h1>
+      <p>{t.results.intro}</p>
 
       <form onSubmit={onSubmit}>
         <label>
-          New result
+          {t.results.newResult}
           <textarea
             name="text"
             rows={4}
@@ -57,9 +59,9 @@ export function ResultsPage({ isAdmin }: Props) {
           />
         </label>
         {error && <p className="error">{error}</p>}
-        {published && <p className="message">Result published.</p>}
+        {published && <p className="message">{t.results.published}</p>}
         <button type="submit" disabled={busy || !text.trim()}>
-          Publish
+          {t.results.publish}
         </button>
       </form>
 

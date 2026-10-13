@@ -5,6 +5,7 @@ import { requireAuth } from './auth/middleware.js';
 import { errorHandler } from './middleware/errors.js';
 import { healthRouter } from './routes/health.js';
 import { publicResultsRouter, resultsRouter } from './routes/results.js';
+import { tournamentsRouter } from './routes/tournaments.js';
 import { usersRouter } from './routes/users.js';
 
 export function createApp({ auth }: { auth: Auth }) {
@@ -24,6 +25,7 @@ export function createApp({ auth }: { auth: Auth }) {
   app.use('/api', requireAuth(auth));
   app.use('/api/users', usersRouter);
   app.use('/api/results', resultsRouter);
+  app.use('/api/tournaments', tournamentsRouter);
 
   app.use(errorHandler);
 
