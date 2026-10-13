@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
-import { useNavigate, useParams } from 'react-router';
+import { useNavigate, useParams, useSearchParams } from 'react-router';
 import { BracketView } from '../components/tournament/BracketView';
 import { GroupsBoard } from '../components/tournament/GroupsBoard';
 import { fill, useI18n } from '../i18n/context';
@@ -8,6 +8,60 @@ import { formatDate, type Tournament, type TournamentListItem } from '../lib/tou
 
 /** How often the shown tournament is loaded again. */
 export const REFRESH_MS = 2 * 60 * 1000;
+
+/** 'groups' or 'bracket-A' / 'bracket-B'. */
+type View = 'groups' | `bracket-${string}`;
+
+/**
+ * Groups or one bracket, with a switch between them (kept in the address, `?view=`). Until one
+ * is chosen it follows the tournament: the groups while they are played, then bracket A.
+ */
+function Board({ tournament }: { tournament: Tournament }) {
+  const { t } = useI18n();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const views: View[] = [
+    ...(tournament.groups.length > 0 ? ['groups' as const] : []),
+    ...tournament.brackets.map((b): View => `bracket-${b.id}`),
+  ];
+  const requested = searchParams.get('view') as View | null;
+  const inKnockout = ['knockout', 'finished'].includes(tournament.summary.status);
+  const view =
+    requested && views.includes(requested)
+      ? requested
+      : (views.find((v) => v.startsWith('bracket-') === inKnockout) ?? views[0]);
+  const bracket = tournament.brackets.find((b) => view === `bracket-${b.id}`);
+
+  return (
+    <>
+      {views.length > 1 && (
+        <nav className="tabs live-switch" aria-label={t.live.switch}>
+          {views.map((name) => (
+            <button
+              key={name}
+              type="button"
+              className={`tab${name === view ? ' active' : ''}`}
+              aria-current={name === view ? 'page' : undefined}
+              onClick={() => setSearchParams({ view: name }, { replace: true })}
+            >
+              {name === 'groups'
+                ? t.groups.title
+                : fill(t.tournament.tabs.bracket, { id: name.slice('bracket-'.length) })}
+            </button>
+          ))}
+        </nav>
+      )}
+      {view === 'groups' && (
+        <section>
+          <div className="view-title">
+            <h2>{t.groups.title}</h2>
+          </div>
+          <GroupsBoard tournament={tournament} />
+        </section>
+      )}
+      {bracket && <BracketView tournament={tournament} bracket={bracket} />}
+    </>
+  );
+}
 
 /** What was loaded, for which tournament id: anything for another id means still loading. */
 type Shown =
@@ -116,17 +170,7 @@ export function LivePage() {
               </p>
             )}
           </header>
-          {shown.tournament.groups.length > 0 && (
-            <section>
-              <div className="view-title">
-                <h2>{t.groups.title}</h2>
-              </div>
-              <GroupsBoard tournament={shown.tournament} />
-            </section>
-          )}
-          {shown.tournament.brackets.map((bracket) => (
-            <BracketView key={bracket.id} tournament={shown.tournament} bracket={bracket} />
-          ))}
+          <Board tournament={shown.tournament} />
         </>
       )}
     </article>

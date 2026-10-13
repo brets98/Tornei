@@ -248,6 +248,7 @@ export const en = {
     placeholder: 'Choose a tournament',
     pick: 'Choose a tournament to follow its groups and brackets. The page updates by itself every 2 minutes.',
     updated: 'Updated at {time} · updates every 2 minutes',
+    switch: 'Groups or bracket',
     refresh: 'Update now',
     refreshError: 'Could not update: showing the last data, trying again in 2 minutes.',
     complete: 'complete',

@@ -156,6 +156,67 @@ describe('LivePage', () => {
     expect(screen.queryByRole('heading', { name: 'Gironi' })).not.toBeInTheDocument();
   });
 
+  /** Groups A and B, then a final between their winners. */
+  const withBracket: Tournament = {
+    ...tournament,
+    brackets: [{ id: 'A', size: 2, champion: null }],
+    matches: [
+      ...tournament.matches,
+      {
+        id: 'A0-0',
+        phase: 'knockout',
+        bracket: 'A',
+        round: 0,
+        index: 0,
+        sourceA: { kind: 'group', groupId: 'A', position: 1 },
+        sourceB: { kind: 'group', groupId: 'B', position: 1 },
+        pairA: null,
+        pairB: null,
+        sets: [],
+        courtId: null,
+        timeSlotId: null,
+        state: 'todo',
+        winner: null,
+      },
+    ],
+  };
+
+  it('switches between the groups and the bracket', async () => {
+    stubApi({
+      'GET /api/tournaments': () => json([listItem]),
+      'GET /api/tournaments/t1': () => json(withBracket),
+    });
+    renderPage('/live/t1');
+
+    // Group phase: the groups first
+    expect(await screen.findByLabelText('Girone A')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Gironi' })).toHaveAttribute('aria-current', 'page');
+    expect(screen.queryByText('1° Girone A')).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Tabellone A' }));
+    expect(screen.getByText('1° Girone A')).toBeInTheDocument();
+    expect(screen.queryByLabelText('Girone A')).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Gironi' }));
+    expect(screen.getByLabelText('Girone A')).toBeInTheDocument();
+  });
+
+  it('opens on the bracket once the knockout phase has started', async () => {
+    const knockout = { ...withBracket, summary: { ...withBracket.summary, status: 'knockout' } };
+    stubApi({
+      'GET /api/tournaments': () => json([listItem]),
+      'GET /api/tournaments/t1': () => json(knockout),
+    });
+    renderPage('/live/t1');
+
+    expect(await screen.findByText('1° Girone A')).toBeInTheDocument();
+    const switcher = screen.getByRole('navigation', { name: 'Gironi o tabellone' });
+    expect(within(switcher).getByRole('button', { name: 'Tabellone A' })).toHaveAttribute(
+      'aria-current',
+      'page',
+    );
+  });
+
   it('says when the tournament does not exist', async () => {
     stubApi({ 'GET /api/tournaments': () => json([]) });
     renderPage('/live/missing');

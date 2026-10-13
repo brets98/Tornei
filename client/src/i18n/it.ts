@@ -246,6 +246,7 @@ export const it: Messages = {
     placeholder: 'Scegli un torneo',
     pick: 'Scegli un torneo per seguirne gironi e tabelloni. La pagina si aggiorna da sola ogni 2 minuti.',
     updated: 'Aggiornato alle {time} · si aggiorna ogni 2 minuti',
+    switch: 'Gironi o tabellone',
     refresh: 'Aggiorna ora',
     refreshError: 'Aggiornamento non riuscito: mostro gli ultimi dati, riprovo tra 2 minuti.',
     complete: 'concluso',
