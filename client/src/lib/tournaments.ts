@@ -82,7 +82,17 @@ export interface Group {
   complete: boolean;
 }
 
+/** Two matches on the same court and slot (`court`), or a pair twice in a slot (`pair`). */
+export interface Conflict {
+  kind: 'court' | 'pair';
+  timeSlotId: string;
+  courtId?: string;
+  pairId?: string;
+  matchIds: string[];
+}
+
 export interface Tournament extends TournamentListItem {
+  updatedAt: string;
   courts: { id: string; name: string }[];
   timeSlots: { id: string; time: string }[];
   structure: { type: StructureType; groupCount: number; advanceA: number; advanceB: number };
@@ -92,6 +102,7 @@ export interface Tournament extends TournamentListItem {
   seeding: string[];
   matches: Match[];
   brackets: Bracket[];
+  conflicts: Conflict[];
 }
 
 export interface Bracket {
@@ -158,6 +169,48 @@ export function knockoutMatchName(t: Messages, bracket: Bracket, match: Match) {
   const inRound = bracket.size / 2 ** (match.round! + 1);
   const round = t.roundsShort[inRound] ?? fill(t.roundsShort.other, { n: match.round! + 1 });
   return inRound === 1 ? round : fill(t.bracket.match, { round, n: match.index! + 1 });
+}
+
+/**
+ * Who plays one side of a match: the pair once known, otherwise where it will come from
+ * ('1° Girone A', 'Vincitore Quarto 2', 'Testa di serie 3').
+ */
+export function sideLabel(
+  t: Messages,
+  tournament: Pick<Tournament, 'pairs' | 'groups' | 'seeding' | 'matches' | 'brackets'>,
+  match: Match,
+  side: 'A' | 'B',
+) {
+  const pairId = side === 'A' ? match.pairA : match.pairB;
+  const source = side === 'A' ? match.sourceA : match.sourceB;
+  if (pairId) return pairLabel(tournament, pairId);
+  switch (source?.kind) {
+    case 'group':
+      return fill(t.bracket.groupPosition, { group: source.groupId, position: source.position });
+    case 'seed':
+      return fill(t.bracket.seed, { n: source.index + 1 });
+    case 'winner': {
+      const from = tournament.matches.find((m) => m.id === source.matchId);
+      const bracket = tournament.brackets.find((b) => b.id === from?.bracket);
+      return from && bracket
+        ? fill(t.bracket.winnerOf, { match: knockoutMatchName(t, bracket, from) })
+        : '—';
+    }
+    case 'bye':
+      return t.bracket.bye;
+    default:
+      return '—';
+  }
+}
+
+/** Where a match belongs: 'Girone A', or 'Tabellone A · Quarto 2'. */
+export function matchPhase(t: Messages, tournament: Pick<Tournament, 'brackets'>, match: Match) {
+  if (match.phase === 'group') return fill(t.tournament.group, { group: match.groupId! });
+  const bracket = tournament.brackets.find((b) => b.id === match.bracket)!;
+  return fill(t.overview.knockoutMatch, {
+    bracket: bracket.id,
+    match: knockoutMatchName(t, bracket, match),
+  });
 }
 
 /** '2026-10-20' → '20/10/2026', without timezone shifts. */

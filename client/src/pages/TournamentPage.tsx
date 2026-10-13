@@ -5,6 +5,7 @@ import { BracketView } from '../components/tournament/BracketView';
 import { EntriesView } from '../components/tournament/EntriesView';
 import { GroupsView } from '../components/tournament/GroupsView';
 import { Overview } from '../components/tournament/Overview';
+import { SettingsView } from '../components/tournament/SettingsView';
 import { fill, useI18n } from '../i18n/context';
 import { ApiError, apiGet, apiPatch, apiPost, apiPut } from '../lib/api';
 import { formatDate, issueMessage, type Issue, type Tournament } from '../lib/tournaments';
@@ -19,7 +20,7 @@ type SaveState =
   | { status: 'error'; reason: 'conflict' | 'failed' }
   | { status: 'error'; reason: 'issues'; issues: Issue[] };
 
-type Tab = 'overview' | 'groups' | 'entries' | `bracket-${string}`;
+type Tab = 'overview' | 'groups' | 'entries' | 'settings' | `bracket-${string}`;
 
 export function TournamentPage() {
   const { id } = useParams();
@@ -94,6 +95,8 @@ export function TournamentPage() {
         ),
       setGroups: (groups) => save(() => apiPut(`${path}/groups`, { groups })),
       draw: () => save(() => apiPost(`${path}/draw`)),
+      updateSettings: (changes) => save(() => apiPatch(`${path}/settings`, changes)),
+      resetResults: () => save(() => apiPost(`${path}/reset`)),
       reportUnreadable: (text) =>
         setSaveState({
           status: 'error',
@@ -115,6 +118,7 @@ export function TournamentPage() {
     'overview',
     tournament.groups.length > 0 ? 'groups' : 'entries',
     ...tournament.brackets.map((b): Tab => `bracket-${b.id}`),
+    'settings',
   ];
   const requested = searchParams.get('tab') as Tab | null;
   const tab = requested && tabs.includes(requested) ? requested : 'overview';
@@ -157,10 +161,13 @@ export function TournamentPage() {
           {fill(t.bracket.staleWarning, { count: stale.length })}
         </p>
       )}
-      {tab === 'overview' && <Overview tournament={tournament} />}
+      {tab === 'overview' && <Overview tournament={tournament} actions={actions} />}
       {tab === 'groups' && <GroupsView tournament={tournament} actions={actions} />}
       {tab === 'entries' && <EntriesView tournament={tournament} actions={actions} />}
       {bracket && <BracketView tournament={tournament} bracket={bracket} actions={actions} />}
+      {tab === 'settings' && (
+        <SettingsView key={tournament.updatedAt} tournament={tournament} actions={actions} />
+      )}
     </article>
   );
 }

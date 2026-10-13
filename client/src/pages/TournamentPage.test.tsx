@@ -62,12 +62,153 @@ describe('TournamentPage', () => {
     expect(await screen.findByRole('heading', { name: /Torneo di primavera/ })).toBeInTheDocument();
     expect(screen.getByText('Torneo Padel')).toBeInTheDocument();
     expect(screen.getByText('3/22')).toBeInTheDocument();
-    expect(screen.getByRole('heading', { name: 'Girone A' })).toBeInTheDocument();
+    const groups = screen.getByRole('heading', { name: 'Girone A' }).closest('.panel')!;
     // Pairs by their players' names, or by code while the names are empty
-    expect(screen.getByText('Rossi / Bianchi')).toBeInTheDocument();
-    expect(screen.getAllByText('B2')).toHaveLength(2);
-    expect(screen.getByText('Mediolanum')).toBeInTheDocument();
-    expect(screen.getByText('19:00 · 19:30')).toBeInTheDocument();
+    expect(within(groups as HTMLElement).getByText('Rossi / Bianchi')).toBeInTheDocument();
+    expect(within(groups as HTMLElement).getAllByText('B2')).toHaveLength(2);
+    const courts = screen.getByRole('heading', { name: 'Elenco campi' }).closest('.panel')!;
+    expect(within(courts as HTMLElement).getByText('Mediolanum')).toBeInTheDocument();
+    expect(within(courts as HTMLElement).getByText('19:00 · 19:30')).toBeInTheDocument();
+  });
+
+  it('lists the matches with filters, and explains scheduling conflicts', async () => {
+    const clash: Tournament = {
+      ...tournament,
+      matches: tournament.matches.map((m) => ({ ...m, courtId: 'c1', timeSlotId: 't1' })),
+      conflicts: [{ kind: 'court', timeSlotId: 't1', courtId: 'c1', matchIds: ['p1-p2', 'p3-p4'] }],
+    };
+    const fetchMock = stubApi({
+      'GET /api/tournaments/t1': () => json(clash),
+      'PATCH /api/tournaments/t1/matches/p3-p4': () => json(tournament),
+    });
+    renderPage();
+
+    expect(await screen.findByRole('alert')).toHaveTextContent(
+      'Bigi alle 19:00: Girone A (Rossi / Bianchi – A2), Girone B (B1 – B2).',
+    );
+    expect(screen.getByText('Partite mostrate: 2 su 2')).toBeInTheDocument();
+    expect(screen.getAllByLabelText('Conflitto di programmazione')).toHaveLength(2);
+
+    fireEvent.change(screen.getByLabelText('Campo'), { target: { value: 'none' } });
+    expect(screen.getByText('Nessuna partita con questi filtri.')).toBeInTheDocument();
+    fireEvent.change(screen.getByLabelText('Campo'), { target: { value: 'c1' } });
+    fireEvent.change(screen.getByLabelText('Fase'), { target: { value: 'groups' } });
+    expect(screen.getByText('Partite mostrate: 2 su 2')).toBeInTheDocument();
+
+    // Moving a match to another time solves the conflict
+    fireEvent.change(screen.getByLabelText('Orario di Girone B (B1 – B2)'), {
+      target: { value: 't2' },
+    });
+    await waitFor(() =>
+      expect(sent(fetchMock, 'PATCH', '/api/tournaments/t1/matches/p3-p4')).toEqual({
+        timeSlotId: 't2',
+      }),
+    );
+    await waitFor(() => expect(screen.queryByRole('alert')).not.toBeInTheDocument());
+  });
+
+  describe('settings', () => {
+    const settingsTab = '/tournaments/t1?tab=settings';
+
+    it('saves name, courts and times, warning before removing a court in use', async () => {
+      const scheduled: Tournament = {
+        ...tournament,
+        matches: tournament.matches.map((m) => (m.id === 'p1-p2' ? { ...m, courtId: 'c1' } : m)),
+      };
+      const fetchMock = stubApi({
+        'GET /api/tournaments/t1': () => json(scheduled),
+        'PATCH /api/tournaments/t1/settings': () =>
+          json({ ...scheduled, name: 'Torneo d’estate', updatedAt: '2026-10-13T11:00:00.000Z' }),
+      });
+      const confirm = vi.spyOn(window, 'confirm').mockReturnValue(true);
+      renderPage(settingsTab);
+
+      const name = await screen.findByLabelText('Nome');
+      expect(screen.getByRole('button', { name: 'Salva modifiche' })).toBeDisabled();
+      fireEvent.change(name, { target: { value: 'Torneo d’estate' } });
+      fireEvent.change(screen.getByLabelText('Nome campo 2'), { target: { value: 'Centrale' } });
+      fireEvent.click(screen.getByRole('button', { name: 'Rimuovi Bigi' }));
+      fireEvent.click(screen.getByRole('button', { name: 'Aggiungi campo' }));
+      fireEvent.change(screen.getByLabelText('Nuovo orario'), { target: { value: '18:30' } });
+      fireEvent.click(screen.getByRole('button', { name: 'Aggiungi' }));
+      fireEvent.click(screen.getByRole('button', { name: 'Salva modifiche' }));
+
+      expect(confirm).toHaveBeenCalledWith(
+        expect.stringContaining('Bigi (partite programmate: 1)'),
+      );
+      await waitFor(() =>
+        expect(sent(fetchMock, 'PATCH', '/api/tournaments/t1/settings')).toEqual({
+          name: 'Torneo d’estate',
+          subtitle: 'Gironi',
+          date: '2026-10-20',
+          courts: [{ id: 'c2', name: 'Centrale' }, { name: 'Campo 2' }],
+          timeSlots: [{ time: '18:30' }, { id: 't1', time: '19:00' }, { id: 't2', time: '19:30' }],
+          matchFormat: { bestOf: 3, gamesPerSet: 6, decider: 'set' },
+        }),
+      );
+      expect(await screen.findByRole('heading', { name: /Torneo d’estate/ })).toBeInTheDocument();
+    });
+
+    it('saves nothing if the removal is not confirmed', async () => {
+      const scheduled: Tournament = {
+        ...tournament,
+        matches: tournament.matches.map((m) => ({ ...m, timeSlotId: 't2' })),
+      };
+      const fetchMock = stubApi({ 'GET /api/tournaments/t1': () => json(scheduled) });
+      vi.spyOn(window, 'confirm').mockReturnValue(false);
+      renderPage(settingsTab);
+
+      fireEvent.click(await screen.findByRole('button', { name: 'Rimuovi 19:30' }));
+      fireEvent.click(screen.getByRole('button', { name: 'Salva modifiche' }));
+
+      expect(window.confirm).toHaveBeenCalledWith(
+        expect.stringContaining('19:30 (partite programmate: 2)'),
+      );
+      expect(sent(fetchMock, 'PATCH', '/api/tournaments/t1/settings')).toBeUndefined();
+    });
+
+    it('locks the match format and resets the results after confirmation', async () => {
+      const fetchMock = stubApi({
+        'GET /api/tournaments/t1': () => json(afterScore),
+        'POST /api/tournaments/t1/reset': () => json(tournament),
+      });
+      vi.spyOn(window, 'confirm').mockReturnValue(true);
+      renderPage(settingsTab);
+
+      expect(await screen.findByLabelText('Al meglio dei 3 set')).toBeDisabled();
+      expect(
+        screen.getByText(/il formato delle partite non si può più cambiare/),
+      ).toBeInTheDocument();
+      fireEvent.click(screen.getByRole('button', { name: 'Azzera risultati' }));
+
+      expect(window.confirm).toHaveBeenCalledWith(
+        'Cancellare i risultati di "Torneo di primavera" (risultati inseriti: 1)? Non si può annullare.',
+      );
+      await waitFor(() =>
+        expect(fetchMock.mock.calls.some(([url]) => url === '/api/tournaments/t1/reset')).toBe(
+          true,
+        ),
+      );
+      expect(await screen.findByRole('button', { name: 'Azzera risultati' })).toBeDisabled();
+    });
+
+    it('downloads the tournament as a JSON file', async () => {
+      stubApi({
+        'GET /api/tournaments/t1': () => json(tournament),
+        'GET /api/tournaments/t1/export': () => json({ format: 'tornei.tournament', version: 1 }),
+      });
+      const createObjectURL = vi.fn(() => 'blob:file');
+      vi.stubGlobal('URL', { ...URL, createObjectURL, revokeObjectURL: vi.fn() });
+      const click = vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => {});
+      renderPage(settingsTab);
+
+      fireEvent.click(await screen.findByRole('button', { name: 'Esporta (JSON)' }));
+
+      await waitFor(() => expect(click).toHaveBeenCalled());
+      expect((click.mock.contexts[0] as HTMLAnchorElement).download).toBe(
+        'torneo-di-primavera.json',
+      );
+    });
   });
 
   it('says when the tournament does not exist', async () => {

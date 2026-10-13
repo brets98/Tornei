@@ -1,9 +1,8 @@
 import { fireEvent, screen, within } from '@testing-library/react';
-import { describe, expect, it, vi } from 'vitest';
+import { describe, expect, it } from 'vitest';
 import type { Match, Tournament } from '../../lib/tournaments';
 import { renderIn } from '../../test/render';
-import { tournament as base } from '../../test/tournament-fixtures';
-import type { TournamentActions } from './actions';
+import { mockActions, tournament as base } from '../../test/tournament-fixtures';
 import { BracketView } from './BracketView';
 
 const knockoutMatch = (round: number, index: number, changes: Partial<Match>): Match => ({
@@ -54,13 +53,7 @@ function knockout(changes: { matches?: Match[]; champion?: string | null } = {})
 }
 
 function renderBracket(tournament: Tournament, language: 'it' | 'en' = 'it') {
-  const actions: TournamentActions = {
-    setPlayers: vi.fn(),
-    updateMatch: vi.fn(),
-    setGroups: vi.fn(),
-    draw: vi.fn(),
-    reportUnreadable: vi.fn(),
-  };
+  const actions = mockActions();
   renderIn(
     language,
     <BracketView tournament={tournament} bracket={tournament.brackets[0]} actions={actions} />,

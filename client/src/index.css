@@ -1008,3 +1008,105 @@ tr.state-invalid input.result-input,
   font-size: 0.65em;
   margin-left: 0.05rem;
 }
+
+/* Overview: conflicts and the list of every match */
+.warning ul {
+  margin: 0.4rem 0 0;
+  padding-left: 1.2rem;
+}
+
+.match-list {
+  margin: 1rem 0;
+}
+
+.filters {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 0.75rem;
+}
+
+.filters select {
+  font: inherit;
+  padding: 0.35rem 0.5rem;
+  border-radius: 0.375rem;
+  border: 1px solid #9ca3af;
+  background: transparent;
+  color: inherit;
+}
+
+table.matches tr.conflict td {
+  background: var(--highlight);
+}
+
+.conflict-mark {
+  color: var(--error);
+}
+
+table.matches .placeholder {
+  color: var(--muted-text);
+  font-style: italic;
+}
+
+/* Settings */
+.settings {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  max-width: 40rem;
+  margin-bottom: 1rem;
+}
+
+.settings > button,
+.settings .actions button {
+  align-self: flex-start;
+}
+
+.court-editor {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+
+.court-editor li {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.court-editor input {
+  flex: 1;
+}
+
+.settings .actions {
+  display: flex;
+  gap: 0.5rem;
+  margin-top: 0.5rem;
+}
+
+/* A file input dressed as a button (import) */
+label.button {
+  display: inline-block;
+  font: inherit;
+  padding: 0.5rem 0.75rem;
+  border-radius: 0.375rem;
+  cursor: pointer;
+}
+
+label.button.secondary {
+  border: 1px solid #9ca3af;
+}
+
+label.button.disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+
+.page-head .row-actions .button {
+  padding: 0.5rem 0.75rem;
+  font-size: 1rem;
+}

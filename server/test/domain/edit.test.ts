@@ -1,5 +1,12 @@
 import { describe, expect, it } from 'vitest';
-import { draw, setGroups, setPlayers, updateMatch } from '../../src/domain/edit.js';
+import {
+  draw,
+  resetResults,
+  setGroups,
+  setPlayers,
+  updateMatch,
+  updateSettings,
+} from '../../src/domain/edit.js';
 import { parseSetup } from '../../src/domain/setup.js';
 import { buildTournament } from '../../src/domain/tournament.js';
 import type { TournamentData } from '../../src/domain/types.js';
@@ -195,5 +202,99 @@ describe('updateMatch', () => {
       state: 'done',
       winner: 'p1',
     });
+  });
+});
+
+describe('updateSettings', () => {
+  const courts = (t: TournamentData) => t.courts.map(({ id, name }) => ({ id, name }));
+  const slots = (t: TournamentData) => t.timeSlots.map(({ id, time }) => ({ id, time }));
+
+  it('changes name, subtitle and date, trimmed like in the wizard', () => {
+    const t = ok(updateSettings(build(), { name: ' Estate ', subtitle: '', date: '2026-11-02' }));
+    expect(t).toMatchObject({ name: 'Estate', subtitle: '', date: '2026-11-02' });
+    expect(codes(updateSettings(build(), { name: ' ' }))).toEqual(['NAME_REQUIRED']);
+    expect(codes(updateSettings(build(), { date: '2026-02-30' }))).toEqual(['DATE_INVALID']);
+  });
+
+  it('renames and adds courts, keeping the ids and the matches on them', () => {
+    let t = ok(updateMatch(build(), 'p1-p2', { courtId: 'c2' }));
+    t = ok(
+      updateSettings(t, {
+        courts: [{ id: 'c2', name: 'Centrale' }, { id: 'c1', name: 'Bigi' }, { name: 'Nuovo' }],
+      }),
+    );
+    expect(courts(t)).toEqual([
+      { id: 'c2', name: 'Centrale' },
+      { id: 'c1', name: 'Bigi' },
+      { id: 'c3', name: 'Nuovo' },
+    ]);
+    expect(match(t, 'p1-p2').courtId).toBe('c2');
+  });
+
+  it('removes a court or a time slot from the matches that used it', () => {
+    let t = ok(updateMatch(build(), 'p1-p2', { courtId: 'c2', timeSlotId: 't1' }));
+    t = ok(updateSettings(t, { courts: [{ id: 'c1', name: 'Bigi' }] }));
+    t = ok(updateSettings(t, { timeSlots: [{ id: 't2', time: '19:00' }, { time: '8:00' }] }));
+    expect(match(t, 'p1-p2')).toMatchObject({ courtId: null, timeSlotId: null });
+    // A new id never reuses a removed one; slots stay in time order
+    expect(slots(t)).toEqual([
+      { id: 't4', time: '08:00' },
+      { id: 't2', time: '19:00' },
+    ]);
+  });
+
+  it('checks courts and slots like the wizard, and refuses unknown ids', () => {
+    expect(codes(updateSettings(build(), { courts: [] }))).toEqual(['COURTS_REQUIRED']);
+    expect(codes(updateSettings(build(), { courts: [{ name: 'A' }, { name: 'a' }] }))).toEqual([
+      'COURT_DUPLICATE',
+    ]);
+    expect(codes(updateSettings(build(), { timeSlots: [{ time: '25:00' }] }))).toEqual([
+      'SLOT_INVALID',
+    ]);
+    expect(codes(updateSettings(build(), { courts: [{ id: 'c9', name: 'X' }] }))).toEqual([
+      'COURT_UNKNOWN',
+    ]);
+    expect(
+      codes(
+        updateSettings(build(), {
+          timeSlots: [
+            { id: 't1', time: '10:00' },
+            { id: 't1', time: '11:00' },
+          ],
+        }),
+      ),
+    ).toEqual(['SLOT_UNKNOWN']);
+  });
+
+  it('changes the match format only until the first result', () => {
+    const superTiebreak = { bestOf: 3, gamesPerSet: 6, decider: 'superTiebreak' };
+    expect(ok(updateSettings(build(), { matchFormat: superTiebreak })).matchFormat).toEqual(
+      superTiebreak,
+    );
+    const started = ok(updateMatch(build(), 'p1-p2', { sets: sets('6-4 6-4') }));
+    expect(codes(updateSettings(started, { matchFormat: superTiebreak }))).toEqual([
+      'MATCH_FORMAT_LOCKED',
+    ]);
+    // Sending the same format again is fine
+    expect(updateSettings(started, { matchFormat: started.matchFormat, name: 'X' }).issues).toBe(
+      undefined,
+    );
+  });
+});
+
+describe('resetResults', () => {
+  it('clears every result and the derived state, keeping the schedule', () => {
+    let t = build({ pairCount: 4, structure: { type: 'knockout' } });
+    t = ok(updateMatch(t, 'A0-0', { sets: sets('6-1 6-1'), courtId: 'c1' }));
+    t = ok(updateMatch(t, 'A0-1', { sets: sets('6-1 6-1') }));
+    t = ok(updateMatch(t, 'A1-0', { sets: sets('6-1 6-1') }));
+    expect(t.summary.status).toBe('finished');
+
+    const reset = ok(resetResults(t));
+    expect(reset.matches.every((m) => m.sets.length === 0 && m.winner === null)).toBe(true);
+    expect(reset.brackets[0].champion).toBeNull();
+    expect(reset.summary).toMatchObject({ status: 'draft', matchesDone: 0 });
+    expect(match(reset, 'A0-0').courtId).toBe('c1');
+    expect(match(reset, 'A1-0')).toMatchObject({ pairA: null, pairB: null, state: 'todo' });
   });
 });
