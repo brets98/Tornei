@@ -7,7 +7,7 @@ import { ApiError, apiGet } from '../lib/api';
 import { formatDate, type Tournament, type TournamentListItem } from '../lib/tournaments';
 
 /** How often the shown tournament is loaded again. */
-export const REFRESH_MS = 2 * 60 * 1000;
+export const REFRESH_MS = 30 * 1000;
 
 /** 'groups' or 'bracket-A' / 'bracket-B'. */
 type View = 'groups' | `bracket-${string}`;
@@ -69,7 +69,7 @@ type Shown =
   | { id: string; status: 'ok'; tournament: Tournament; at: Date; failed: boolean };
 
 /**
- * Groups and brackets of one tournament, read-only, reloaded every 2 minutes: to follow a
+ * Groups and brackets of one tournament, read-only, reloaded every 30 seconds: to follow a
  * tournament, e.g. on a screen at the club.
  */
 export function LivePage() {

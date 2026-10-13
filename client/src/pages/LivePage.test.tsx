@@ -66,7 +66,7 @@ describe('LivePage', () => {
     expect(screen.getAllByRole('combobox')).toHaveLength(1);
   });
 
-  it('updates by itself every 2 minutes, and on request', async () => {
+  it('updates by itself every 30 seconds, and on request', async () => {
     vi.useFakeTimers({ shouldAdvanceTime: true });
     let answer = tournament;
     const fetchMock = stubApi({
@@ -80,7 +80,7 @@ describe('LivePage', () => {
     await screen.findByLabelText('Girone A');
     expect(screen.queryByText('6-3 6-4')).not.toBeInTheDocument();
     expect(screen.getByRole('status')).toHaveTextContent(
-      /Aggiornato alle .* · si aggiorna ogni 2 minuti/,
+      /Aggiornato alle .* · si aggiorna ogni 30 secondi/,
     );
 
     answer = scored;

@@ -1113,7 +1113,7 @@ label.button.disabled {
   font-size: 1rem;
 }
 
-/* Live view: one tournament, read-only, refreshed every 2 minutes */
+/* Live view: one tournament, read-only, refreshed every 30 seconds */
 label.inline {
   flex-direction: row;
   align-items: center;
