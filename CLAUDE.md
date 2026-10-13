@@ -52,6 +52,28 @@ When a feature needs it:
 - Per-route authorization (roles, ownership) goes on top of authentication where needed. Never expose other users' personal data (e.g. emails) publicly.
 - The frontend calls protected routes with the session cookie, sent automatically on same-origin requests: no tokens in client code, and no "secret" API keys in the frontend.
 
+## Domain: tournaments
+
+A repository of padel/tennis tournaments. `docs/prototype.html` is the original single-tournament prototype: reference for behavior and look & feel only (navy `#1f3864`, gold `#c99b38`), never port its code. UI language is Italian; client strings live in `client/src/i18n/it.ts` so they can be translated later.
+
+- **Ownership**: every tournament belongs to its creator (`ownerId`); only they can read or edit it. Another user's tournament answers `404`. A public read-only link is a possible later feature, not now.
+- **Storage**: one document per tournament in `tournaments` (`server/src/models/tournament.ts`), with courts, time slots, pairs, groups and matches embedded. **Everything is persisted**: setup, group distribution, every result, and the derived state (standings, who fills each bracket slot, winners, champions, status/progress summary). The server recomputes the derived state after every write (`refreshTournament()`); the client only renders what the server returns. Writes use Mongoose optimistic concurrency: a concurrent change answers `409` and the client reloads.
+- **Domain logic** is pure functions with unit tests in `server/src/domain/` (validation, distribution, round robin, standings, brackets, status). Setup validation returns issue codes with params; the client maps them to Italian messages.
+- **Entries** ("pairs"): 1 player (tennis singles) or 2 (doubles; padel is always doubles). A pair is shown by its players' names (`Rossi / Bianchi`), or by its code (`A1`, group letter + position; knockout-only: seed number) while names are empty. Stable ids: pairs `p1…`, groups `A…`, courts `c1…`, slots `t1…`.
+- **Structure**, chosen in the creation wizard:
+  - `groups_knockout`: N groups (letters A, B, …), pairs distributed as evenly as possible (sizes differ by at most 1, larger groups first), assigned in order; the user can move pairs or run a random draw. The top `advanceA` of each group go to bracket A, the next `advanceB` (optional) to bracket B. Every group needs at least 2 pairs and at least `advanceA + advanceB`; each bracket needs at least 2 entrants.
+  - `knockout`: a single bracket A with all pairs, seeded in entry order.
+  - `groups`: one round-robin group; its ranking decides the winner. (More groups always need a knockout phase.)
+- **Structure changes** (pairs count, groups, group assignment) are allowed only while no result has been entered; they regenerate the matches. Title, date, courts and time slots can change at any time; removing a court/slot in use warns first and clears it from those matches.
+- **Results**: one score per side (games, no sets, no upper limit). A match is *done* as soon as both scores are entered and differ; equal scores are *invalid* and don't count (no draws). Each match also has an optional court and time slot (one slot = one match).
+- **Standings** (per group): wins → games difference → head-to-head (only when exactly two pairs are tied) → games won → initial order in the group. A group's positions feed the brackets only once all its matches are done; until then the bracket shows placeholders ("1° Girone A").
+- **Brackets**: size = next power of 2; the top seeds get byes. Seeds are ordered by group position, then group letter (A1, B1, C1, …, A2, B2, …); knockout-only uses entry order. Standard placement (seed 1 vs last, 1 and 2 in opposite halves), then entrants of the same tier are swapped so pairs from the same group meet as late as possible (never in the first round when avoidable). Winners advance automatically. A knockout result remembers which pairs played it: if an earlier result changes who plays, the later result is flagged as no longer valid and doesn't count until it is re-entered or cleared. No third-place match.
+- **Status** (derived): draft (no result yet) → group phase → knockout phase → finished (every bracket has a champion, or the single group is complete). Progress = done matches / total matches (byes excluded).
+- **Duplicate** copies setup, pairs and schedule, without results. **Reset** clears results, keeping setup and schedule. **Export/import** uses a versioned JSON format; import always creates a new tournament.
+- **Conflicts** (overview): two matches on the same court and time slot, or a pair with two matches in the same slot.
+- **API** (`server/src/routes/tournaments.ts`, all private): `GET /api/tournaments` (list: name, sport, date, summary), `POST /api/tournaments/preview` (wizard: issues + group sizes and brackets, saves nothing), `POST /api/tournaments`, `GET|DELETE /api/tournaments/:id`, `POST /api/tournaments/:id/duplicate`. Invalid setups answer `400` with `issues`.
+- **Client**: `/` is the tournament list (`TournamentsPage`), `/tournaments/new` the wizard, `/tournaments/:id` the tournament with tabs (like the prototype).
+
 ## Repository structure
 
 ```
