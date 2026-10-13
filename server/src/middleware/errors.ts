@@ -12,6 +12,12 @@ export const errorHandler: ErrorRequestHandler = (err, _req, res, _next) => {
     return;
   }
 
+  // Optimistic concurrency: someone saved the same document in the meantime
+  if (err instanceof mongoose.Error.VersionError) {
+    res.status(409).json({ error: 'Changed in the meantime: reload and try again' });
+    return;
+  }
+
   if (err?.code === DUPLICATE_KEY) {
     const fields = Object.keys(err.keyValue ?? {});
     res.status(409).json({ error: `Already exists: ${fields.join(', ')}` });
