@@ -26,6 +26,7 @@ const DATA_FIELDS = [
   'courts',
   'timeSlots',
   'structure',
+  'matchFormat',
   'pairs',
   'groups',
   'seeding',

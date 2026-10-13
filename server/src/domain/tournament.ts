@@ -1,11 +1,13 @@
 import { bracketMatches, placeSeeds } from './bracket.js';
 import { distribute, groupId, roundRobin } from './groups.js';
-import { computeStandings, scoreState } from './standings.js';
+import { outcome } from './score.js';
+import { computeStandings, resultState } from './standings.js';
 import type {
   Bracket,
   BracketId,
   Group,
   Match,
+  MatchFormat,
   MatchState,
   Setup,
   Source,
@@ -22,8 +24,7 @@ export function groupMatches(group: { id: string; pairIds: string[] }): Match[] 
     groupId: group.id,
     pairA,
     pairB,
-    scoreA: null,
-    scoreB: null,
+    sets: [],
     courtId: null,
     timeSlotId: null,
     state: 'todo',
@@ -113,6 +114,7 @@ export function buildTournament(setup: Setup): TournamentData {
     courts: setup.courts.map((name, i) => ({ id: `c${i + 1}`, name })),
     timeSlots: setup.timeSlots.map((time, i) => ({ id: `t${i + 1}`, time })),
     structure,
+    matchFormat: setup.matchFormat,
     pairs,
     groups,
     seeding: structure.type === 'knockout' ? pairs.map((p) => p.id) : [],
@@ -135,15 +137,15 @@ export function refreshTournament<T extends TournamentData>(data: T): T & Derive
 
   const matches = new Map<string, Match>();
   for (const m of data.matches.filter((m) => m.phase === 'group')) {
-    const state = scoreState(m);
-    matches.set(m.id, { ...m, state, winner: winnerOf(m, state) });
+    const state = resultState(m, data.matchFormat);
+    matches.set(m.id, { ...m, state, winner: winnerOf(m, state, data.matchFormat) });
   }
 
   const groups = data.groups.map((g) => {
     const played = groupMatchesOf(g.id).map((m) => matches.get(m.id)!);
     return {
       ...g,
-      standings: computeStandings(g.pairIds, played),
+      standings: computeStandings(g.pairIds, played, data.matchFormat),
       complete: played.length > 0 && played.every((m) => m.state === 'done'),
     };
   });
@@ -177,12 +179,16 @@ export function refreshTournament<T extends TournamentData>(data: T): T & Derive
       matches.set(m.id, { ...resolved, state: 'bye', winner: pairA ?? pairB });
       continue;
     }
-    let state: MatchState = scoreState(m);
+    let state: MatchState = resultState(m, data.matchFormat);
     const scored = m.scoredPairs ?? [];
     if (state !== 'todo' && (scored[0] !== pairA || scored[1] !== pairB || !pairA || !pairB)) {
       state = 'stale';
     }
-    matches.set(m.id, { ...resolved, state, winner: winnerOf(resolved, state) });
+    matches.set(m.id, {
+      ...resolved,
+      state,
+      winner: winnerOf(resolved, state, data.matchFormat),
+    });
   }
 
   const allMatches = data.matches.map((m) => matches.get(m.id)!);
@@ -200,9 +206,9 @@ export function refreshTournament<T extends TournamentData>(data: T): T & Derive
   };
 }
 
-function winnerOf(m: Match, state: Match['state']) {
+function winnerOf(m: Match, state: Match['state'], format: MatchFormat) {
   if (state !== 'done') return null;
-  return m.scoreA! > m.scoreB! ? m.pairA : m.pairB;
+  return outcome(m.sets, format).winner === 'A' ? m.pairA : m.pairB;
 }
 
 function summarize(
@@ -213,7 +219,7 @@ function summarize(
 ): Summary {
   const playable = matches.filter((m) => m.state !== 'bye');
   const matchesDone = playable.filter((m) => m.state === 'done').length;
-  const started = matches.some((m) => m.scoreA !== null && m.scoreB !== null);
+  const started = matches.some((m) => m.sets.length > 0);
 
   let status: TournamentStatus;
   if (!started) status = 'draft';

@@ -1,4 +1,5 @@
 import { fill, useI18n } from '../../i18n/context';
+import { exampleResult, sideGames } from '../../lib/score';
 import {
   knockoutMatchName,
   pairLabel,
@@ -9,7 +10,7 @@ import {
   type Tournament,
 } from '../../lib/tournaments';
 import type { TournamentActions } from './actions';
-import { CourtSelect, ScoreInput, TimeSelect } from './MatchFields';
+import { CourtSelect, ResultInput, TimeSelect } from './MatchFields';
 
 interface Props {
   tournament: Tournament;
@@ -124,22 +125,34 @@ function BracketMatch({
   }
 
   const ready = Boolean(match.pairA && match.pairB);
-  const side = (pairId: string | null, label: string, key: 'scoreA' | 'scoreB') => (
+  // A result that no longer counts is shown in the input only, not on the scoreboard
+  const shown = match.state === 'done' ? match.sets : [];
+  const side = (pairId: string | null, label: string, key: 'a' | 'b') => (
     <div className={`bm-row${match.winner && match.winner === pairId ? ' win' : ''}`}>
       <span className={`bm-name${pairId ? '' : ' placeholder'}`}>{label}</span>
-      <ScoreInput
-        value={match[key]}
-        label={fill(t.groups.scoreOf, { pair: label })}
-        disabled={!ready}
-        onSave={(score) => save({ [key]: score })}
-      />
+      {sideGames(shown, key).map((set, i) => (
+        <span key={i} className={`bm-set${set.won ? ' won' : ''}`}>
+          {set.games}
+          {set.tiebreak !== undefined && <sup>{set.tiebreak}</sup>}
+        </span>
+      ))}
     </div>
   );
 
   return (
     <div className={`bm state-${match.state}`} aria-label={name}>
-      {side(match.pairA, labelA, 'scoreA')}
-      {side(match.pairB, labelB, 'scoreB')}
+      {side(match.pairA, labelA, 'a')}
+      {side(match.pairB, labelB, 'b')}
+      <div className="bm-meta">
+        <ResultInput
+          value={match.sets}
+          label={fill(t.groups.resultOf, { match: name })}
+          placeholder={exampleResult(tournament.matchFormat)}
+          disabled={!ready && match.sets.length === 0}
+          onSave={(sets) => save({ sets })}
+          onUnreadable={actions.reportUnreadable}
+        />
+      </div>
       <div className="bm-meta">
         <CourtSelect
           tournament={tournament}
@@ -158,11 +171,7 @@ function BracketMatch({
       {match.state === 'stale' && (
         <div className="bm-note error" role="alert">
           {t.bracket.stale}{' '}
-          <button
-            type="button"
-            className="link"
-            onClick={() => save({ scoreA: null, scoreB: null })}
-          >
+          <button type="button" className="link" onClick={() => save({ sets: [] })}>
             {t.bracket.clear}
           </button>
         </div>

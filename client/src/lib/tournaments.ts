@@ -1,5 +1,6 @@
 import { fill } from '../i18n/context';
 import type { Messages } from '../i18n/en';
+import type { MatchFormat, SetScore } from './score';
 
 /** Shapes returned by /api/tournaments (see server/src/domain/types.ts). */
 
@@ -55,8 +56,8 @@ export interface Match {
   sourceB?: Source;
   pairA: string | null;
   pairB: string | null;
-  scoreA: number | null;
-  scoreB: number | null;
+  /** The result set by set; empty until entered */
+  sets: SetScore[];
   courtId: string | null;
   timeSlotId: string | null;
   state: MatchState;
@@ -68,6 +69,8 @@ export interface StandingRow {
   played: number;
   wins: number;
   losses: number;
+  setsFor: number;
+  setsAgainst: number;
   gamesFor: number;
   gamesAgainst: number;
 }
@@ -83,6 +86,7 @@ export interface Tournament extends TournamentListItem {
   courts: { id: string; name: string }[];
   timeSlots: { id: string; time: string }[];
   structure: { type: StructureType; groupCount: number; advanceA: number; advanceB: number };
+  matchFormat: MatchFormat;
   pairs: { id: string; players: string[] }[];
   groups: Group[];
   seeding: string[];
@@ -97,9 +101,9 @@ export interface Bracket {
   champion: string | null;
 }
 
-/** Groups and draw can change until any score is entered (same rule as the server). */
+/** Groups and draw can change until any result is entered (same rule as the server). */
 export function isStructureLocked(tournament: Pick<Tournament, 'matches'>) {
-  return tournament.matches.some((m) => m.scoreA !== null || m.scoreB !== null);
+  return tournament.matches.some((m) => m.sets.length > 0);
 }
 
 export function issueMessage(t: Messages, { code, params }: Issue): string {
@@ -144,13 +148,6 @@ export function knockoutMatchName(t: Messages, bracket: Bracket, match: Match) {
   const inRound = bracket.size / 2 ** (match.round! + 1);
   const round = t.roundsShort[inRound] ?? fill(t.roundsShort.other, { n: match.round! + 1 });
   return inRound === 1 ? round : fill(t.bracket.match, { round, n: match.index! + 1 });
-}
-
-/** A typed score: '' → null (no score); a whole number up to 99 → that number; else undefined. */
-export function parseScore(text: string): number | null | undefined {
-  const value = text.trim();
-  if (value === '') return null;
-  return /^\d{1,2}$/.test(value) ? Number(value) : undefined;
 }
 
 /** '2026-10-20' → '20/10/2026', without timezone shifts. */

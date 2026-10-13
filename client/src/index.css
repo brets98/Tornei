@@ -798,19 +798,6 @@ table.standings td {
   padding: 0.4rem 0.35rem;
 }
 
-.scores {
-  display: flex;
-  align-items: center;
-  gap: 0.25rem;
-}
-
-input.score {
-  width: 2.75rem;
-  padding: 0.25rem;
-  text-align: center;
-  border: 1px solid var(--panel-border);
-}
-
 .mini-select {
   font: inherit;
   font-size: 0.85rem;
@@ -844,10 +831,6 @@ input.score {
 .match-state.invalid,
 .match-state.stale {
   color: var(--error);
-}
-
-tr.state-invalid input.score {
-  border-color: var(--error);
 }
 
 table.standings tr.leader {
@@ -987,4 +970,41 @@ table.standings tr.leader {
   display: block;
   color: var(--gold);
   margin-bottom: 0.4rem;
+}
+
+/* Results set by set */
+input.result-input {
+  width: 9.5rem;
+  padding: 0.25rem 0.4rem;
+  border: 1px solid var(--panel-border);
+  font-variant-numeric: tabular-nums;
+}
+
+.bm-meta input.result-input {
+  flex: 1;
+  width: auto;
+  min-width: 0;
+  font-size: 0.8rem;
+}
+
+tr.state-invalid input.result-input,
+.bm.state-invalid input.result-input {
+  border-color: var(--error);
+}
+
+.bm-set {
+  min-width: 1.2rem;
+  text-align: center;
+  color: var(--muted-text);
+  font-variant-numeric: tabular-nums;
+}
+
+.bm-set.won {
+  color: inherit;
+  font-weight: 700;
+}
+
+.bm-set sup {
+  font-size: 0.65em;
+  margin-left: 0.05rem;
 }

@@ -118,12 +118,7 @@ function GroupCard({
             </thead>
             <tbody>
               {matches.map((match) => (
-                <MatchRow
-                  key={match.id}
-                  tournament={tournament}
-                  match={match}
-                  onChange={(changes) => actions.updateMatch(match.id, changes)}
-                />
+                <MatchRow key={match.id} tournament={tournament} match={match} actions={actions} />
               ))}
             </tbody>
           </table>

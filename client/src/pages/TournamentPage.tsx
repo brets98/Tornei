@@ -94,6 +94,12 @@ export function TournamentPage() {
         ),
       setGroups: (groups) => save(() => apiPut(`${path}/groups`, { groups })),
       draw: () => save(() => apiPost(`${path}/draw`)),
+      reportUnreadable: (text) =>
+        setSaveState({
+          status: 'error',
+          reason: 'issues',
+          issues: [{ code: 'SCORE_UNREADABLE', params: { text } }],
+        }),
     };
   }, [id, save]);
 

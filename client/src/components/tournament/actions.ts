@@ -6,4 +6,6 @@ export interface TournamentActions {
   updateMatch: (matchId: string, changes: MatchChanges) => void;
   setGroups: (groups: { id: string; pairIds: string[] }[]) => void;
   draw: () => void;
+  /** A typed result that can't be read: explain it, save nothing */
+  reportUnreadable: (text: string) => void;
 }

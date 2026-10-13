@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router';
 import type { Messages } from '../i18n/en';
 import { fill, useI18n } from '../i18n/context';
 import { ApiError, apiPost } from '../lib/api';
+import { exampleResult, MATCH_FORMATS, type MatchFormatId } from '../lib/score';
 import {
   entriesLabel,
   issueMessage,
@@ -23,6 +24,7 @@ interface Form {
   date: string;
   pairCount: string;
   structureType: StructureType;
+  matchFormat: MatchFormatId;
   groupCount: string;
   advanceA: string;
   withB: boolean;
@@ -32,6 +34,7 @@ interface Form {
 }
 
 const STRUCTURE_TYPES: StructureType[] = ['groups_knockout', 'knockout', 'groups'];
+const MATCH_FORMAT_IDS = Object.keys(MATCH_FORMATS) as MatchFormatId[];
 const SPORTS: Sport[] = ['padel', 'tennis'];
 const FORMATS: Format[] = ['doubles', 'singles'];
 const MAX_COURTS = 20;
@@ -40,7 +43,7 @@ const PREVIEW_DELAY_MS = 250;
 /** Which wizard step each issue belongs to (unknown codes go to the summary). */
 const STEP_OF_ISSUE: [RegExp, number][] = [
   [/^(NAME_|SPORT_|FORMAT_|PADEL_|DATE_)/, 0],
-  [/^(PAIR_|STRUCTURE_|GROUP_|ADVANCE_|BRACKET_)/, 1],
+  [/^(PAIR_|STRUCTURE_|GROUP_|ADVANCE_|BRACKET_|MATCH_FORMAT_)/, 1],
   [/^(COURT|SLOT)/, 2],
 ];
 const LAST_STEP = 3;
@@ -80,6 +83,7 @@ const initialForm = (t: Messages): Form => ({
   date: today(),
   pairCount: '12',
   structureType: 'groups_knockout',
+  matchFormat: 'bestOf3',
   groupCount: '4',
   advanceA: '2',
   withB: true,
@@ -106,6 +110,7 @@ function toSetup(form: Form) {
       advanceA: number(form.advanceA),
       advanceB: form.withB ? number(form.advanceB) : 0,
     },
+    matchFormat: MATCH_FORMATS[form.matchFormat],
   };
 }
 
@@ -359,6 +364,25 @@ function StructureStep({
           />
         </label>
       )}
+      <div className="choice column">
+        <span>{t.wizard.matchFormat}</span>
+        {MATCH_FORMAT_IDS.map((id) => (
+          <label key={id} className="checkbox">
+            <input
+              type="radio"
+              name="matchFormat"
+              checked={form.matchFormat === id}
+              onChange={() => update({ matchFormat: id })}
+            />
+            {t.matchFormats[id]}
+          </label>
+        ))}
+        <span className="muted">
+          {fill(t.wizard.resultExample, {
+            example: exampleResult(MATCH_FORMATS[form.matchFormat]),
+          })}
+        </span>
+      </div>
       {preview && <PreviewBox preview={preview} entries={entries} />}
     </fieldset>
   );
@@ -545,6 +569,8 @@ function SummaryStep({
         <dd>{form.pairCount}</dd>
         <dt>{t.wizard.structure}</dt>
         <dd>{t.structure[form.structureType]}</dd>
+        <dt>{t.wizard.matchFormat}</dt>
+        <dd>{t.matchFormats[form.matchFormat]}</dd>
         <dt>{t.wizard.courts}</dt>
         <dd>{form.courts.join(', ')}</dd>
         <dt>{t.wizard.timeSlots}</dt>

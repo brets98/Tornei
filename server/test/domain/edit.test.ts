@@ -3,7 +3,7 @@ import { draw, setGroups, setPlayers, updateMatch } from '../../src/domain/edit.
 import { parseSetup } from '../../src/domain/setup.js';
 import { buildTournament } from '../../src/domain/tournament.js';
 import type { TournamentData } from '../../src/domain/types.js';
-import { validSetup } from '../fixtures.js';
+import { sets, validSetup } from '../fixtures.js';
 
 function build(overrides: object = {}) {
   return buildTournament(parseSetup({ ...validSetup, ...overrides }).setup);
@@ -85,8 +85,8 @@ describe('setGroups', () => {
     }
   });
 
-  it('is locked once a score is entered', () => {
-    const t = ok(updateMatch(build(), 'p1-p2', { scoreA: 6 }));
+  it('is locked once a result is entered', () => {
+    const t = ok(updateMatch(build(), 'p1-p2', { sets: sets('6-1 6-1') }));
     expect(codes(setGroups(t, groupsOf(t)))).toEqual(['STRUCTURE_LOCKED']);
     expect(codes(draw(t))).toEqual(['STRUCTURE_LOCKED']);
   });
@@ -112,65 +112,82 @@ describe('draw', () => {
 });
 
 describe('updateMatch', () => {
-  it('saves score, court and time, and recomputes the standings', () => {
+  it('saves result, court and time, and recomputes the standings', () => {
     const t = ok(
-      updateMatch(build(), 'p2-p3', { scoreA: 2, scoreB: 6, courtId: 'c1', timeSlotId: 't2' }),
+      updateMatch(build(), 'p2-p3', {
+        sets: sets('2-6 7-6(5) 4-6'),
+        courtId: 'c1',
+        timeSlotId: 't2',
+      }),
     );
 
     expect(match(t, 'p2-p3')).toMatchObject({
-      scoreA: 2,
-      scoreB: 6,
+      sets: [
+        { a: 2, b: 6 },
+        { a: 7, b: 6, tiebreak: { a: 7, b: 5 } },
+        { a: 4, b: 6 },
+      ],
       courtId: 'c1',
       timeSlotId: 't2',
       state: 'done',
       winner: 'p3',
     });
-    expect(t.groups[0].standings[0].pairId).toBe('p3');
+    expect(t.groups[0].standings[0]).toMatchObject({ pairId: 'p3', setsFor: 2, setsAgainst: 1 });
     expect(t.summary.status).toBe('groups');
   });
 
-  it('changes only the fields sent, and clears with null', () => {
-    let t = ok(updateMatch(build(), 'p1-p2', { scoreA: 6, courtId: 'c1' }));
-    t = ok(updateMatch(t, 'p1-p2', { scoreB: 3 }));
-    expect(match(t, 'p1-p2')).toMatchObject({ scoreA: 6, scoreB: 3, courtId: 'c1' });
+  it('changes only the fields sent, and clears the result with an empty list', () => {
+    let t = ok(updateMatch(build(), 'p1-p2', { courtId: 'c1' }));
+    t = ok(updateMatch(t, 'p1-p2', { sets: sets('6-3 6-3') }));
+    expect(match(t, 'p1-p2')).toMatchObject({ courtId: 'c1', state: 'done' });
 
-    t = ok(updateMatch(t, 'p1-p2', { scoreA: null, scoreB: null, courtId: null }));
-    expect(match(t, 'p1-p2')).toMatchObject({
-      scoreA: null,
-      scoreB: null,
-      courtId: null,
-      state: 'todo',
-    });
+    t = ok(updateMatch(t, 'p1-p2', { sets: [], courtId: null }));
+    expect(match(t, 'p1-p2')).toMatchObject({ sets: [], courtId: null, state: 'todo' });
     expect(t.summary.status).toBe('draft');
   });
 
-  it('rejects invalid scores, unknown courts and times', () => {
+  it('rejects results not valid for the match format, explaining why', () => {
     const t = build();
-    for (const scoreA of [-1, 1.5, '6', 100]) {
-      expect(codes(updateMatch(t, 'p1-p2', { scoreA }))).toEqual(['SCORE_INVALID']);
-    }
+
+    expect(updateMatch(t, 'p1-p2', { sets: sets('6-4 6-5') }).issues).toEqual([
+      { code: 'SCORE_SET_INVALID', params: { set: 2, games: 6 } },
+    ]);
+    expect(codes(updateMatch(t, 'p1-p2', { sets: sets('6-4') }))).toEqual(['SCORE_INCOMPLETE']);
+    expect(codes(updateMatch(t, 'p1-p2', { sets: '6-4 6-4' }))).toEqual(['SCORE_MALFORMED']);
+  });
+
+  it('rejects unknown courts and times', () => {
+    const t = build();
     expect(codes(updateMatch(t, 'p1-p2', { courtId: 'c9' }))).toEqual(['COURT_UNKNOWN']);
     expect(codes(updateMatch(t, 'p1-p2', { timeSlotId: 't9' }))).toEqual(['SLOT_UNKNOWN']);
     expect(codes(updateMatch(t, 'nope', {}))).toEqual(['NOT_FOUND']);
   });
 
-  it('accepts a knockout score only once both sides are known', () => {
+  it('follows the match format of the tournament', () => {
+    const t = build({ matchFormat: { bestOf: 3, gamesPerSet: 6, decider: 'superTiebreak' } });
+
+    expect(codes(updateMatch(t, 'p1-p2', { sets: sets('6-4 3-6 10-7') }))).toBeUndefined();
+    expect(codes(updateMatch(t, 'p1-p2', { sets: sets('6-4 3-6 6-3') }))).toEqual([
+      'SCORE_SUPER_TIEBREAK_INVALID',
+    ]);
+  });
+
+  it('accepts a knockout result only once both sides are known', () => {
     const t = build();
-    expect(codes(updateMatch(t, 'A0-0', { scoreA: 6, scoreB: 2 }))).toEqual(['MATCH_NOT_READY']);
+    expect(codes(updateMatch(t, 'A0-0', { sets: sets('6-2 6-2') }))).toEqual(['MATCH_NOT_READY']);
     // Court and time can be planned in advance
     expect(match(ok(updateMatch(t, 'A0-0', { courtId: 'c1' })), 'A0-0').courtId).toBe('c1');
   });
 
-  it('refuses a score on a bye', () => {
+  it('refuses a result on a bye', () => {
     const t = build({ pairCount: 3, structure: { type: 'knockout' } });
-    expect(codes(updateMatch(t, 'A0-0', { scoreA: 6, scoreB: 0 }))).toEqual(['MATCH_BYE']);
+    expect(codes(updateMatch(t, 'A0-0', { sets: sets('6-0 6-0') }))).toEqual(['MATCH_BYE']);
   });
 
   it('remembers who played a knockout match', () => {
     const t = ok(
       updateMatch(build({ pairCount: 4, structure: { type: 'knockout' } }), 'A0-0', {
-        scoreA: 6,
-        scoreB: 1,
+        sets: sets('6-1 6-1'),
       }),
     );
     expect(match(t, 'A0-0')).toMatchObject({

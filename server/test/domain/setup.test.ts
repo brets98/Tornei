@@ -97,6 +97,19 @@ describe('parseSetup', () => {
     ]);
   });
 
+  it('plays best of 3 sets unless another known match format is chosen', () => {
+    expect(parseSetup(validSetup).setup.matchFormat).toEqual({
+      bestOf: 3,
+      gamesPerSet: 6,
+      decider: 'set',
+    });
+    const proSet = { bestOf: 1, gamesPerSet: 9, decider: 'set' };
+    expect(parseSetup({ ...validSetup, matchFormat: proSet }).setup.matchFormat).toEqual(proSet);
+    expect(
+      codes({ ...validSetup, matchFormat: { bestOf: 2, gamesPerSet: 6, decider: 'set' } }),
+    ).toEqual(['MATCH_FORMAT_INVALID']);
+  });
+
   it('ignores group fields that do not apply to the structure', () => {
     const knockout = parseSetup({ ...validSetup, structure: { type: 'knockout', groupCount: 9 } });
     const groups = parseSetup({ ...validSetup, structure: { type: 'groups', advanceA: 3 } });

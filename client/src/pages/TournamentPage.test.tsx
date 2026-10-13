@@ -25,20 +25,24 @@ function sent(fetchMock: ReturnType<typeof stubApi>, method: string, url: string
   return call && JSON.parse(call[1]!.body as string);
 }
 
-/** p1 beat p2 6-3 in group A, as the server would answer. */
+/** p1 beat p2 6-3 7-6(4) in group A, as the server would answer. */
+const result = [
+  { a: 6, b: 3 },
+  { a: 7, b: 6, tiebreak: { a: 7, b: 4 } },
+];
 const afterScore: Tournament = {
   ...tournament,
   summary: { status: 'groups', matchesDone: 1, matchesTotal: 2 },
   matches: tournament.matches.map((m) =>
-    m.id === 'p1-p2' ? { ...m, scoreA: 6, scoreB: 3, state: 'done', winner: 'p1' } : m,
+    m.id === 'p1-p2' ? { ...m, sets: result, state: 'done', winner: 'p1' } : m,
   ),
   groups: tournament.groups.map((g) =>
     g.id === 'A'
       ? {
           ...g,
           standings: [
-            row('p1', { played: 1, wins: 1, gamesFor: 6, gamesAgainst: 3 }),
-            row('p2', { played: 1, losses: 1, gamesFor: 3, gamesAgainst: 6 }),
+            row('p1', { played: 1, wins: 1, setsFor: 2, gamesFor: 13, gamesAgainst: 9 }),
+            row('p2', { played: 1, losses: 1, setsAgainst: 2, gamesFor: 9, gamesAgainst: 13 }),
           ],
         }
       : g,
@@ -119,8 +123,7 @@ describe('TournamentPage', () => {
           bracket: 'A',
           round: 0,
           index: 0,
-          scoreA: 2,
-          scoreB: 0,
+          sets: result,
           state: 'stale',
         },
       ],
@@ -164,35 +167,65 @@ describe('TournamentPage', () => {
       expect(within(standings).getByText('Verdi')).toBeInTheDocument();
     });
 
-    it('saves a score and shows the standings computed by the server', async () => {
+    it('saves a result set by set and shows the standings computed by the server', async () => {
       const fetchMock = stubApi({
         'GET /api/tournaments/t1': () => json(tournament),
         'PATCH /api/tournaments/t1/matches/p1-p2': () => json(afterScore),
       });
       renderPage(groupsTab);
 
-      const scoreA = await screen.findByLabelText('Punteggio di Rossi / Bianchi');
-      fireEvent.change(scoreA, { target: { value: '6' } });
-      fireEvent.blur(scoreA);
+      const input = await screen.findByLabelText('Risultato di Rossi / Bianchi – A2');
+      expect(input).toHaveAttribute('placeholder', '6-4 3-6 7-6(5)');
+      fireEvent.change(input, { target: { value: '6-3 7-6 (4)' } });
+      fireEvent.blur(input);
 
       expect(await screen.findByText('Giocata')).toBeInTheDocument();
-      expect(sent(fetchMock, 'PATCH', '/api/tournaments/t1/matches/p1-p2')).toEqual({ scoreA: 6 });
+      expect(sent(fetchMock, 'PATCH', '/api/tournaments/t1/matches/p1-p2')).toEqual({
+        sets: result,
+      });
+      expect(input).toHaveValue('6-3 7-6(4)');
       const standings = screen.getAllByRole('table')[1];
       const leader = within(standings).getAllByRole('row')[1];
       expect(leader).toHaveClass('leader');
-      expect(within(leader).getByText('+3')).toBeInTheDocument();
+      // Sets +2, games +4
+      expect(within(leader).getByText('+2')).toBeInTheDocument();
+      expect(within(leader).getByText('+4')).toBeInTheDocument();
     });
 
-    it('ignores a score that is not a number', async () => {
+    it('explains a result it cannot read, and saves nothing', async () => {
       const fetchMock = stubApi({ 'GET /api/tournaments/t1': () => json(tournament) });
       renderPage(groupsTab);
 
-      const scoreA = await screen.findByLabelText('Punteggio di Rossi / Bianchi');
-      fireEvent.change(scoreA, { target: { value: 'sei' } });
-      fireEvent.blur(scoreA);
+      const input = await screen.findByLabelText('Risultato di Rossi / Bianchi – A2');
+      fireEvent.change(input, { target: { value: '6-3 sei-tre' } });
+      fireEvent.blur(input);
 
-      expect(scoreA).toHaveValue('');
+      expect(await screen.findByRole('alert')).toHaveTextContent('Non riesco a leggere "sei-tre"');
+      expect(input).toHaveValue('');
       expect(fetchMock).toHaveBeenCalledTimes(1);
+    });
+
+    it('explains why the server refuses a result', async () => {
+      stubApi({
+        'GET /api/tournaments/t1': () => json(tournament),
+        'PATCH /api/tournaments/t1/matches/p1-p2': () =>
+          json(
+            {
+              error: 'Invalid change',
+              issues: [{ code: 'SCORE_SET_INVALID', params: { set: 2, games: 6 } }],
+            },
+            400,
+          ),
+      });
+      renderPage(groupsTab);
+
+      const input = await screen.findByLabelText('Risultato di Rossi / Bianchi – A2');
+      fireEvent.change(input, { target: { value: '6-3 6-5' } });
+      fireEvent.blur(input);
+
+      expect(
+        await screen.findByText('Il set 2 non è un punteggio valido per un set a 6 game.'),
+      ).toBeInTheDocument();
     });
 
     it('saves court and time from the dropdowns', async () => {
@@ -283,16 +316,16 @@ describe('TournamentPage', () => {
       });
       renderPage(groupsTab);
 
-      const scoreA = await screen.findByLabelText('Punteggio di Rossi / Bianchi');
-      fireEvent.change(scoreA, { target: { value: '6' } });
-      fireEvent.blur(scoreA);
+      const input = await screen.findByLabelText('Risultato di Rossi / Bianchi – A2');
+      fireEvent.change(input, { target: { value: '6-1 6-1' } });
+      fireEvent.blur(input);
 
       expect(
         await screen.findByText(
           'Il torneo è stato modificato altrove: ricaricato con i dati aggiornati.',
         ),
       ).toBeInTheDocument();
-      await waitFor(() => expect(scoreA).toHaveValue(''));
+      await waitFor(() => expect(input).toHaveValue(''));
       expect(fetchMock.mock.calls.filter(([url]) => url === '/api/tournaments/t1')).toHaveLength(2);
     });
   });

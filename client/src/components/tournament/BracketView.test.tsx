@@ -14,8 +14,7 @@ const knockoutMatch = (round: number, index: number, changes: Partial<Match>): M
   index,
   pairA: null,
   pairB: null,
-  scoreA: null,
-  scoreB: null,
+  sets: [],
   courtId: null,
   timeSlotId: null,
   state: 'todo',
@@ -60,6 +59,7 @@ function renderBracket(tournament: Tournament, language: 'it' | 'en' = 'it') {
     updateMatch: vi.fn(),
     setGroups: vi.fn(),
     draw: vi.fn(),
+    reportUnreadable: vi.fn(),
   };
   renderIn(
     language,
@@ -87,15 +87,20 @@ describe('BracketView', () => {
     expect(screen.getByText('Vincitore tabellone A')).toBeInTheDocument();
   });
 
-  it('saves a score when both sides are known', () => {
+  it('saves a result when both sides are known', () => {
     const actions = renderBracket(knockout());
 
     const semifinal = screen.getByLabelText('Semifinale 2');
-    const [scoreA] = within(semifinal).getAllByRole('textbox');
-    fireEvent.change(scoreA, { target: { value: '2' } });
-    fireEvent.blur(scoreA);
+    const input = within(semifinal).getByLabelText('Risultato di Semifinale 2');
+    fireEvent.change(input, { target: { value: '6-2 6-3' } });
+    fireEvent.blur(input);
 
-    expect(actions.updateMatch).toHaveBeenCalledWith('A0-1', { scoreA: 2 });
+    expect(actions.updateMatch).toHaveBeenCalledWith('A0-1', {
+      sets: [
+        { a: 6, b: 2 },
+        { a: 6, b: 3 },
+      ],
+    });
   });
 
   it('saves court and time of a match', () => {
@@ -106,27 +111,63 @@ describe('BracketView', () => {
     expect(actions.updateMatch).toHaveBeenCalledWith('A0-1', { courtId: 'c1' });
   });
 
-  it('crowns the champion', () => {
+  it('shows the games of each set, with the tie-break points, and crowns the champion', () => {
     const [bye, semifinal, final] = knockout().matches;
     renderBracket(
       knockout({
         champion: 'p1',
         matches: [
           bye,
-          { ...semifinal, scoreA: 2, scoreB: 0, state: 'done', winner: 'p2' },
-          { ...final, pairB: 'p2', scoreA: 2, scoreB: 1, state: 'done', winner: 'p1' },
+          {
+            ...semifinal,
+            sets: [
+              { a: 6, b: 1 },
+              { a: 6, b: 2 },
+            ],
+            state: 'done',
+            winner: 'p2',
+          },
+          {
+            ...final,
+            pairB: 'p2',
+            sets: [
+              { a: 6, b: 2 },
+              { a: 7, b: 6, tiebreak: { a: 7, b: 5 } },
+            ],
+            state: 'done',
+            winner: 'p1',
+          },
         ],
       }),
     );
 
     expect(screen.getByText('VINCITORE').parentElement).toHaveTextContent('Rossi / Bianchi');
+    const finalCard = screen.getByLabelText('Finale');
+    const [winnerRow, loserRow] = finalCard.querySelectorAll<HTMLElement>('.bm-row');
+    expect(winnerRow).toHaveClass('win');
+    expect(winnerRow).toHaveTextContent('67');
+    // 7-6(5): the tie-break points go on the side that lost the set
+    expect(loserRow).toHaveTextContent('265');
+    expect(within(loserRow).getByText('5').tagName).toBe('SUP');
+    expect(within(finalCard).getByLabelText('Risultato di Finale')).toHaveValue('6-2 7-6(5)');
   });
 
   it('flags a result that no longer counts, and clears it', () => {
     const [bye, semifinal, final] = knockout().matches;
     const actions = renderBracket(
       knockout({
-        matches: [bye, semifinal, { ...final, scoreA: 2, scoreB: 0, state: 'stale' }],
+        matches: [
+          bye,
+          semifinal,
+          {
+            ...final,
+            sets: [
+              { a: 6, b: 0 },
+              { a: 6, b: 0 },
+            ],
+            state: 'stale',
+          },
+        ],
       }),
     );
 
@@ -136,7 +177,7 @@ describe('BracketView', () => {
     );
     fireEvent.click(within(finalCard).getByRole('button', { name: 'Cancella punteggio' }));
 
-    expect(actions.updateMatch).toHaveBeenCalledWith('A1-0', { scoreA: null, scoreB: null });
+    expect(actions.updateMatch).toHaveBeenCalledWith('A1-0', { sets: [] });
   });
 
   it('shows group positions before the groups are complete', () => {

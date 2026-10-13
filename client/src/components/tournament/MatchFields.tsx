@@ -1,28 +1,37 @@
-import { parseScore, type Tournament } from '../../lib/tournaments';
+import { formatResult, parseResult, type SetScore } from '../../lib/score';
+import type { Tournament } from '../../lib/tournaments';
 import { CommitInput } from './CommitInput';
 
-/** One side's score; saved when left. Text that isn't a score is ignored. */
-export function ScoreInput({
+/**
+ * The whole result of a match as text ('6-3 4-6 7-6(5)'), saved when left. Text that can't be
+ * read is reported through `onUnreadable` and not saved.
+ */
+export function ResultInput({
   value,
   label,
+  placeholder,
   disabled,
   onSave,
+  onUnreadable,
 }: {
-  value: number | null;
+  value: SetScore[];
   label: string;
+  placeholder: string;
   disabled?: boolean;
-  onSave: (score: number | null) => void;
+  onSave: (sets: SetScore[]) => void;
+  onUnreadable: (text: string) => void;
 }) {
   return (
     <CommitInput
-      className="score"
-      inputMode="numeric"
+      className="result-input"
       aria-label={label}
+      placeholder={placeholder}
       disabled={disabled}
-      value={value === null ? '' : String(value)}
+      value={formatResult(value)}
       onCommit={(text) => {
-        const score = parseScore(text);
-        if (score !== undefined) onSave(score);
+        const result = parseResult(text);
+        if ('sets' in result) onSave(result.sets);
+        else onUnreadable(result.unreadable);
       }}
     />
   );

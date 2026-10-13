@@ -23,6 +23,12 @@ const sourceSchema = embedded({
   matchId: String,
 });
 
+const setSchema = embedded({
+  a: { type: Number, required: true },
+  b: { type: Number, required: true },
+  tiebreak: { type: embedded({ a: Number, b: Number }), default: undefined },
+});
+
 const matchSchema = embedded({
   id: { type: String, required: true },
   phase: { type: String, enum: ['group', 'knockout'], required: true },
@@ -34,8 +40,7 @@ const matchSchema = embedded({
   sourceB: sourceSchema,
   pairA: { type: String, default: null },
   pairB: { type: String, default: null },
-  scoreA: { type: Number, default: null },
-  scoreB: { type: Number, default: null },
+  sets: { type: [setSchema], default: [] },
   scoredPairs: { type: [String], default: undefined },
   courtId: { type: String, default: null },
   timeSlotId: { type: String, default: null },
@@ -48,6 +53,8 @@ const standingSchema = embedded({
   played: Number,
   wins: Number,
   losses: Number,
+  setsFor: Number,
+  setsAgainst: Number,
   gamesFor: Number,
   gamesAgainst: Number,
 });
@@ -70,6 +77,11 @@ const tournamentSchema = createSchema<Tournament>({
     groupCount: Number,
     advanceA: Number,
     advanceB: Number,
+  }),
+  matchFormat: embedded({
+    bestOf: { type: Number, required: true },
+    gamesPerSet: { type: Number, required: true },
+    decider: { type: String, enum: ['set', 'superTiebreak'], required: true },
   }),
   pairs: [embedded({ id: { type: String, required: true }, players: [String] })],
   groups: [

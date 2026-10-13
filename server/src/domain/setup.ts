@@ -1,3 +1,4 @@
+import { DEFAULT_MATCH_FORMAT, isKnownMatchFormat } from './score.js';
 import { FORMATS, SPORTS, STRUCTURE_TYPES, type Setup, type StructureType } from './types.js';
 
 export const LIMITS = {
@@ -118,6 +119,10 @@ export function parseSetup(input: unknown): { setup: Setup; issues: Issue[] } {
     );
   }
 
+  // Not sent: the usual best of 3 sets
+  const matchFormat = body.matchFormat ?? DEFAULT_MATCH_FORMAT;
+  if (!isKnownMatchFormat(matchFormat)) issues.push({ code: 'MATCH_FORMAT_INVALID' });
+
   return {
     setup: {
       name,
@@ -129,6 +134,13 @@ export function parseSetup(input: unknown): { setup: Setup; issues: Issue[] } {
       courts,
       timeSlots: timeSlots.filter((t): t is string => t !== null).sort(),
       structure,
+      matchFormat: isKnownMatchFormat(matchFormat)
+        ? {
+            bestOf: matchFormat.bestOf,
+            gamesPerSet: matchFormat.gamesPerSet,
+            decider: matchFormat.decider,
+          }
+        : DEFAULT_MATCH_FORMAT,
     },
     issues,
   };

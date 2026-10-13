@@ -1,21 +1,24 @@
 import { fill, useI18n } from '../../i18n/context';
+import { exampleResult } from '../../lib/score';
 import { pairLabel, type Match, type Tournament } from '../../lib/tournaments';
-import { CourtSelect, ScoreInput, TimeSelect } from './MatchFields';
+import type { TournamentActions } from './actions';
+import { CourtSelect, ResultInput, TimeSelect } from './MatchFields';
 
-export type MatchChanges = Partial<Pick<Match, 'scoreA' | 'scoreB' | 'courtId' | 'timeSlotId'>>;
+export type MatchChanges = Partial<Pick<Match, 'sets' | 'courtId' | 'timeSlotId'>>;
 
 interface Props {
   tournament: Tournament;
   match: Match;
-  onChange: (changes: MatchChanges) => void;
+  actions: TournamentActions;
 }
 
-/** One group match: who plays, the two scores, court, time and state. */
-export function MatchRow({ tournament, match, onChange }: Props) {
+/** One group match: who plays, the result set by set, court, time and state. */
+export function MatchRow({ tournament, match, actions }: Props) {
   const { t } = useI18n();
   const nameA = match.pairA ? pairLabel(tournament, match.pairA) : '—';
   const nameB = match.pairB ? pairLabel(tournament, match.pairB) : '—';
   const label = `${nameA} – ${nameB}`;
+  const save = (changes: MatchChanges) => actions.updateMatch(match.id, changes);
 
   return (
     <tr className={`match state-${match.state}`}>
@@ -24,17 +27,13 @@ export function MatchRow({ tournament, match, onChange }: Props) {
         <span className="versus"> vs </span>
         <span className={match.winner === match.pairB ? 'match-winner' : undefined}>{nameB}</span>
       </td>
-      <td className="scores">
-        <ScoreInput
-          value={match.scoreA}
-          label={fill(t.groups.scoreOf, { pair: nameA })}
-          onSave={(scoreA) => onChange({ scoreA })}
-        />
-        <span className="versus">–</span>
-        <ScoreInput
-          value={match.scoreB}
-          label={fill(t.groups.scoreOf, { pair: nameB })}
-          onSave={(scoreB) => onChange({ scoreB })}
+      <td>
+        <ResultInput
+          value={match.sets}
+          label={fill(t.groups.resultOf, { match: label })}
+          placeholder={exampleResult(tournament.matchFormat)}
+          onSave={(sets) => save({ sets })}
+          onUnreadable={actions.reportUnreadable}
         />
       </td>
       <td>
@@ -42,7 +41,7 @@ export function MatchRow({ tournament, match, onChange }: Props) {
           tournament={tournament}
           value={match.courtId}
           label={fill(t.groups.courtOf, { match: label })}
-          onSave={(courtId) => onChange({ courtId })}
+          onSave={(courtId) => save({ courtId })}
         />
       </td>
       <td>
@@ -50,7 +49,7 @@ export function MatchRow({ tournament, match, onChange }: Props) {
           tournament={tournament}
           value={match.timeSlotId}
           label={fill(t.groups.timeOf, { match: label })}
-          onSave={(timeSlotId) => onChange({ timeSlotId })}
+          onSave={(timeSlotId) => save({ timeSlotId })}
         />
       </td>
       <td>

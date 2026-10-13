@@ -3,7 +3,7 @@ import { beforeEach, describe, expect, it } from 'vitest';
 import { TournamentModel } from '../src/models/tournament.js';
 import { createTestApp, signUp, type TestApp } from './app.js';
 import { useTestDatabase } from './db.js';
-import { validSetup } from './fixtures.js';
+import { sets, validSetup } from './fixtures.js';
 
 const owner = { name: 'Mario', surname: 'Rossi', email: 'mario@example.com' };
 const other = { name: 'Anna', surname: 'Bianchi', email: 'anna@example.com' };
@@ -155,8 +155,7 @@ describe('tournaments API', () => {
         {
           $set: {
             'pairs.0.players': ['Rossi', 'Bianchi'],
-            'matches.0.scoreA': 6,
-            'matches.0.scoreB': 2,
+            'matches.0.sets': sets('6-2 6-2'),
             'matches.0.courtId': 'c2',
             'matches.0.timeSlotId': 't1',
           },
@@ -172,8 +171,7 @@ describe('tournaments API', () => {
       expect(res.body.name).toBe('Torneo di primavera (copia)');
       expect(res.body.pairs[0].players).toEqual(['Rossi', 'Bianchi']);
       expect(res.body.matches[0]).toMatchObject({
-        scoreA: null,
-        scoreB: null,
+        sets: [],
         courtId: 'c2',
         timeSlotId: 't1',
       });
@@ -197,33 +195,40 @@ describe('tournaments API', () => {
       expect(saved!.pairs[0].players).toEqual(['Rossi', 'Bianchi']);
     });
 
-    it('saves a score and the recomputed standings and status', async () => {
+    it('saves a result and the recomputed standings and status', async () => {
       const { agent, tournament } = await createTournament();
 
       const res = await agent
         .patch(url(tournament.id, '/matches/p1-p2'))
-        .send({ scoreA: 3, scoreB: 6, courtId: 'c2' });
+        .send({ sets: sets('3-6 7-6(4) 4-6'), courtId: 'c2' });
 
       expect(res.status).toBe(200);
       const saved = (await TournamentModel.findById(tournament.id))!.toObject();
       expect(saved.matches.find((m) => m.id === 'p1-p2')).toMatchObject({
-        scoreA: 3,
-        scoreB: 6,
+        sets: [
+          { a: 3, b: 6 },
+          { a: 7, b: 6, tiebreak: { a: 7, b: 4 } },
+          { a: 4, b: 6 },
+        ],
         courtId: 'c2',
         state: 'done',
         winner: 'p2',
       });
-      expect(saved.groups[0].standings[0]).toMatchObject({ pairId: 'p2', wins: 1 });
+      expect(saved.groups[0].standings[0]).toMatchObject({ pairId: 'p2', wins: 1, setsFor: 2 });
       expect(saved.summary).toMatchObject({ status: 'groups', matchesDone: 1 });
     });
 
     it('explains a refused change and saves nothing', async () => {
       const { agent, tournament } = await createTournament();
 
-      const res = await agent.patch(url(tournament.id, '/matches/p1-p2')).send({ scoreA: -1 });
+      const res = await agent
+        .patch(url(tournament.id, '/matches/p1-p2'))
+        .send({ sets: sets('6-4 8-6') });
 
       expect(res.status).toBe(400);
-      expect(res.body.issues).toEqual([{ code: 'SCORE_INVALID', params: { max: 99 } }]);
+      expect(res.body.issues).toEqual([
+        { code: 'SCORE_SET_INVALID', params: { set: 2, games: 6 } },
+      ]);
       const saved = await TournamentModel.findById(tournament.id);
       expect(saved!.summary.status).toBe('draft');
     });
@@ -241,9 +246,15 @@ describe('tournaments API', () => {
       expect(moved.status).toBe(200);
       expect(moved.body.groups[1].pairIds).toContain('p4');
 
-      expect((await agent.post(url(tournament.id, '/draw'))).status).toBe(200);
+      const drawn = await agent.post(url(tournament.id, '/draw'));
+      expect(drawn.status).toBe(200);
 
-      await agent.patch(url(tournament.id, '/matches/p1-p2')).send({ scoreA: 6 });
+      // The draw changes who plays whom: score one of the new group matches
+      const firstMatch = drawn.body.matches.find((m: { phase: string }) => m.phase === 'group');
+      const scored = await agent
+        .patch(url(tournament.id, `/matches/${firstMatch.id}`))
+        .send({ sets: sets('6-1 6-1') });
+      expect(scored.status).toBe(200);
       const locked = await agent.post(url(tournament.id, '/draw'));
       expect(locked.status).toBe(400);
       expect(locked.body.issues).toEqual([{ code: 'STRUCTURE_LOCKED' }]);
@@ -256,7 +267,7 @@ describe('tournaments API', () => {
       const unknown = await agent.patch(url(tournament.id, '/matches/nope')).send({});
       const notOwner = await otherAgent
         .patch(url(tournament.id, '/matches/p1-p2'))
-        .send({ scoreA: 6 });
+        .send({ sets: sets('6-1 6-1') });
 
       expect(unknown.status).toBe(404);
       expect(notOwner.status).toBe(404);
@@ -265,7 +276,7 @@ describe('tournaments API', () => {
     it('refuses to overwrite a tournament saved in the meantime', async () => {
       const { agent, tournament } = await createTournament();
       const stale = await TournamentModel.findById(tournament.id);
-      await agent.patch(url(tournament.id, '/matches/p1-p2')).send({ scoreA: 6 });
+      await agent.patch(url(tournament.id, '/matches/p1-p2')).send({ sets: sets('6-1 6-1') });
 
       stale!.name = 'Changed elsewhere';
       await expect(stale!.save()).rejects.toThrow(/No matching document/);

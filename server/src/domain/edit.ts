@@ -1,10 +1,8 @@
 import { shuffle } from './groups.js';
+import { checkSets, cleanSets } from './score.js';
 import { checkGroups, LIMITS, type Issue } from './setup.js';
 import { buildMatches, refreshTournament } from './tournament.js';
-import type { TournamentData } from './types.js';
-
-/** Highest score accepted for one side (games, no sets). */
-export const MAX_SCORE = 99;
+import type { SetScore, TournamentData } from './types.js';
 
 /** The edited tournament, refreshed; or why the edit can't be done. `NOT_FOUND`: unknown pair/match. */
 export type EditResult =
@@ -14,9 +12,9 @@ const fail = (code: string, params?: Issue['params']): EditResult => ({
   issues: [params ? { code, params } : { code }],
 });
 
-/** Groups and draw can change only until any score is entered. */
+/** Groups and draw can change only until any result is entered. */
 export function hasResults(data: TournamentData) {
-  return data.matches.some((m) => m.scoreA !== null || m.scoreB !== null);
+  return data.matches.some((m) => m.sets.length > 0);
 }
 
 /** New groups or seeding: regenerate the matches, keeping courts and times of those that remain. */
@@ -105,19 +103,15 @@ export function draw(data: TournamentData, random: () => number = Math.random): 
 }
 
 export interface MatchChanges {
-  scoreA?: unknown;
-  scoreB?: unknown;
+  sets?: unknown;
   courtId?: unknown;
   timeSlotId?: unknown;
 }
 
-const isScore = (value: unknown) =>
-  value === null ||
-  (Number.isInteger(value) && (value as number) >= 0 && (value as number) <= MAX_SCORE);
-
 /**
- * Score, court and time of a match; only the fields present change. A knockout score can be
- * entered once both sides are known, and remembers who played it.
+ * Result, court and time of a match; only the fields present change. The result must be
+ * complete and valid for the tournament's match format (`[]` clears it). A knockout result
+ * can be entered once both sides are known, and remembers who played it.
  */
 export function updateMatch(data: TournamentData, matchId: string, changes: unknown): EditResult {
   const match = data.matches.find((m) => m.id === matchId);
@@ -126,17 +120,16 @@ export function updateMatch(data: TournamentData, matchId: string, changes: unkn
   const has = (key: keyof MatchChanges) => Object.hasOwn(body, key);
 
   const updated = { ...match };
-  if (has('scoreA') || has('scoreB')) {
-    const scoreA = has('scoreA') ? body.scoreA : match.scoreA;
-    const scoreB = has('scoreB') ? body.scoreB : match.scoreB;
-    if (!isScore(scoreA) || !isScore(scoreB)) return fail('SCORE_INVALID', { max: MAX_SCORE });
+  if (has('sets')) {
+    const issue = checkSets(body.sets, data.matchFormat);
+    if (issue) return { issues: [issue] };
     if (match.state === 'bye') return fail('MATCH_BYE');
-    const scored = scoreA !== null || scoreB !== null;
+    const sets = cleanSets(body.sets as SetScore[]);
+    const scored = sets.length > 0;
     if (match.phase === 'knockout' && scored && (!match.pairA || !match.pairB)) {
       return fail('MATCH_NOT_READY');
     }
-    updated.scoreA = scoreA as number | null;
-    updated.scoreB = scoreB as number | null;
+    updated.sets = sets;
     if (match.phase === 'knockout') {
       updated.scoredPairs = scored ? [match.pairA!, match.pairB!] : [];
     }

@@ -113,6 +113,7 @@ describe('NewTournamentPage', () => {
       courts: ['Bigi', 'Campo 2', 'Campo 3', 'Campo 4'],
       timeSlots: ['19:00', '19:30', '20:00', '20:30', '21:00', '21:30', '22:00', '22:30', '23:00'],
       structure: { type: 'groups_knockout', groupCount: 4, advanceA: 2, advanceB: 1 },
+      matchFormat: { bestOf: 3, gamesPerSet: 6, decider: 'set' },
     });
   });
 

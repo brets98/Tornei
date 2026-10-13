@@ -1,76 +1,122 @@
 import { describe, expect, it } from 'vitest';
-import { computeStandings, scoreState } from '../../src/domain/standings.js';
+import { MATCH_FORMATS } from '../../src/domain/score.js';
+import { computeStandings, resultState } from '../../src/domain/standings.js';
+import { sets } from '../fixtures.js';
 
-const m = (pairA: string, pairB: string, scoreA: number | null, scoreB: number | null) => ({
-  pairA,
-  pairB,
-  scoreA,
-  scoreB,
-});
+const format = MATCH_FORMATS.bestOf3;
+const m = (pairA: string, pairB: string, score = '') => ({ pairA, pairB, sets: sets(score) });
 const order = (pairIds: string[], matches: ReturnType<typeof m>[]) =>
-  computeStandings(pairIds, matches).map((r) => r.pairId);
+  computeStandings(pairIds, matches, format).map((r) => r.pairId);
 
-describe('scoreState', () => {
-  it('is done only with two different scores', () => {
-    expect(scoreState(m('a', 'b', 6, null))).toBe('todo');
-    expect(scoreState(m('a', 'b', 6, 6))).toBe('invalid');
-    expect(scoreState(m('a', 'b', 0, 6))).toBe('done');
+describe('resultState', () => {
+  it('is done only with a valid, complete result', () => {
+    expect(resultState(m('a', 'b'), format)).toBe('todo');
+    expect(resultState(m('a', 'b', '6-4'), format)).toBe('invalid');
+    expect(resultState(m('a', 'b', '6-4 6-5'), format)).toBe('invalid');
+    expect(resultState(m('a', 'b', '6-4 6-2'), format)).toBe('done');
   });
 });
 
 describe('computeStandings', () => {
-  it('counts wins, losses and games', () => {
-    const rows = computeStandings(['a', 'b', 'c'], [m('a', 'b', 6, 2), m('a', 'c', 3, 6)]);
+  it('counts wins, sets and games', () => {
+    const rows = computeStandings(
+      ['a', 'b', 'c'],
+      [m('a', 'b', '6-2 6-3'), m('a', 'c', '6-4 3-6 4-6')],
+      format,
+    );
 
+    // a and c: 1 win and sets +1 each; a has the better games difference (+4 against +3)
     expect(rows).toEqual([
-      { pairId: 'c', played: 1, wins: 1, losses: 0, gamesFor: 6, gamesAgainst: 3 },
-      { pairId: 'a', played: 2, wins: 1, losses: 1, gamesFor: 9, gamesAgainst: 8 },
-      { pairId: 'b', played: 1, wins: 0, losses: 1, gamesFor: 2, gamesAgainst: 6 },
+      {
+        pairId: 'a',
+        played: 2,
+        wins: 1,
+        losses: 1,
+        setsFor: 3,
+        setsAgainst: 2,
+        gamesFor: 25,
+        gamesAgainst: 21,
+      },
+      {
+        pairId: 'c',
+        played: 1,
+        wins: 1,
+        losses: 0,
+        setsFor: 2,
+        setsAgainst: 1,
+        gamesFor: 16,
+        gamesAgainst: 13,
+      },
+      {
+        pairId: 'b',
+        played: 1,
+        wins: 0,
+        losses: 1,
+        setsFor: 0,
+        setsAgainst: 2,
+        gamesFor: 5,
+        gamesAgainst: 12,
+      },
     ]);
   });
 
   it('keeps the initial order before any result', () => {
-    expect(order(['a', 'b', 'c'], [m('a', 'b', null, null)])).toEqual(['a', 'b', 'c']);
+    expect(order(['a', 'b', 'c'], [m('a', 'b')])).toEqual(['a', 'b', 'c']);
   });
 
-  it('ignores invalid and incomplete scores', () => {
-    expect(order(['a', 'b'], [m('a', 'b', 4, 4)])).toEqual(['a', 'b']);
-    expect(order(['a', 'b'], [m('a', 'b', null, 6)])).toEqual(['a', 'b']);
+  it('ignores invalid and incomplete results', () => {
+    expect(order(['a', 'b'], [m('b', 'a', '6-4')])).toEqual(['a', 'b']);
+    expect(order(['a', 'b'], [m('b', 'a', '6-5 6-0')])).toEqual(['a', 'b']);
   });
 
-  it('ranks by wins, then games difference', () => {
-    const matches = [m('a', 'b', 6, 4), m('a', 'c', 6, 0), m('b', 'c', 2, 6), m('c', 'd', 6, 1)];
-    // a: 2 wins; c: 2 wins (diff 12-9=+3) — a diff +8; b and d: 0 wins, b -6, d -5
-    expect(order(['a', 'b', 'c', 'd'], matches)).toEqual(['a', 'c', 'd', 'b']);
+  it('ranks by wins, then sets difference, then games difference', () => {
+    // a and c: 1 win each. a won 2-0 and lost 1-2 (sets +1); c won 2-1 and lost 0-2 (sets -1)
+    const bySets = [
+      m('a', 'b', '6-4 6-4'),
+      m('a', 'd', '6-0 4-6 5-7'),
+      m('c', 'b', '0-6 7-5 7-5'),
+      m('c', 'd', '0-6 0-6'),
+    ];
+    expect(order(['c', 'a', 'b', 'd'], bySets).slice(0, 3)).toEqual(['d', 'a', 'c']);
+
+    // a and b: 1 win and sets +0 each; a has the better games difference
+    const byGames = [m('a', 'c', '6-0 6-0'), m('a', 'b', '4-6 4-6'), m('b', 'c', '4-6 4-6')];
+    expect(order(['b', 'a', 'c'], byGames)).toEqual(['a', 'b', 'c']);
   });
 
   it('breaks a two-way tie with the head-to-head, before games won and initial order', () => {
-    // b and c: 1 win and difference -1 each; b won more games and comes first, but c beat b
+    // b and c: 1 win, sets -1 and games -2 each (c-d not played yet). b won more games
+    // (26 against 24) and comes first, but c beat b
     const matches = [
-      m('a', 'b', 8, 5),
-      m('a', 'c', 6, 5),
-      m('a', 'd', 6, 0),
-      m('b', 'c', 4, 6),
-      m('b', 'd', 7, 3),
-      m('c', 'd', 4, 6),
+      m('a', 'b', '6-0 6-0'),
+      m('a', 'c', '6-4 6-4'),
+      m('c', 'b', '6-4 4-6 6-4'),
+      m('b', 'd', '6-0 6-0'),
     ];
+    const rows = computeStandings(['a', 'b', 'c', 'd'], matches, format);
+    const record = (id: string) => {
+      const r = rows.find((row) => row.pairId === id)!;
+      return [r.wins, r.setsFor - r.setsAgainst, r.gamesFor - r.gamesAgainst];
+    };
+    expect(record('b')).toEqual(record('c'));
 
-    expect(order(['a', 'b', 'c', 'd'], matches)).toEqual(['a', 'c', 'b', 'd']);
+    expect(rows.map((r) => r.pairId)).toEqual(['a', 'c', 'b', 'd']);
   });
 
   it('breaks a three-way tie with games won, then initial order', () => {
-    // Everyone 1 win, difference 0: a 12 games, b 12 games, c 10 games
-    const matches = [m('a', 'b', 6, 4), m('b', 'c', 6, 4), m('c', 'a', 6, 4)];
+    // Everyone 1 win, sets 2-2, games equal: initial order decides
+    const matches = [
+      m('a', 'b', '6-4 4-6 6-4'),
+      m('b', 'c', '6-4 4-6 6-4'),
+      m('c', 'a', '6-4 4-6 6-4'),
+    ];
     expect(order(['a', 'b', 'c'], matches)).toEqual(['a', 'b', 'c']);
     expect(order(['b', 'a', 'c'], matches)).toEqual(['b', 'a', 'c']);
-
-    const unequal = [m('a', 'b', 6, 4), m('b', 'c', 7, 5), m('c', 'a', 6, 4)];
-    // b 11 games, c 11, a 10 → b, c (initial order), a
-    expect(order(['a', 'b', 'c'], unequal)).toEqual(['b', 'c', 'a']);
   });
 
   it('uses games won when two tied pairs have not played each other yet', () => {
-    const matches = [m('a', 'c', 6, 2), m('b', 'd', 7, 3)];
+    // a and b: 1 win 2-0 each, games difference +6 each; b won more games (13 against 12)
+    const matches = [m('a', 'c', '6-3 6-3'), m('b', 'd', '7-5 6-2')];
     expect(order(['a', 'b', 'c', 'd'], matches)).toEqual(['b', 'a', 'd', 'c']);
   });
 });

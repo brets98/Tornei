@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { parseSetup } from '../../src/domain/setup.js';
 import { buildTournament, refreshTournament } from '../../src/domain/tournament.js';
 import type { Match, TournamentData } from '../../src/domain/types.js';
-import { validSetup } from '../fixtures.js';
+import { sets, validSetup } from '../fixtures.js';
 
 function build(overrides: object = {}) {
   const { setup, issues } = parseSetup({ ...validSetup, ...overrides });
@@ -13,13 +13,12 @@ function build(overrides: object = {}) {
 const byId = (t: TournamentData, id: string) => t.matches.find((m) => m.id === id)!;
 
 /** Enters a score like the API does: knockout results remember who played. */
-function score(t: TournamentData, id: string, scoreA: number | null, scoreB: number | null) {
+function score(t: TournamentData, id: string, result: string) {
   const matches = t.matches.map((m): Match =>
     m.id === id
       ? {
           ...m,
-          scoreA,
-          scoreB,
+          sets: sets(result),
           ...(m.phase === 'knockout' && { scoredPairs: [m.pairA!, m.pairB!] }),
         }
       : m,
@@ -29,7 +28,7 @@ function score(t: TournamentData, id: string, scoreA: number | null, scoreB: num
 
 /** Side A wins every group match of `groupId`. */
 function playGroup(t: TournamentData, groupId: string) {
-  for (const m of t.matches.filter((m) => m.groupId === groupId)) t = score(t, m.id, 6, 3);
+  for (const m of t.matches.filter((m) => m.groupId === groupId)) t = score(t, m.id, '6-3 6-3');
   return t;
 }
 
@@ -88,21 +87,21 @@ describe('buildTournament', () => {
 
 describe('refreshTournament', () => {
   it('moves from draft to group phase with the first result', () => {
-    const t = score(build(), 'p1-p2', 6, 2);
+    const t = score(build(), 'p1-p2', '6-2 6-2');
 
     expect(t.summary).toMatchObject({ status: 'groups', matchesDone: 1 });
     expect(t.groups[0].standings[0]).toMatchObject({ pairId: 'p1', wins: 1 });
   });
 
-  it('flags equal scores as invalid, without counting them', () => {
-    const t = score(build(), 'p1-p2', 4, 4);
+  it('flags a result that is not valid for the format, without counting it', () => {
+    const t = score(build(), 'p1-p2', '6-4');
 
     expect(byId(t, 'p1-p2').state).toBe('invalid');
     expect(t.summary).toMatchObject({ status: 'groups', matchesDone: 0 });
   });
 
   it('fills the bracket only once a group is complete', () => {
-    let t = score(build(), 'p1-p2', 6, 2);
+    let t = score(build(), 'p1-p2', '6-2 6-2');
     expect(byId(t, 'A0-0').pairA).toBeNull();
 
     t = playGroup(t, 'A');
@@ -119,31 +118,31 @@ describe('refreshTournament', () => {
     for (const g of ['A', 'B', 'C', 'D']) t = playGroup(t, g);
     expect(t.summary.status).toBe('knockout');
 
-    for (const id of ['A0-0', 'A0-1', 'A0-2', 'A0-3', 'A1-0', 'A1-1']) t = score(t, id, 6, 4);
+    for (const id of ['A0-0', 'A0-1', 'A0-2', 'A0-3', 'A1-0', 'A1-1']) t = score(t, id, '6-4 6-4');
     const final = byId(t, 'A2-0');
     expect(final.pairA).toBe(byId(t, 'A1-0').winner);
     expect(final.pairB).toBe(byId(t, 'A1-1').winner);
 
-    t = score(t, 'A2-0', 3, 6);
+    t = score(t, 'A2-0', '3-6 3-6');
     expect(t.brackets[0].champion).toBe(final.pairB);
     expect(t.summary).toEqual({ status: 'finished', matchesDone: 19, matchesTotal: 19 });
   });
 
   it('flags a later result when an earlier change alters who played it', () => {
     let t = build({ pairCount: 4, structure: { type: 'knockout' } });
-    t = score(t, 'A0-0', 6, 1); // p1 beats p4
-    t = score(t, 'A0-1', 6, 2); // p2 beats p3
-    t = score(t, 'A1-0', 6, 3); // p1 champion
+    t = score(t, 'A0-0', '6-1 6-1'); // p1 beats p4
+    t = score(t, 'A0-1', '6-2 6-2'); // p2 beats p3
+    t = score(t, 'A1-0', '6-3 6-3'); // p1 champion
     expect(t.brackets[0].champion).toBe('p1');
 
-    t = score(t, 'A0-0', 1, 6); // now p4 beats p1
+    t = score(t, 'A0-0', '1-6 1-6'); // now p4 beats p1
     const final = byId(t, 'A1-0');
     expect(final).toMatchObject({ pairA: 'p4', pairB: 'p2', state: 'stale', winner: null });
     expect(t.brackets[0].champion).toBeNull();
     expect(t.summary.status).toBe('knockout');
 
     // Changing it back makes the final result valid again
-    t = score(t, 'A0-0', 6, 1);
+    t = score(t, 'A0-0', '6-1 6-1');
     expect(byId(t, 'A1-0').state).toBe('done');
   });
 });

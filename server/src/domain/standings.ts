@@ -1,66 +1,83 @@
-import type { MatchState, StandingRow } from './types.js';
+import { checkSets, outcome } from './score.js';
+import type { MatchFormat, MatchState, SetScore, StandingRow } from './types.js';
 
 export interface ScoredMatch {
   pairA: string | null;
   pairB: string | null;
-  scoreA: number | null;
-  scoreB: number | null;
+  sets: SetScore[];
 }
 
-/** todo until both scores are entered; equal scores are invalid (no draws). */
-export function scoreState({
-  scoreA,
-  scoreB,
-}: ScoredMatch): Extract<MatchState, 'todo' | 'done' | 'invalid'> {
-  if (scoreA === null || scoreB === null) return 'todo';
-  return scoreA === scoreB ? 'invalid' : 'done';
+/** todo until a result is entered; a result not valid for the format is invalid. */
+export function resultState(
+  { sets }: Pick<ScoredMatch, 'sets'>,
+  format: MatchFormat,
+): Extract<MatchState, 'todo' | 'done' | 'invalid'> {
+  if (sets.length === 0) return 'todo';
+  return checkSets(sets, format) ? 'invalid' : 'done';
 }
 
-const diff = (row: StandingRow) => row.gamesFor - row.gamesAgainst;
+const setDiff = (row: StandingRow) => row.setsFor - row.setsAgainst;
+const gameDiff = (row: StandingRow) => row.gamesFor - row.gamesAgainst;
 
 /**
- * Ranks a group: wins → games difference → head-to-head (only between exactly two tied
- * pairs) → games won → initial order (`pairIds`). Only done matches count.
+ * Ranks a group: wins → sets difference → games difference → head-to-head (only between
+ * exactly two tied pairs) → games won → initial order (`pairIds`). Only done matches count.
  */
-export function computeStandings(pairIds: string[], matches: ScoredMatch[]): StandingRow[] {
+export function computeStandings(
+  pairIds: string[],
+  matches: ScoredMatch[],
+  format: MatchFormat,
+): StandingRow[] {
   const rows = new Map<string, StandingRow>(
     pairIds.map((pairId) => [
       pairId,
-      { pairId, played: 0, wins: 0, losses: 0, gamesFor: 0, gamesAgainst: 0 },
+      {
+        pairId,
+        played: 0,
+        wins: 0,
+        losses: 0,
+        setsFor: 0,
+        setsAgainst: 0,
+        gamesFor: 0,
+        gamesAgainst: 0,
+      },
     ]),
   );
-  const played = matches.filter(
-    (m) => scoreState(m) === 'done' && rows.has(m.pairA!) && rows.has(m.pairB!),
-  );
+  const played = matches
+    .filter((m) => resultState(m, format) === 'done' && rows.has(m.pairA!) && rows.has(m.pairB!))
+    .map((m) => ({ ...m, outcome: outcome(m.sets, format) }));
 
-  for (const m of played) {
+  for (const { pairA, pairB, outcome: o } of played) {
     const sides = [
-      [rows.get(m.pairA!)!, m.scoreA!, m.scoreB!],
-      [rows.get(m.pairB!)!, m.scoreB!, m.scoreA!],
+      [rows.get(pairA!)!, o.winner === 'A', o.setsA, o.setsB, o.gamesA, o.gamesB],
+      [rows.get(pairB!)!, o.winner === 'B', o.setsB, o.setsA, o.gamesB, o.gamesA],
     ] as const;
-    for (const [row, own, other] of sides) {
+    for (const [row, won, setsFor, setsAgainst, gamesFor, gamesAgainst] of sides) {
       row.played++;
-      row.gamesFor += own;
-      row.gamesAgainst += other;
-      if (own > other) row.wins++;
+      if (won) row.wins++;
       else row.losses++;
+      row.setsFor += setsFor;
+      row.setsAgainst += setsAgainst;
+      row.gamesFor += gamesFor;
+      row.gamesAgainst += gamesAgainst;
     }
   }
 
   const beat = (a: string, b: string) =>
     played.some(
       (m) =>
-        (m.pairA === a && m.pairB === b && m.scoreA! > m.scoreB!) ||
-        (m.pairA === b && m.pairB === a && m.scoreB! > m.scoreA!),
+        (m.pairA === a && m.pairB === b && m.outcome.winner === 'A') ||
+        (m.pairA === b && m.pairB === a && m.outcome.winner === 'B'),
     );
   const initial = (row: StandingRow) => pairIds.indexOf(row.pairId);
-  const byWinsAndDiff = (a: StandingRow, b: StandingRow) => b.wins - a.wins || diff(b) - diff(a);
+  const byRecord = (a: StandingRow, b: StandingRow) =>
+    b.wins - a.wins || setDiff(b) - setDiff(a) || gameDiff(b) - gameDiff(a);
 
-  const ranked = [...rows.values()].sort(byWinsAndDiff);
+  const ranked = [...rows.values()].sort(byRecord);
   const result: StandingRow[] = [];
   for (let start = 0; start < ranked.length;) {
     let end = start + 1;
-    while (end < ranked.length && byWinsAndDiff(ranked[start], ranked[end]) === 0) end++;
+    while (end < ranked.length && byRecord(ranked[start], ranked[end]) === 0) end++;
     const tied = ranked.slice(start, end);
 
     if (tied.length === 2 && beat(tied[1].pairId, tied[0].pairId)) {

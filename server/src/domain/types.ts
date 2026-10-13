@@ -11,6 +11,24 @@ export type StructureType = (typeof STRUCTURE_TYPES)[number];
 
 export type BracketId = 'A' | 'B';
 
+/**
+ * How a match is played: best of `bestOf` sets to `gamesPerSet` games; the deciding set
+ * (the last possible one) can be replaced by a super tie-break to 10 points.
+ */
+export interface MatchFormat {
+  bestOf: number;
+  gamesPerSet: number;
+  decider: 'set' | 'superTiebreak';
+}
+
+/** One set from side A's point of view. A super tie-break stores its points as `a`/`b`. */
+export interface SetScore {
+  a: number;
+  b: number;
+  /** Points of the tie-break, for a set won 7-6 (or 5-4, 9-8) */
+  tiebreak?: { a: number; b: number };
+}
+
 export type TournamentStatus = 'draft' | 'groups' | 'knockout' | 'finished';
 
 export interface Structure {
@@ -45,6 +63,8 @@ export interface StandingRow {
   played: number;
   wins: number;
   losses: number;
+  setsFor: number;
+  setsAgainst: number;
   gamesFor: number;
   gamesAgainst: number;
 }
@@ -68,7 +88,7 @@ export type Source =
   | { kind: 'bye' };
 
 /**
- * - todo: not played yet; done: valid result; invalid: equal scores
+ * - todo: not played yet; done: valid result; invalid: a result not valid for the match format
  * - bye: one side is a bye, the other advances without playing
  * - stale: knockout result entered for pairs that no longer play this match
  */
@@ -88,8 +108,8 @@ export interface Match {
   /** Who plays: always set in groups; resolved from the sources in knockout (null = not known yet) */
   pairA: string | null;
   pairB: string | null;
-  scoreA: number | null;
-  scoreB: number | null;
+  /** The result, set by set; empty until entered */
+  sets: SetScore[];
   /** Knockout: who played when the score was entered */
   scoredPairs?: string[];
   courtId: string | null;
@@ -123,6 +143,7 @@ export interface Setup {
   courts: string[];
   timeSlots: string[];
   structure: Structure;
+  matchFormat: MatchFormat;
 }
 
 /** A tournament without the persistence fields (id, owner, timestamps). */
@@ -135,6 +156,7 @@ export interface TournamentData {
   courts: Court[];
   timeSlots: TimeSlot[];
   structure: Structure;
+  matchFormat: MatchFormat;
   pairs: Pair[];
   groups: Group[];
   /** Knockout only: pair ids in seed order */
