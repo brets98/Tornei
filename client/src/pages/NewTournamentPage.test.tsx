@@ -1,4 +1,5 @@
-import { fireEvent, render, screen } from '@testing-library/react';
+import { fireEvent, screen } from '@testing-library/react';
+import { renderIn } from '../test/render';
 import { MemoryRouter, Route, Routes } from 'react-router';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { Issue } from '../lib/tournaments';
@@ -25,7 +26,8 @@ function previewFor(body: { name: string; structure: { groupCount: number | null
 }
 
 function renderPage() {
-  render(
+  renderIn(
+    'it',
     <MemoryRouter initialEntries={['/tournaments/new']}>
       <Routes>
         <Route path="tournaments/new" element={<NewTournamentPage />} />

@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState, type FormEvent } from 'react';
 import { useNavigate } from 'react-router';
-import { fill, it } from '../i18n/it';
+import type { Messages } from '../i18n/en';
+import { fill, useI18n } from '../i18n/context';
 import { ApiError, apiPost } from '../lib/api';
 import {
   entriesLabel,
@@ -42,7 +43,7 @@ const STEP_OF_ISSUE: [RegExp, number][] = [
   [/^(PAIR_|STRUCTURE_|GROUP_|ADVANCE_|BRACKET_)/, 1],
   [/^(COURT|SLOT)/, 2],
 ];
-const LAST_STEP = it.wizard.steps.length - 1;
+const LAST_STEP = 3;
 
 function stepOf(issue: Issue) {
   return STEP_OF_ISSUE.find(([pattern]) => pattern.test(issue.code))?.[1] ?? LAST_STEP;
@@ -69,9 +70,9 @@ function generateSlots(from: string, to: string, every: number): string[] {
   return slots;
 }
 
-const defaultCourt = (n: number) => fill(it.wizard.defaultCourt, { n });
+const defaultCourt = (t: Messages, n: number) => fill(t.wizard.defaultCourt, { n });
 
-const initialForm = (): Form => ({
+const initialForm = (t: Messages): Form => ({
   name: '',
   subtitle: '',
   sport: 'padel',
@@ -83,7 +84,7 @@ const initialForm = (): Form => ({
   advanceA: '2',
   withB: true,
   advanceB: '1',
-  courts: [1, 2, 3, 4].map(defaultCourt),
+  courts: [1, 2, 3, 4].map((n) => defaultCourt(t, n)),
   timeSlots: generateSlots('19:00', '23:00', 30),
 });
 
@@ -109,8 +110,9 @@ function toSetup(form: Form) {
 }
 
 export function NewTournamentPage() {
+  const { t } = useI18n();
   const navigate = useNavigate();
-  const [form, setForm] = useState<Form>(initialForm);
+  const [form, setForm] = useState<Form>(() => initialForm(t));
   const [step, setStep] = useState(0);
   const [tried, setTried] = useState(false);
   const [checked, setChecked] = useState<{ issues: Issue[]; preview: Preview | null } | null>(null);
@@ -118,7 +120,7 @@ export function NewTournamentPage() {
   const [busy, setBusy] = useState(false);
 
   const setup = useMemo(() => toSetup(form), [form]);
-  const entries = entriesLabel(setup.format as Format);
+  const entries = entriesLabel(t, setup.format as Format);
 
   // Ask the server what this setup gives, a moment after the last change
   useEffect(() => {
@@ -166,7 +168,7 @@ export function NewTournamentPage() {
         setStep(Math.min(...issues.map(stepOf)));
         setTried(true);
       } else {
-        setError(it.wizard.createError);
+        setError(t.wizard.createError);
       }
       setBusy(false);
     }
@@ -174,9 +176,9 @@ export function NewTournamentPage() {
 
   return (
     <article className="page wizard">
-      <h1>{it.wizard.title}</h1>
+      <h1>{t.wizard.title}</h1>
       <ol className="steps">
-        {it.wizard.steps.map((label, i) => (
+        {t.wizard.steps.map((label, i) => (
           <li key={label} className={i === step ? 'active' : i < step ? 'done' : ''}>
             <span>{i + 1}</span> {label}
           </li>
@@ -201,7 +203,9 @@ export function NewTournamentPage() {
         {visibleIssues.length > 0 && (
           <ul className="issues" role="alert">
             {visibleIssues.map((issue) => (
-              <li key={issue.code + JSON.stringify(issue.params ?? {})}>{issueMessage(issue)}</li>
+              <li key={issue.code + JSON.stringify(issue.params ?? {})}>
+                {issueMessage(t, issue)}
+              </li>
             ))}
           </ul>
         )}
@@ -210,11 +214,11 @@ export function NewTournamentPage() {
         <div className="wizard-actions">
           {step > 0 && (
             <button type="button" className="secondary" onClick={() => setStep((s) => s - 1)}>
-              {it.common.back}
+              {t.common.back}
             </button>
           )}
           <button type="submit" disabled={busy}>
-            {step < LAST_STEP ? it.common.next : it.wizard.create}
+            {step < LAST_STEP ? t.common.next : t.wizard.create}
           </button>
         </div>
       </form>
@@ -228,18 +232,19 @@ interface StepProps {
 }
 
 function InfoStep({ form, update }: StepProps) {
+  const { t } = useI18n();
   return (
     <fieldset>
       <label>
-        {it.wizard.name}
+        {t.wizard.name}
         <input value={form.name} onChange={(e) => update({ name: e.target.value })} autoFocus />
       </label>
       <label>
-        {it.wizard.subtitle}
+        {t.wizard.subtitle}
         <input value={form.subtitle} onChange={(e) => update({ subtitle: e.target.value })} />
       </label>
       <div className="choice">
-        <span>{it.wizard.sport}</span>
+        <span>{t.wizard.sport}</span>
         {SPORTS.map((sport) => (
           <label key={sport} className="checkbox">
             <input
@@ -248,12 +253,12 @@ function InfoStep({ form, update }: StepProps) {
               checked={form.sport === sport}
               onChange={() => update({ sport, ...(sport === 'padel' && { format: 'doubles' }) })}
             />
-            {it.sport[sport]}
+            {t.sport[sport]}
           </label>
         ))}
       </div>
       <div className="choice">
-        <span>{it.wizard.format}</span>
+        <span>{t.wizard.format}</span>
         {FORMATS.map((format) => (
           <label key={format} className="checkbox">
             <input
@@ -263,13 +268,13 @@ function InfoStep({ form, update }: StepProps) {
               disabled={form.sport === 'padel' && format === 'singles'}
               onChange={() => update({ format })}
             />
-            {it.format[format]}
+            {t.format[format]}
           </label>
         ))}
-        {form.sport === 'padel' && <span className="muted">{it.wizard.padelDoubles}</span>}
+        {form.sport === 'padel' && <span className="muted">{t.wizard.padelDoubles}</span>}
       </div>
       <label>
-        {it.wizard.date}
+        {t.wizard.date}
         <input type="date" value={form.date} onChange={(e) => update({ date: e.target.value })} />
       </label>
     </fieldset>
@@ -282,11 +287,12 @@ function StructureStep({
   entries,
   preview,
 }: StepProps & { entries: ReturnType<typeof entriesLabel>; preview: Preview | null }) {
+  const { t } = useI18n();
   const withGroups = form.structureType === 'groups_knockout';
   return (
     <fieldset>
       <label>
-        {fill(it.wizard.entryCount, { entries: entries.many })}
+        {fill(t.wizard.entryCount, { entries: entries.many })}
         <input
           type="number"
           min={2}
@@ -295,7 +301,7 @@ function StructureStep({
         />
       </label>
       <div className="choice column">
-        <span>{it.wizard.structure}</span>
+        <span>{t.wizard.structure}</span>
         {STRUCTURE_TYPES.map((type) => (
           <label key={type} className="checkbox">
             <input
@@ -305,7 +311,7 @@ function StructureStep({
               onChange={() => update({ structureType: type })}
             />
             <span>
-              {it.structure[type]} <span className="muted">— {it.structureHint[type]}</span>
+              {t.structure[type]} <span className="muted">— {t.structureHint[type]}</span>
             </span>
           </label>
         ))}
@@ -313,7 +319,7 @@ function StructureStep({
       {withGroups && (
         <div className="inline-fields">
           <label>
-            {it.wizard.groupCount}
+            {t.wizard.groupCount}
             <input
               type="number"
               min={1}
@@ -322,7 +328,7 @@ function StructureStep({
             />
           </label>
           <label>
-            {it.wizard.advanceA}
+            {t.wizard.advanceA}
             <input
               type="number"
               min={1}
@@ -339,12 +345,12 @@ function StructureStep({
             checked={form.withB}
             onChange={(e) => update({ withB: e.target.checked })}
           />
-          {it.wizard.bracketB}
+          {t.wizard.bracketB}
         </label>
       )}
       {withGroups && form.withB && (
         <label>
-          {it.wizard.advanceB}
+          {t.wizard.advanceB}
           <input
             type="number"
             min={1}
@@ -365,14 +371,15 @@ function PreviewBox({
   preview: Preview;
   entries: ReturnType<typeof entriesLabel>;
 }) {
+  const { t } = useI18n();
   return (
-    <section className="preview" aria-label={it.wizard.preview}>
-      <h2>{it.wizard.preview}</h2>
+    <section className="preview" aria-label={t.wizard.preview}>
+      <h2>{t.wizard.preview}</h2>
       {preview.groupSizes.length > 0 && (
         <ul>
           {preview.groupSizes.map((count, i) => (
             <li key={i}>
-              {fill(it.wizard.groupSize, {
+              {fill(t.wizard.groupSize, {
                 group: String.fromCharCode(65 + i),
                 count,
                 entries: count === 1 ? entries.one : entries.many,
@@ -384,29 +391,30 @@ function PreviewBox({
       <ul>
         {preview.brackets.map((b) => (
           <li key={b.id}>
-            {fill(it.wizard.bracket, {
+            {fill(t.wizard.bracket, {
               id: b.id,
               count: b.entrants,
               entries: entries.many,
-              round: roundName(b.size / 2, 0).toLowerCase(),
+              round: roundName(t, b.size / 2, 0).toLowerCase(),
             })}
-            {b.byes > 0 && ` (${fill(it.wizard.byes, { count: b.byes })})`}
+            {b.byes > 0 && ` (${fill(t.wizard.byes, { count: b.byes })})`}
           </li>
         ))}
-        <li>{fill(it.wizard.matchesTotal, { count: preview.matchesTotal })}</li>
+        <li>{fill(t.wizard.matchesTotal, { count: preview.matchesTotal })}</li>
       </ul>
     </section>
   );
 }
 
 function CourtsStep({ form, update }: StepProps) {
+  const { t } = useI18n();
   const [range, setRange] = useState({ from: '19:00', to: '23:00', every: '30' });
   const [newSlot, setNewSlot] = useState('');
 
   function setCourtCount(value: string) {
     const count = Math.min(Math.max(Number(value) || 0, 0), MAX_COURTS);
     update({
-      courts: Array.from({ length: count }, (_, i) => form.courts[i] ?? defaultCourt(i + 1)),
+      courts: Array.from({ length: count }, (_, i) => form.courts[i] ?? defaultCourt(t, i + 1)),
     });
   }
 
@@ -418,9 +426,9 @@ function CourtsStep({ form, update }: StepProps) {
 
   return (
     <fieldset>
-      <h2>{it.wizard.courts}</h2>
+      <h2>{t.wizard.courts}</h2>
       <label>
-        {it.wizard.courtCount}
+        {t.wizard.courtCount}
         <input
           type="number"
           min={1}
@@ -432,7 +440,7 @@ function CourtsStep({ form, update }: StepProps) {
       <div className="court-names">
         {form.courts.map((court, i) => (
           <label key={i}>
-            {fill(it.wizard.courtName, { n: i + 1 })}
+            {fill(t.wizard.courtName, { n: i + 1 })}
             <input
               value={court}
               onChange={(e) =>
@@ -443,10 +451,10 @@ function CourtsStep({ form, update }: StepProps) {
         ))}
       </div>
 
-      <h2>{it.wizard.timeSlots}</h2>
+      <h2>{t.wizard.timeSlots}</h2>
       <div className="inline-fields">
         <label>
-          {it.wizard.from}
+          {t.wizard.from}
           <input
             type="time"
             value={range.from}
@@ -454,7 +462,7 @@ function CourtsStep({ form, update }: StepProps) {
           />
         </label>
         <label>
-          {it.wizard.to}
+          {t.wizard.to}
           <input
             type="time"
             value={range.to}
@@ -462,7 +470,7 @@ function CourtsStep({ form, update }: StepProps) {
           />
         </label>
         <label>
-          {it.wizard.every}
+          {t.wizard.every}
           <input
             type="number"
             min={5}
@@ -478,18 +486,18 @@ function CourtsStep({ form, update }: StepProps) {
             update({ timeSlots: generateSlots(range.from, range.to, Number(range.every)) })
           }
         >
-          {it.wizard.generate}
+          {t.wizard.generate}
         </button>
       </div>
       <ul className="chips">
-        {form.timeSlots.length === 0 && <li className="muted">{it.wizard.noSlots}</li>}
+        {form.timeSlots.length === 0 && <li className="muted">{t.wizard.noSlots}</li>}
         {form.timeSlots.map((time, i) => (
           <li key={`${time}-${i}`}>
             {time}
             <button
               type="button"
               className="link"
-              aria-label={fill(it.wizard.removeSlot, { time })}
+              aria-label={fill(t.wizard.removeSlot, { time })}
               onClick={() => update({ timeSlots: form.timeSlots.filter((_, k) => k !== i) })}
             >
               ×
@@ -499,11 +507,11 @@ function CourtsStep({ form, update }: StepProps) {
       </ul>
       <div className="inline-fields">
         <label>
-          {it.wizard.newSlot}
+          {t.wizard.newSlot}
           <input type="time" value={newSlot} onChange={(e) => setNewSlot(e.target.value)} />
         </label>
         <button type="button" className="secondary" onClick={addSlot}>
-          {it.common.add}
+          {t.common.add}
         </button>
       </div>
     </fieldset>
@@ -519,26 +527,27 @@ function SummaryStep({
   entries: ReturnType<typeof entriesLabel>;
   preview: Preview | null;
 }) {
+  const { t } = useI18n();
   const format = form.sport === 'padel' ? 'doubles' : form.format;
   return (
     <fieldset>
       <dl className="summary">
-        <dt>{it.wizard.name}</dt>
+        <dt>{t.wizard.name}</dt>
         <dd>
           {form.name}
           {form.subtitle && ` — ${form.subtitle}`}
         </dd>
-        <dt>{it.wizard.sport}</dt>
-        <dd>{`${it.sport[form.sport]} · ${it.format[format]}`}</dd>
-        <dt>{it.wizard.date}</dt>
+        <dt>{t.wizard.sport}</dt>
+        <dd>{`${t.sport[form.sport]} · ${t.format[format]}`}</dd>
+        <dt>{t.wizard.date}</dt>
         <dd>{form.date}</dd>
         <dt>{entries.Many}</dt>
         <dd>{form.pairCount}</dd>
-        <dt>{it.wizard.structure}</dt>
-        <dd>{it.structure[form.structureType]}</dd>
-        <dt>{it.wizard.courts}</dt>
+        <dt>{t.wizard.structure}</dt>
+        <dd>{t.structure[form.structureType]}</dd>
+        <dt>{t.wizard.courts}</dt>
         <dd>{form.courts.join(', ')}</dd>
-        <dt>{it.wizard.timeSlots}</dt>
+        <dt>{t.wizard.timeSlots}</dt>
         <dd>{form.timeSlots.join(', ')}</dd>
       </dl>
       {preview && <PreviewBox preview={preview} entries={entries} />}

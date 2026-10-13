@@ -1,10 +1,13 @@
 import { useState, type FormEvent } from 'react';
 import { Link } from 'react-router';
+import { LanguageSwitch } from '../components/LanguageSwitch';
+import { useI18n } from '../i18n/context';
 import { authClient } from '../lib/auth-client';
 
 type Mode = 'sign-in' | 'sign-up' | 'forgot';
 
 export function AuthPage() {
+  const { t } = useI18n();
   const [mode, setMode] = useState<Mode>('sign-in');
   const [error, setError] = useState('');
   const [message, setMessage] = useState('');
@@ -30,9 +33,9 @@ export function AuthPage() {
           password: form.password,
         });
         if (error?.status === 403) {
-          setError('Please verify your email first: we have sent you a new link.');
+          setError(t.auth.verifyFirst);
         } else if (error) {
-          setError(error.message ?? 'Sign in failed');
+          setError(error.message ?? t.auth.signInFailed);
         }
       } else if (mode === 'sign-up') {
         const { error } = await authClient.signUp.email({
@@ -43,13 +46,13 @@ export function AuthPage() {
           callbackURL: '/',
         });
         if (error) {
-          setError(error.message ?? 'Sign up failed');
+          setError(error.message ?? t.auth.signUpFailed);
         } else {
-          setMessage('Check your inbox: we sent you a link to verify your email.');
+          setMessage(t.auth.checkInbox);
         }
       } else {
         await authClient.requestPasswordReset({ email: form.email, redirectTo: '/reset-password' });
-        setMessage('If an account exists for this email, we sent you a reset link.');
+        setMessage(t.auth.resetSent);
       }
     } finally {
       setBusy(false);
@@ -60,41 +63,44 @@ export function AuthPage() {
     setError('');
     const { error } = await authClient.signIn.social({ provider: 'google', callbackURL: '/' });
     if (error) {
-      setError('Google sign-in is not available right now.');
+      setError(t.auth.googleUnavailable);
     }
   }
 
   return (
     <main className="card">
-      <h1>Tornei</h1>
+      <div className="page-head">
+        <h1>Tornei</h1>
+        <LanguageSwitch />
+      </div>
       <h2>
         {mode === 'sign-in'
-          ? 'Sign in'
+          ? t.auth.signIn
           : mode === 'sign-up'
-            ? 'Create an account'
-            : 'Reset password'}
+            ? t.auth.createAccount
+            : t.auth.resetPassword}
       </h2>
 
       <form onSubmit={onSubmit}>
         {mode === 'sign-up' && (
           <>
             <label>
-              Name
+              {t.auth.name}
               <input name="name" required autoComplete="given-name" />
             </label>
             <label>
-              Surname
+              {t.auth.surname}
               <input name="surname" required autoComplete="family-name" />
             </label>
           </>
         )}
         <label>
-          Email
+          {t.auth.email}
           <input name="email" type="email" required autoComplete="email" />
         </label>
         {mode !== 'forgot' && (
           <label>
-            Password
+            {t.auth.password}
             <input
               name="password"
               type="password"
@@ -109,33 +115,37 @@ export function AuthPage() {
         {message && <p className="message">{message}</p>}
 
         <button type="submit" disabled={busy}>
-          {mode === 'sign-in' ? 'Sign in' : mode === 'sign-up' ? 'Sign up' : 'Send reset link'}
+          {mode === 'sign-in'
+            ? t.auth.signIn
+            : mode === 'sign-up'
+              ? t.auth.signUp
+              : t.auth.sendResetLink}
         </button>
       </form>
 
       {mode !== 'forgot' && (
         <button type="button" className="secondary" onClick={signInWithGoogle}>
-          Continue with Google
+          {t.auth.google}
         </button>
       )}
 
       <nav>
         {mode !== 'sign-in' && (
           <button type="button" className="link" onClick={() => switchTo('sign-in')}>
-            Already have an account? Sign in
+            {t.auth.haveAccount}
           </button>
         )}
         {mode !== 'sign-up' && (
           <button type="button" className="link" onClick={() => switchTo('sign-up')}>
-            Create an account
+            {t.auth.createAccount}
           </button>
         )}
         {mode === 'sign-in' && (
           <button type="button" className="link" onClick={() => switchTo('forgot')}>
-            Forgot your password?
+            {t.auth.forgot}
           </button>
         )}
-        <Link to="/">← Back to the latest result</Link>
+        <Link to="/">{t.auth.backToResult}</Link>
       </nav>
     </main>
   );

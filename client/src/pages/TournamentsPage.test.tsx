@@ -1,11 +1,13 @@
-import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
+import { fireEvent, screen, waitFor, within } from '@testing-library/react';
+import { renderIn } from '../test/render';
 import { MemoryRouter, Route, Routes } from 'react-router';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { json, listItem, stubApi } from '../test/tournament-fixtures';
 import { TournamentsPage } from './TournamentsPage';
 
 function renderPage() {
-  render(
+  renderIn(
+    'it',
     <MemoryRouter initialEntries={['/']}>
       <Routes>
         <Route index element={<TournamentsPage />} />

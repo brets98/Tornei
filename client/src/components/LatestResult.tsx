@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { fill, useI18n } from '../i18n/context';
 
 export interface PublishedResult {
   text: string;
@@ -10,6 +11,7 @@ export interface PublishedResult {
  * over Server-Sent Events. EventSource reconnects by itself if the connection drops.
  */
 export function LatestResult() {
+  const { t, locale } = useI18n();
   const [result, setResult] = useState<PublishedResult | null | undefined>(undefined);
   const [connected, setConnected] = useState(true);
 
@@ -24,22 +26,26 @@ export function LatestResult() {
   }, []);
 
   return (
-    <section className="result" aria-label="Latest result">
+    <section className="result" aria-label={t.results.latest}>
       <h2>
-        Latest result
+        {t.results.latest}
         {result !== undefined && (
           <span className={connected ? 'live' : 'muted'}>
-            {connected ? 'Live' : 'Reconnecting…'}
+            {connected ? t.results.live : t.results.reconnecting}
           </span>
         )}
       </h2>
       {result === undefined &&
-        (connected ? <p>Loading…</p> : <p className="error">Could not load the result.</p>)}
-      {result === null && <p className="muted">No result has been published yet.</p>}
+        (connected ? <p>{t.common.loading}</p> : <p className="error">{t.results.loadFailed}</p>)}
+      {result === null && <p className="muted">{t.results.none}</p>}
       {result && (
         <>
           <p className="result-text">{result.text}</p>
-          <p className="muted">Updated {new Date(result.publishedAt).toLocaleString()}</p>
+          <p className="muted">
+            {fill(t.results.updated, {
+              time: new Date(result.publishedAt).toLocaleString(locale),
+            })}
+          </p>
         </>
       )}
     </section>

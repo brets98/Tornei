@@ -1,5 +1,6 @@
 import { Navigate, Route, Routes } from 'react-router';
 import { Layout } from './components/Layout';
+import { useI18n } from './i18n/context';
 import { authClient } from './lib/auth-client';
 import { AuthPage } from './pages/AuthPage';
 import { ChangePasswordPage } from './pages/ChangePasswordPage';
@@ -13,10 +14,11 @@ import { TournamentsPage } from './pages/TournamentsPage';
 import { UsersPage } from './pages/UsersPage';
 
 export function App() {
+  const { t } = useI18n();
   const { data: session, isPending } = authClient.useSession();
 
   if (isPending) {
-    return <main className="card">Loading…</main>;
+    return <main className="card">{t.common.loading}</main>;
   }
 
   if (!session) {

@@ -1,4 +1,5 @@
-import { fill, it } from '../i18n/it';
+import { fill } from '../i18n/context';
+import type { Messages } from '../i18n/en';
 
 /** Shapes returned by /api/tournaments (see server/src/domain/types.ts). */
 
@@ -34,47 +35,90 @@ export interface Preview {
   matchesTotal: number;
 }
 
+export type MatchState = 'todo' | 'done' | 'invalid' | 'bye' | 'stale';
+
+export interface Match {
+  id: string;
+  phase: 'group' | 'knockout';
+  groupId?: string;
+  bracket?: 'A' | 'B';
+  round?: number;
+  index?: number;
+  pairA: string | null;
+  pairB: string | null;
+  scoreA: number | null;
+  scoreB: number | null;
+  courtId: string | null;
+  timeSlotId: string | null;
+  state: MatchState;
+  winner: string | null;
+}
+
+export interface StandingRow {
+  pairId: string;
+  played: number;
+  wins: number;
+  losses: number;
+  gamesFor: number;
+  gamesAgainst: number;
+}
+
+export interface Group {
+  id: string;
+  pairIds: string[];
+  standings: StandingRow[];
+  complete: boolean;
+}
+
 export interface Tournament extends TournamentListItem {
   courts: { id: string; name: string }[];
   timeSlots: { id: string; time: string }[];
   structure: { type: StructureType; groupCount: number; advanceA: number; advanceB: number };
   pairs: { id: string; players: string[] }[];
-  groups: { id: string; pairIds: string[] }[];
+  groups: Group[];
   seeding: string[];
+  matches: Match[];
 }
 
-export function issueMessage({ code, params }: Issue): string {
-  const template = it.issues[code];
-  return template ? fill(template, params) : fill(it.issues.unknown, { code });
+/** Groups and draw can change until any score is entered (same rule as the server). */
+export function isStructureLocked(tournament: Pick<Tournament, 'matches'>) {
+  return tournament.matches.some((m) => m.scoreA !== null || m.scoreB !== null);
+}
+
+export function issueMessage(t: Messages, { code, params }: Issue): string {
+  const template = t.issues[code];
+  return template ? fill(template, params) : fill(t.issues.unknown, { code });
 }
 
 /** 'Coppie' / 'giocatori', etc., for the tournament's format. */
-export function entriesLabel(format: Format) {
-  return it.entries[format];
+export function entriesLabel(t: Messages, format: Format) {
+  return t.entries[format];
 }
 
 /** Name of a knockout round from how many matches it has: 1 → 'Finale', 2 → 'Semifinali', … */
-export function roundName(matches: number, round: number): string {
-  const names: Record<number, string> = it.rounds;
-  return names[matches] ?? fill(it.rounds.other, { n: round + 1 });
+export function roundName(t: Messages, matches: number, round: number): string {
+  return t.rounds[matches] ?? fill(t.rounds.other, { n: round + 1 });
 }
 
 /** A pair by its players' names, or by its code ('A1', or the seed number) while they're empty. */
-export function pairLabel(t: Pick<Tournament, 'pairs' | 'groups' | 'seeding'>, pairId: string) {
-  const names = t.pairs
+export function pairLabel(
+  tournament: Pick<Tournament, 'pairs' | 'groups' | 'seeding'>,
+  pairId: string,
+) {
+  const names = tournament.pairs
     .find((p) => p.id === pairId)
     ?.players.map((p) => p.trim())
     .filter(Boolean);
   if (names?.length) return names.join(' / ');
-  return pairCode(t, pairId);
+  return pairCode(tournament, pairId);
 }
 
-export function pairCode(t: Pick<Tournament, 'groups' | 'seeding'>, pairId: string) {
-  for (const group of t.groups) {
+export function pairCode(tournament: Pick<Tournament, 'groups' | 'seeding'>, pairId: string) {
+  for (const group of tournament.groups) {
     const index = group.pairIds.indexOf(pairId);
     if (index !== -1) return `${group.id}${index + 1}`;
   }
-  const seed = t.seeding.indexOf(pairId);
+  const seed = tournament.seeding.indexOf(pairId);
   return seed !== -1 ? String(seed + 1) : pairId;
 }
 
