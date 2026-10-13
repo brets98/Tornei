@@ -15,7 +15,8 @@ export function createApp({ auth }: { auth: Auth }) {
 
   // Better Auth parses its own request bodies, so it goes before express.json()
   app.all('/api/auth/{*splat}', toNodeHandler(auth));
-  app.use(express.json());
+  // 1 MB: room for an imported tournament file (a 64-pair round robin is about 250 kB)
+  app.use(express.json({ limit: '1mb' }));
 
   // Public routes: keep this list short (see CLAUDE.md, "API access")
   app.use('/api/health', healthRouter);

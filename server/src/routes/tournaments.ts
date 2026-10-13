@@ -1,6 +1,15 @@
 import { Router, type Request, type Response } from 'express';
 import { isValidObjectId } from 'mongoose';
-import { draw, setGroups, setPlayers, updateMatch, type EditResult } from '../domain/edit.js';
+import {
+  draw,
+  resetResults,
+  setGroups,
+  setPlayers,
+  updateMatch,
+  updateSettings,
+  type EditResult,
+} from '../domain/edit.js';
+import { exportTournament, importTournament } from '../domain/transfer.js';
 import { LIMITS, parseSetup } from '../domain/setup.js';
 import { buildMatches, buildTournament, refreshTournament } from '../domain/tournament.js';
 import type { TournamentData } from '../domain/types.js';
@@ -33,6 +42,7 @@ const DATA_FIELDS = [
   'matches',
   'brackets',
   'summary',
+  'conflicts',
 ] as const satisfies readonly (keyof TournamentData)[];
 
 function toData(tournament: Tournament): TournamentData {
@@ -114,6 +124,17 @@ tournamentsRouter.post('/', async (req, res) => {
   res.status(201).json(tournament);
 });
 
+/** A new tournament from an exported file; always a new one, never an overwrite. */
+tournamentsRouter.post('/import', async (req, res) => {
+  const result = importTournament(req.body);
+  if (result.issues) {
+    res.status(400).json({ error: 'Invalid tournament file', issues: result.issues });
+    return;
+  }
+  const tournament = await TournamentModel.create({ ...result.data, ownerId: req.user!.id });
+  res.status(201).json(tournament);
+});
+
 tournamentsRouter.get('/:id', async (req, res) => {
   const tournament = await findOwned(req);
   if (!tournament) {
@@ -152,6 +173,24 @@ tournamentsRouter.post('/:id/duplicate', async (req, res) => {
   });
   res.status(201).json(tournament);
 });
+
+/** The tournament as a file (see `exportTournament`), to keep or to import again. */
+tournamentsRouter.get('/:id/export', async (req, res) => {
+  const tournament = await findOwned(req);
+  if (!tournament) {
+    res.status(404).json({ error: 'Tournament not found' });
+    return;
+  }
+  res.json(exportTournament(toData(tournament.toObject())));
+});
+
+tournamentsRouter.patch('/:id/settings', (req, res) =>
+  applyEdit(req, res, (data) => updateSettings(data, req.body)),
+);
+
+tournamentsRouter.post('/:id/reset', (req, res) =>
+  applyEdit(req, res, (data) => resetResults(data)),
+);
 
 tournamentsRouter.patch('/:id/pairs/:pairId', (req, res) =>
   applyEdit(req, res, (data) => setPlayers(data, req.params.pairId, req.body?.players)),

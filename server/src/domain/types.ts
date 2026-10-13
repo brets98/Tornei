@@ -133,6 +133,20 @@ export interface Summary {
   matchesTotal: number;
 }
 
+/**
+ * A scheduling clash: two or more matches on the same court at the same time (`court`), or a
+ * pair with two or more matches at the same time (`pair`).
+ */
+export interface Conflict {
+  kind: 'court' | 'pair';
+  timeSlotId: string;
+  /** `court` only */
+  courtId?: string;
+  /** `pair` only */
+  pairId?: string;
+  matchIds: string[];
+}
+
 /** What the wizard asks for. */
 export interface Setup {
   name: string;
@@ -166,4 +180,5 @@ export interface TournamentData {
   matches: Match[];
   brackets: Bracket[];
   summary: Summary;
+  conflicts: Conflict[];
 }

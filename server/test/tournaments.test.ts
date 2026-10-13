@@ -282,4 +282,78 @@ describe('tournaments API', () => {
       await expect(stale!.save()).rejects.toThrow(/No matching document/);
     });
   });
+
+  describe('settings, reset, export and import', () => {
+    const url = (id: string, path = '') => `/api/tournaments/${id}${path}`;
+
+    it('saves settings and shows scheduling conflicts', async () => {
+      const { agent, tournament } = await createTournament();
+      await agent
+        .patch(url(tournament.id, '/matches/p1-p2'))
+        .send({ courtId: 'c1', timeSlotId: 't1' });
+      const clash = await agent
+        .patch(url(tournament.id, '/matches/p4-p5'))
+        .send({ courtId: 'c1', timeSlotId: 't1' });
+      expect(clash.body.conflicts).toEqual([
+        { kind: 'court', timeSlotId: 't1', courtId: 'c1', matchIds: ['p1-p2', 'p4-p5'] },
+      ]);
+
+      const res = await agent
+        .patch(url(tournament.id, '/settings'))
+        .send({ name: 'Estate', courts: [{ id: 'c2', name: 'Mediolanum' }] });
+
+      expect(res.status).toBe(200);
+      expect(res.body).toMatchObject({
+        name: 'Estate',
+        courts: [{ id: 'c2', name: 'Mediolanum' }],
+      });
+      // Court 1 is gone: its matches have no court, and the clash is gone with it
+      expect(res.body.conflicts).toEqual([]);
+      expect((await agent.get(url(tournament.id))).body.name).toBe('Estate');
+
+      const bad = await agent.patch(url(tournament.id, '/settings')).send({ timeSlots: [] });
+      expect(bad.status).toBe(400);
+      expect(bad.body.issues).toEqual([{ code: 'SLOTS_REQUIRED' }]);
+    });
+
+    it('resets the results', async () => {
+      const { agent, tournament } = await createTournament();
+      await agent.patch(url(tournament.id, '/matches/p1-p2')).send({ sets: sets('6-1 6-1') });
+
+      const res = await agent.post(url(tournament.id, '/reset'));
+
+      expect(res.status).toBe(200);
+      expect(res.body.summary).toMatchObject({ status: 'draft', matchesDone: 0 });
+    });
+
+    it('exports a tournament and imports it as a new one', async () => {
+      const { agent, tournament } = await createTournament();
+      await agent.patch(url(tournament.id, '/pairs/p1')).send({ players: ['Rossi', 'Bianchi'] });
+      await agent.patch(url(tournament.id, '/matches/p1-p2')).send({ sets: sets('6-1 6-1') });
+
+      const file = await agent.get(url(tournament.id, '/export'));
+      expect(file.status).toBe(200);
+      const imported = await agent.post('/api/tournaments/import').send(file.body);
+
+      expect(imported.status).toBe(201);
+      expect(imported.body.id).not.toBe(tournament.id);
+      expect(imported.body.pairs[0].players).toEqual(['Rossi', 'Bianchi']);
+      expect(imported.body.summary).toMatchObject({ status: 'groups', matchesDone: 1 });
+      expect(await TournamentModel.countDocuments()).toBe(2);
+
+      const invalid = await agent.post('/api/tournaments/import').send({ hello: 'world' });
+      expect(invalid.status).toBe(400);
+      expect(invalid.body.issues).toEqual([{ code: 'IMPORT_INVALID' }]);
+    });
+
+    it("cannot export, change or reset someone else's tournament", async () => {
+      const { tournament } = await createTournament();
+      const { agent: otherAgent } = await signUp(t, other);
+
+      expect((await otherAgent.get(url(tournament.id, '/export'))).status).toBe(404);
+      const settings = await otherAgent.patch(url(tournament.id, '/settings')).send({ name: 'X' });
+      expect(settings.status).toBe(404);
+      expect((await otherAgent.post(url(tournament.id, '/reset'))).status).toBe(404);
+    });
+  });
 });

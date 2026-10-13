@@ -107,6 +107,15 @@ const tournamentSchema = createSchema<Tournament>({
     matchesDone: Number,
     matchesTotal: Number,
   }),
+  conflicts: [
+    embedded({
+      kind: { type: String, enum: ['court', 'pair'], required: true },
+      timeSlotId: { type: String, required: true },
+      courtId: String,
+      pairId: String,
+      matchIds: [String],
+    }),
+  ],
 });
 
 // Two tabs saving the same tournament: the second save fails (409) instead of overwriting

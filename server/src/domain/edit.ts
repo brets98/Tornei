@@ -1,6 +1,6 @@
 import { shuffle } from './groups.js';
 import { checkSets, cleanSets } from './score.js';
-import { checkGroups, LIMITS, type Issue } from './setup.js';
+import { checkGroups, LIMITS, normalizeTime, parseSetup, type Issue } from './setup.js';
 import { buildMatches, refreshTournament } from './tournament.js';
 import type { SetScore, TournamentData } from './types.js';
 
@@ -100,6 +100,119 @@ export function draw(data: TournamentData, random: () => number = Math.random): 
     return { ...g, pairIds, standings: [], complete: false };
   });
   return restructure(data, { groups });
+}
+
+/** Clears every result, keeping setup, pairs, groups and schedule. */
+export function resetResults(data: TournamentData): EditResult {
+  const matches = data.matches.map((m) => ({
+    ...m,
+    sets: [],
+    ...(m.phase === 'knockout' && { scoredPairs: [] }),
+  }));
+  return { data: refreshTournament({ ...data, matches }) };
+}
+
+/** Next free id like `c4`, after every id in use. */
+function nextIds(prefix: string, used: string[]) {
+  let n = Math.max(0, ...used.map((id) => Number(id.slice(prefix.length)) || 0));
+  return () => `${prefix}${++n}`;
+}
+
+const list = (value: unknown) =>
+  (Array.isArray(value) ? value : []).map((item) =>
+    item && typeof item === 'object' ? (item as Record<string, unknown>) : {},
+  );
+
+/**
+ * Name, subtitle, date, courts, time slots and match format; only the fields present change.
+ * Courts and slots are lists of `{ id, name }` / `{ id, time }`: an existing id keeps its
+ * matches, no id adds one, and a court or slot left out is removed from its matches. The
+ * match format can change only while no result has been entered.
+ */
+export function updateSettings(data: TournamentData, changes: unknown): EditResult {
+  const body = (changes && typeof changes === 'object' ? changes : {}) as Record<string, unknown>;
+  const has = (key: string) => Object.hasOwn(body, key);
+  const courtsIn = list(has('courts') ? body.courts : data.courts);
+  const slotsIn = list(has('timeSlots') ? body.timeSlots : data.timeSlots);
+
+  // The same checks as the wizard, on the tournament with the changes applied
+  const { setup, issues } = parseSetup({
+    ...data,
+    name: has('name') ? body.name : data.name,
+    subtitle: has('subtitle') ? body.subtitle : data.subtitle,
+    date: has('date') ? body.date : data.date,
+    pairCount: data.pairs.length,
+    courts: courtsIn.map((c) => c.name),
+    timeSlots: slotsIn.map((s) => s.time),
+    matchFormat: has('matchFormat') ? body.matchFormat : data.matchFormat,
+  });
+  if (issues.length > 0) return { issues };
+
+  const format = setup.matchFormat;
+  const formatChanged =
+    format.bestOf !== data.matchFormat.bestOf ||
+    format.gamesPerSet !== data.matchFormat.gamesPerSet ||
+    format.decider !== data.matchFormat.decider;
+  if (formatChanged && hasResults(data)) return fail('MATCH_FORMAT_LOCKED');
+
+  const known = (ids: string[], items: Record<string, unknown>[]) => {
+    const given = items.map((item) => item.id).filter((id) => id !== undefined && id !== null);
+    return given.every((id) => ids.includes(id as string)) && new Set(given).size === given.length;
+  };
+  if (
+    !known(
+      data.courts.map((c) => c.id),
+      courtsIn,
+    )
+  )
+    return fail('COURT_UNKNOWN');
+  if (
+    !known(
+      data.timeSlots.map((s) => s.id),
+      slotsIn,
+    )
+  )
+    return fail('SLOT_UNKNOWN');
+
+  const courtId = nextIds(
+    'c',
+    data.courts.map((c) => c.id),
+  );
+  const courts = courtsIn.map((c, i) => ({
+    id: typeof c.id === 'string' ? c.id : courtId(),
+    name: setup.courts[i],
+  }));
+  const slotId = nextIds(
+    't',
+    data.timeSlots.map((s) => s.id),
+  );
+  const timeSlots = slotsIn
+    .map((s) => ({
+      id: typeof s.id === 'string' ? s.id : slotId(),
+      time: normalizeTime(String(s.time))!,
+    }))
+    .sort((a, b) => a.time.localeCompare(b.time));
+
+  const courtIds = new Set(courts.map((c) => c.id));
+  const slotIds = new Set(timeSlots.map((s) => s.id));
+  const matches = data.matches.map((m) => ({
+    ...m,
+    courtId: m.courtId && courtIds.has(m.courtId) ? m.courtId : null,
+    timeSlotId: m.timeSlotId && slotIds.has(m.timeSlotId) ? m.timeSlotId : null,
+  }));
+
+  return {
+    data: refreshTournament({
+      ...data,
+      name: setup.name,
+      subtitle: setup.subtitle,
+      date: setup.date,
+      courts,
+      timeSlots,
+      matchFormat: format,
+      matches,
+    }),
+  };
 }
 
 export interface MatchChanges {

@@ -1,4 +1,5 @@
 import { bracketMatches, placeSeeds } from './bracket.js';
+import { findConflicts } from './conflicts.js';
 import { distribute, groupId, roundRobin } from './groups.js';
 import { outcome } from './score.js';
 import { computeStandings, resultState } from './standings.js';
@@ -121,15 +122,17 @@ export function buildTournament(setup: Setup): TournamentData {
     matches: [],
     brackets: [],
     summary: { status: 'draft', matchesDone: 0, matchesTotal: 0 },
+    conflicts: [],
   };
   return refreshTournament({ ...data, ...buildMatches(data) });
 }
 
-type Derived = Pick<TournamentData, 'groups' | 'matches' | 'brackets' | 'summary'>;
+type Derived = Pick<TournamentData, 'groups' | 'matches' | 'brackets' | 'summary' | 'conflicts'>;
 
 /**
- * Recomputes everything that follows from the setup and the scores: match states and
- * winners, standings, who plays each knockout match, champions and the summary.
+ * Recomputes everything that follows from the setup, the schedule and the scores: match
+ * states and winners, standings, who plays each knockout match, champions, the summary and
+ * the scheduling conflicts.
  */
 export function refreshTournament<T extends TournamentData>(data: T): T & Derived {
   const groupMatchesOf = (id: string) =>
@@ -203,6 +206,10 @@ export function refreshTournament<T extends TournamentData>(data: T): T & Derive
     matches: allMatches,
     brackets,
     summary: summarize(data.structure, groups, allMatches, brackets),
+    conflicts: findConflicts(
+      allMatches,
+      data.timeSlots.map((s) => s.id),
+    ),
   };
 }
 
