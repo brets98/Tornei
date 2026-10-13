@@ -4,6 +4,7 @@ import {
   knockoutMatchName,
   pairLabel,
   roundName,
+  scheduleLabel,
   sideLabel,
   type Bracket,
   type Match,
@@ -15,7 +16,8 @@ import { CourtSelect, ResultInput, TimeSelect } from './MatchFields';
 interface Props {
   tournament: Tournament;
   bracket: Bracket;
-  actions: TournamentActions;
+  /** Without actions the bracket is read-only (live view) */
+  actions?: TournamentActions;
 }
 
 /** A bracket like the prototype: rounds in columns, then the champion. */
@@ -87,12 +89,9 @@ function BracketMatch({
   name: string;
   labelA: string;
   labelB: string;
-  actions: TournamentActions;
+  actions?: TournamentActions;
 }) {
   const { t } = useI18n();
-  const save = (changes: Parameters<TournamentActions['updateMatch']>[1]) =>
-    actions.updateMatch(match.id, changes);
-
   if (match.state === 'bye') {
     return (
       <div className="bm bye" aria-label={name}>
@@ -104,7 +103,6 @@ function BracketMatch({
     );
   }
 
-  const ready = Boolean(match.pairA && match.pairB);
   // A result that no longer counts is shown in the input only, not on the scoreboard
   const shown = match.state === 'done' ? match.sets : [];
   const side = (pairId: string | null, label: string, key: 'a' | 'b') => (
@@ -123,6 +121,35 @@ function BracketMatch({
     <div className={`bm state-${match.state}`} aria-label={name}>
       {side(match.pairA, labelA, 'a')}
       {side(match.pairB, labelB, 'b')}
+      {actions ? (
+        <MatchEditor tournament={tournament} match={match} name={name} actions={actions} />
+      ) : (
+        scheduleLabel(tournament, match) && (
+          <div className="bm-meta muted">{scheduleLabel(tournament, match)}</div>
+        )
+      )}
+    </div>
+  );
+}
+
+/** Result, court and time of a bracket match, and what to do with a result that no longer counts. */
+function MatchEditor({
+  tournament,
+  match,
+  name,
+  actions,
+}: {
+  tournament: Tournament;
+  match: Match;
+  name: string;
+  actions: TournamentActions;
+}) {
+  const { t } = useI18n();
+  const save = (changes: Parameters<TournamentActions['updateMatch']>[1]) =>
+    actions.updateMatch(match.id, changes);
+  const ready = Boolean(match.pairA && match.pairB);
+  return (
+    <>
       <div className="bm-meta">
         <ResultInput
           value={match.sets}
@@ -156,6 +183,6 @@ function BracketMatch({
           </button>
         </div>
       )}
-    </div>
+    </>
   );
 }

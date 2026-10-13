@@ -213,6 +213,19 @@ export function matchPhase(t: Messages, tournament: Pick<Tournament, 'brackets'>
   });
 }
 
+/** Where and when a match is played: 'Bigi · 19:00', 'Bigi', '19:00', or '' if not scheduled. */
+export function scheduleLabel(
+  tournament: Pick<Tournament, 'courts' | 'timeSlots'>,
+  match: Pick<Match, 'courtId' | 'timeSlotId'>,
+) {
+  return [
+    tournament.courts.find((c) => c.id === match.courtId)?.name,
+    tournament.timeSlots.find((s) => s.id === match.timeSlotId)?.time,
+  ]
+    .filter(Boolean)
+    .join(' · ');
+}
+
 /** '2026-10-20' → '20/10/2026', without timezone shifts. */
 export function formatDate(date: string) {
   const [year, month, day] = date.split('-');

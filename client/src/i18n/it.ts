@@ -17,6 +17,7 @@ export const it: Messages = {
   menu: {
     label: 'Menu principale',
     tournaments: 'Tornei',
+    live: 'Vista live',
     results: 'Risultati',
     users: 'Utenti',
     changePassword: 'Cambia password',
@@ -238,6 +239,18 @@ export const it: Messages = {
     courtConflict: '{court} alle {time}: {matches}.',
     pairConflict: '{pair} gioca {count} partite alle {time}: {matches}.',
     conflictMark: 'Conflitto di programmazione',
+  },
+  live: {
+    title: 'Vista live',
+    choose: 'Torneo',
+    placeholder: 'Scegli un torneo',
+    pick: 'Scegli un torneo per seguirne gironi e tabelloni. La pagina si aggiorna da sola ogni 30 secondi.',
+    updated: 'Aggiornato alle {time} · si aggiorna ogni 30 secondi',
+    switch: 'Gironi o tabellone',
+    refresh: 'Aggiorna ora',
+    refreshError: 'Aggiornamento non riuscito: mostro gli ultimi dati, riprovo tra 30 secondi.',
+    complete: 'concluso',
+    open: 'Vista live',
   },
   settings: {
     title: 'Impostazioni',

@@ -18,6 +18,7 @@ export const en = {
   menu: {
     label: 'Main',
     tournaments: 'Tournaments',
+    live: 'Live view',
     results: 'Results',
     users: 'Users',
     changePassword: 'Change password',
@@ -240,6 +241,18 @@ export const en = {
     courtConflict: '{court} at {time}: {matches}.',
     pairConflict: '{pair} plays {count} matches at {time}: {matches}.',
     conflictMark: 'Scheduling conflict',
+  },
+  live: {
+    title: 'Live view',
+    choose: 'Tournament',
+    placeholder: 'Choose a tournament',
+    pick: 'Choose a tournament to follow its groups and brackets. The page updates by itself every 30 seconds.',
+    updated: 'Updated at {time} · updates every 30 seconds',
+    switch: 'Groups or bracket',
+    refresh: 'Update now',
+    refreshError: 'Could not update: showing the last data, trying again in 30 seconds.',
+    complete: 'complete',
+    open: 'Live view',
   },
   settings: {
     title: 'Settings',
