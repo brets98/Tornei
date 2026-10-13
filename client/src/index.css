@@ -1176,3 +1176,50 @@ label.button.disabled {
 .live section {
   margin-top: 1.5rem;
 }
+
+/* Live view full screen: the chosen groups or bracket over the whole screen */
+.live-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.75rem;
+  margin-top: 1rem;
+}
+
+.live-toolbar .live-switch {
+  flex: 1;
+  margin-bottom: 0;
+}
+
+.live-toolbar > button {
+  margin-left: auto;
+  padding: 0.3rem 0.7rem;
+  font-size: 0.875rem;
+}
+
+.live-title {
+  display: flex;
+  flex-direction: column;
+}
+
+.live-board.fullscreen {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  overflow: auto;
+  box-sizing: border-box;
+  padding: 1rem 1.5rem 2rem;
+  background: Canvas;
+  color: CanvasText;
+}
+
+.live-board.fullscreen .live-toolbar {
+  margin-top: 0;
+  padding-bottom: 0.75rem;
+  border-bottom: 4px solid var(--navy);
+}
+
+.live-board.fullscreen .live-title b {
+  font-size: 1.4rem;
+  color: var(--navy);
+}

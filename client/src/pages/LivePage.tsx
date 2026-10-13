@@ -5,6 +5,7 @@ import { GroupsBoard } from '../components/tournament/GroupsBoard';
 import { fill, useI18n } from '../i18n/context';
 import { ApiError, apiGet } from '../lib/api';
 import { formatDate, type Tournament, type TournamentListItem } from '../lib/tournaments';
+import { useFullscreen } from '../lib/useFullscreen';
 
 /** How often the shown tournament is loaded again. */
 export const REFRESH_MS = 30 * 1000;
@@ -36,9 +37,10 @@ type View = 'groups' | `bracket-${string}`;
  * Groups or one bracket, with a switch between them (kept in the address, `?view=`). Until one
  * is chosen it follows the tournament: the groups while they are played, then bracket A.
  */
-function Board({ tournament }: { tournament: Tournament }) {
+function Board({ tournament, updated }: { tournament: Tournament; updated: string }) {
   const { t } = useI18n();
   const [searchParams, setSearchParams] = useSearchParams();
+  const { ref, fullscreen, toggle } = useFullscreen<HTMLDivElement>();
   const views: View[] = [
     ...(tournament.groups.length > 0 ? ['groups' as const] : []),
     ...tournament.brackets.map((b): View => `bracket-${b.id}`),
@@ -52,24 +54,35 @@ function Board({ tournament }: { tournament: Tournament }) {
   const bracket = tournament.brackets.find((b) => view === `bracket-${b.id}`);
 
   return (
-    <>
-      {views.length > 1 && (
-        <nav className="tabs live-switch" aria-label={t.live.switch}>
-          {views.map((name) => (
-            <button
-              key={name}
-              type="button"
-              className={`tab${name === view ? ' active' : ''}`}
-              aria-current={name === view ? 'page' : undefined}
-              onClick={() => setSearchParams({ view: name }, { replace: true })}
-            >
-              {name === 'groups'
-                ? t.groups.title
-                : fill(t.tournament.tabs.bracket, { id: name.slice('bracket-'.length) })}
-            </button>
-          ))}
-        </nav>
-      )}
+    <div ref={ref} className={`live-board${fullscreen ? ' fullscreen' : ''}`}>
+      <div className="live-toolbar">
+        {fullscreen && (
+          <div className="live-title">
+            <b>{tournament.name}</b>
+            <span className="muted">{updated}</span>
+          </div>
+        )}
+        {views.length > 1 && (
+          <nav className="tabs live-switch" aria-label={t.live.switch}>
+            {views.map((name) => (
+              <button
+                key={name}
+                type="button"
+                className={`tab${name === view ? ' active' : ''}`}
+                aria-current={name === view ? 'page' : undefined}
+                onClick={() => setSearchParams({ view: name }, { replace: true })}
+              >
+                {name === 'groups'
+                  ? t.groups.title
+                  : fill(t.tournament.tabs.bracket, { id: name.slice('bracket-'.length) })}
+              </button>
+            ))}
+          </nav>
+        )}
+        <button type="button" className="secondary fullscreen-toggle" onClick={toggle}>
+          {fullscreen ? t.live.exitFullscreen : t.live.fullscreen}
+        </button>
+      </div>
       {view === 'groups' && (
         <section>
           <div className="view-title">
@@ -79,7 +92,7 @@ function Board({ tournament }: { tournament: Tournament }) {
         </section>
       )}
       {bracket && <BracketView tournament={tournament} bracket={bracket} />}
-    </>
+    </div>
   );
 }
 
@@ -140,6 +153,12 @@ export function LivePage() {
   }, [id, load]);
 
   const shown = loaded && loaded.id === id ? loaded : { status: 'loading' as const };
+  const updated =
+    shown.status === 'ok'
+      ? fill(t.live.updated, {
+          time: shown.at.toLocaleTimeString(locale, { hour: '2-digit', minute: '2-digit' }),
+        })
+      : '';
 
   return (
     <article className="page wide live">
@@ -176,9 +195,7 @@ export function LivePage() {
             </h2>
             <div className="live-status">
               <span className="muted" role="status">
-                {fill(t.live.updated, {
-                  time: shown.at.toLocaleTimeString(locale, { hour: '2-digit', minute: '2-digit' }),
-                })}
+                {updated}
               </span>
               <button type="button" className="secondary" onClick={() => load()}>
                 {t.live.refresh}
@@ -190,7 +207,7 @@ export function LivePage() {
               </p>
             )}
           </header>
-          <Board tournament={shown.tournament} />
+          <Board tournament={shown.tournament} updated={updated} />
         </>
       )}
     </article>

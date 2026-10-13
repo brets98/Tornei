@@ -232,6 +232,58 @@ describe('LivePage', () => {
     );
   });
 
+  describe('full screen', () => {
+    afterEach(() => {
+      delete (document as { fullscreenEnabled?: boolean }).fullscreenEnabled;
+      delete (HTMLElement.prototype as { requestFullscreen?: unknown }).requestFullscreen;
+    });
+
+    it('covers the screen with the chosen view, and leaves with the button or Escape', async () => {
+      stubApi({
+        'GET /api/tournaments': () => json([listItem]),
+        'GET /api/tournaments/t1': () => json(withBracket),
+      });
+      renderPage('/live/t1?view=bracket-A');
+      await screen.findByText('1° Girone A');
+      const board = document.querySelector('.live-board')!;
+
+      fireEvent.click(screen.getByRole('button', { name: 'Schermo intero' }));
+      expect(board).toHaveClass('fullscreen');
+      // The tournament name and the update time stay visible, and the switch still works
+      expect(within(board as HTMLElement).getByText('Torneo di primavera')).toBeInTheDocument();
+      expect(within(board as HTMLElement).getByText(/Aggiornato alle/)).toBeInTheDocument();
+      expect(screen.getByText('1° Girone A')).toBeInTheDocument();
+      fireEvent.click(screen.getByRole('button', { name: 'Gironi' }));
+      expect(within(board as HTMLElement).getByLabelText('Girone A')).toBeInTheDocument();
+
+      fireEvent.click(screen.getByRole('button', { name: 'Esci dallo schermo intero' }));
+      expect(board).not.toHaveClass('fullscreen');
+
+      fireEvent.click(screen.getByRole('button', { name: 'Schermo intero' }));
+      fireEvent.keyDown(document, { key: 'Escape' });
+      expect(board).not.toHaveClass('fullscreen');
+    });
+
+    it("uses the browser's full screen where available", async () => {
+      Object.defineProperty(document, 'fullscreenEnabled', { value: true, configurable: true });
+      const requestFullscreen = vi.fn(() => Promise.resolve());
+      Object.defineProperty(HTMLElement.prototype, 'requestFullscreen', {
+        value: requestFullscreen,
+        configurable: true,
+      });
+      stubApi({
+        'GET /api/tournaments': () => json([listItem]),
+        'GET /api/tournaments/t1': () => json(withBracket),
+      });
+      renderPage('/live/t1');
+
+      fireEvent.click(await screen.findByRole('button', { name: 'Schermo intero' }));
+
+      expect(requestFullscreen).toHaveBeenCalledTimes(1);
+      expect(requestFullscreen.mock.contexts[0]).toHaveClass('live-board');
+    });
+  });
+
   it('says when the tournament does not exist', async () => {
     stubApi({ 'GET /api/tournaments': () => json([]) });
     renderPage('/live/missing');
