@@ -514,12 +514,14 @@ button.danger {
   font-weight: 700;
 }
 
-.tournament-head h1 {
+.tournament-head h1,
+.live .tournament-head h2 {
   margin: 0.3rem 0;
   font-size: 1.75rem;
 }
 
-.tournament-head h1 span {
+.tournament-head h1 span,
+.live .tournament-head h2 span {
   display: block;
   font-size: 1rem;
   color: var(--navy);
@@ -1109,4 +1111,37 @@ label.button.disabled {
 .page-head .row-actions .button {
   padding: 0.5rem 0.75rem;
   font-size: 1rem;
+}
+
+/* Live view: one tournament, read-only, refreshed every 2 minutes */
+label.inline {
+  flex-direction: row;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+label.inline select {
+  font: inherit;
+  padding: 0.4rem 0.5rem;
+  border-radius: 0.375rem;
+  border: 1px solid #9ca3af;
+  background: transparent;
+  color: inherit;
+  max-width: 100%;
+}
+
+.live-status {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.live-status button {
+  padding: 0.3rem 0.6rem;
+  font-size: 0.875rem;
+}
+
+.live section {
+  margin-top: 1.5rem;
 }

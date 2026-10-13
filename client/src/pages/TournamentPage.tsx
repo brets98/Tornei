@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { useParams, useSearchParams } from 'react-router';
+import { Link, useParams, useSearchParams } from 'react-router';
 import type { TournamentActions } from '../components/tournament/actions';
 import { BracketView } from '../components/tournament/BracketView';
 import { EntriesView } from '../components/tournament/EntriesView';
@@ -139,7 +139,9 @@ export function TournamentPage() {
           {tournament.name}
           {tournament.subtitle && <span>{tournament.subtitle}</span>}
         </h1>
-        <div className="muted">{formatDate(tournament.date)}</div>
+        <div className="muted">
+          {formatDate(tournament.date)} · <Link to={`/live/${tournament.id}`}>{t.live.open}</Link>
+        </div>
       </header>
       <nav className="tabs" aria-label={tournament.name}>
         {tabs.map((name) => (

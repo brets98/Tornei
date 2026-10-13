@@ -4,6 +4,7 @@ import { useI18n } from './i18n/context';
 import { authClient } from './lib/auth-client';
 import { AuthPage } from './pages/AuthPage';
 import { ChangePasswordPage } from './pages/ChangePasswordPage';
+import { LivePage } from './pages/LivePage';
 import { NewTournamentPage } from './pages/NewTournamentPage';
 import { NotFoundPage } from './pages/NotFoundPage';
 import { PublicLandingPage } from './pages/PublicLandingPage';
@@ -42,6 +43,8 @@ export function App() {
         <Route index element={<TournamentsPage />} />
         <Route path="tournaments/new" element={<NewTournamentPage />} />
         <Route path="tournaments/:id" element={<TournamentPage />} />
+        <Route path="live" element={<LivePage />} />
+        <Route path="live/:id" element={<LivePage />} />
         <Route path="results" element={<ResultsPage isAdmin={isAdmin} />} />
         <Route path="users" element={<UsersPage />} />
         <Route path="account/password" element={<ChangePasswordPage email={user.email} />} />
