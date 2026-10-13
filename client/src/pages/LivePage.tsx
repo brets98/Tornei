@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
-import { useNavigate, useParams, useSearchParams } from 'react-router';
+import { Link, useParams, useSearchParams } from 'react-router';
 import { BracketView } from '../components/tournament/BracketView';
 import { GroupsBoard } from '../components/tournament/GroupsBoard';
 import { fill, useI18n } from '../i18n/context';
@@ -8,6 +8,26 @@ import { formatDate, type Tournament, type TournamentListItem } from '../lib/tou
 
 /** How often the shown tournament is loaded again. */
 export const REFRESH_MS = 30 * 1000;
+
+/** One tournament to choose: name, sport, date, status and progress; opens its live view. */
+function TournamentCard({ item }: { item: TournamentListItem }) {
+  const { t } = useI18n();
+  const { matchesDone, matchesTotal, status } = item.summary;
+  return (
+    <Link className="tournament-card" to={`/live/${item.id}`}>
+      <span className="eyebrow">{`${t.sport[item.sport]} · ${formatDate(item.date)}`}</span>
+      <b>{item.name}</b>
+      {item.subtitle && <span className="muted">{item.subtitle}</span>}
+      <span className="card-foot">
+        <span className={`badge status-${status}`}>{t.status[status]}</span>
+        <span className="progress">
+          <progress value={matchesDone} max={Math.max(matchesTotal, 1)} />
+          <span>{fill(t.list.progressValue, { done: matchesDone, total: matchesTotal })}</span>
+        </span>
+      </span>
+    </Link>
+  );
+}
 
 /** 'groups' or 'bracket-A' / 'bracket-B'. */
 type View = 'groups' | `bracket-${string}`;
@@ -74,7 +94,6 @@ type Shown =
  */
 export function LivePage() {
   const { id } = useParams();
-  const navigate = useNavigate();
   const { t, locale } = useI18n();
   const [list, setList] = useState<TournamentListItem[] | null>(null);
   const [loaded, setLoaded] = useState<Shown | null>(null);
@@ -126,22 +145,23 @@ export function LivePage() {
     <article className="page wide live">
       <div className="page-head">
         <h1>{t.live.title}</h1>
-        <label className="inline">
-          {t.live.choose}
-          <select value={id ?? ''} onChange={(e) => navigate(`/live/${e.target.value}`)}>
-            <option value="" disabled>
-              {t.live.placeholder}
-            </option>
-            {list?.map((item) => (
-              <option key={item.id} value={item.id}>
-                {`${item.name} · ${formatDate(item.date)}`}
-              </option>
-            ))}
-          </select>
-        </label>
+        {id && <Link to="/live">{t.live.all}</Link>}
       </div>
 
-      {!id && <p className="muted">{list?.length === 0 ? t.list.empty : t.live.pick}</p>}
+      {!id && list === null && <p>{t.common.loading}</p>}
+      {!id && list?.length === 0 && <p className="muted">{t.list.empty}</p>}
+      {!id && list && list.length > 0 && (
+        <>
+          <p className="muted">{t.live.pick}</p>
+          <ul className="tournament-cards">
+            {list.map((item) => (
+              <li key={item.id}>
+                <TournamentCard item={item} />
+              </li>
+            ))}
+          </ul>
+        </>
+      )}
       {id && shown.status === 'loading' && <p>{t.common.loading}</p>}
       {id && shown.status === 'notFound' && <p className="error">{t.tournament.notFound}</p>}
       {id && shown.status === 'ok' && (

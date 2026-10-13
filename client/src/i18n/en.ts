@@ -244,8 +244,7 @@ export const en = {
   },
   live: {
     title: 'Live view',
-    choose: 'Tournament',
-    placeholder: 'Choose a tournament',
+    all: '← All tournaments',
     pick: 'Choose a tournament to follow its groups and brackets. The page updates by itself every 30 seconds.',
     updated: 'Updated at {time} · updates every 30 seconds',
     switch: 'Groups or bracket',

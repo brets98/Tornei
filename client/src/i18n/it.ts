@@ -242,8 +242,7 @@ export const it: Messages = {
   },
   live: {
     title: 'Vista live',
-    choose: 'Torneo',
-    placeholder: 'Scegli un torneo',
+    all: '← Tutti i tornei',
     pick: 'Scegli un torneo per seguirne gironi e tabelloni. La pagina si aggiorna da sola ogni 30 secondi.',
     updated: 'Aggiornato alle {time} · si aggiorna ogni 30 secondi',
     switch: 'Gironi o tabellone',
