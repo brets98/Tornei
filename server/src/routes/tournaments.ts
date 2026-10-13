@@ -1,8 +1,10 @@
-import { Router, type Request } from 'express';
+import { Router, type Request, type Response } from 'express';
 import { isValidObjectId } from 'mongoose';
-import { parseSetup } from '../domain/setup.js';
+import { draw, setGroups, setPlayers, updateMatch, type EditResult } from '../domain/edit.js';
+import { LIMITS, parseSetup } from '../domain/setup.js';
 import { buildMatches, buildTournament, refreshTournament } from '../domain/tournament.js';
 import type { TournamentData } from '../domain/types.js';
+import type { Tournament } from '../models/tournament.js';
 import { TournamentModel } from '../models/tournament.js';
 
 /** Only the owner can see or change a tournament; anyone else gets 404, as if it didn't exist. */
@@ -13,6 +15,58 @@ const LIST_FIELDS = 'name subtitle sport format date summary createdAt updatedAt
 async function findOwned(req: Request<{ id: string }>) {
   const { id } = req.params;
   return isValidObjectId(id) ? TournamentModel.findOne({ _id: id, ownerId: req.user!.id }) : null;
+}
+
+const DATA_FIELDS = [
+  'name',
+  'subtitle',
+  'sport',
+  'format',
+  'date',
+  'courts',
+  'timeSlots',
+  'structure',
+  'pairs',
+  'groups',
+  'seeding',
+  'matches',
+  'brackets',
+  'summary',
+] as const satisfies readonly (keyof TournamentData)[];
+
+function toData(tournament: Tournament): TournamentData {
+  return Object.fromEntries(
+    DATA_FIELDS.map((key) => [key, tournament[key]]),
+  ) as unknown as TournamentData;
+}
+
+/**
+ * Loads the user's tournament, applies `edit` to it and saves the result (with its derived
+ * state). 404 if the tournament (or the pair/match) doesn't exist, 400 with `issues` if the
+ * edit isn't allowed, 409 if someone saved the tournament in the meantime.
+ */
+async function applyEdit(
+  req: Request<{ id: string }>,
+  res: Response,
+  edit: (data: TournamentData) => EditResult,
+) {
+  const tournament = await findOwned(req);
+  if (!tournament) {
+    res.status(404).json({ error: 'Tournament not found' });
+    return;
+  }
+  const result = edit(toData(tournament.toObject()));
+  if (result.issues?.some((i) => i.code === 'NOT_FOUND')) {
+    res.status(404).json({ error: 'Not found' });
+    return;
+  }
+  if (result.issues) {
+    res.status(400).json({ error: 'Invalid change', issues: result.issues });
+    return;
+  }
+  tournament.set(result.data);
+  await tournament.save();
+  res.json(tournament);
 }
 
 tournamentsRouter.get('/', async (req, res) => {
@@ -78,33 +132,36 @@ tournamentsRouter.delete('/:id', async (req, res) => {
   res.status(204).end();
 });
 
-/** A copy with the same setup, pairs and schedule, without results. */
+/**
+ * A copy with the same setup, pairs and schedule, without results. The client sends the
+ * copy's `name` (in the user's language); without it the copy keeps the original name.
+ */
 tournamentsRouter.post('/:id/duplicate', async (req, res) => {
   const original = await findOwned(req);
   if (!original) {
     res.status(404).json({ error: 'Tournament not found' });
     return;
   }
-  const data = original.toObject() as TournamentData;
-  const copy: TournamentData = {
-    name: `${data.name} (copia)`,
-    subtitle: data.subtitle,
-    sport: data.sport,
-    format: data.format,
-    date: data.date,
-    courts: data.courts,
-    timeSlots: data.timeSlots,
-    structure: data.structure,
-    pairs: data.pairs,
-    groups: data.groups.map((g) => ({ ...g, standings: [], complete: false })),
-    seeding: data.seeding,
-    matches: data.matches,
-    brackets: [],
-    summary: data.summary,
-  };
+  const data = toData(original.toObject());
+  const name = typeof req.body?.name === 'string' ? req.body.name.trim() : '';
+  const copy = { ...data, name: name && name.length <= LIMITS.nameLength ? name : data.name };
   const tournament = await TournamentModel.create({
     ...refreshTournament({ ...copy, ...buildMatches(copy) }),
     ownerId: req.user!.id,
   });
   res.status(201).json(tournament);
 });
+
+tournamentsRouter.patch('/:id/pairs/:pairId', (req, res) =>
+  applyEdit(req, res, (data) => setPlayers(data, req.params.pairId, req.body?.players)),
+);
+
+tournamentsRouter.put('/:id/groups', (req, res) =>
+  applyEdit(req, res, (data) => setGroups(data, req.body?.groups)),
+);
+
+tournamentsRouter.post('/:id/draw', (req, res) => applyEdit(req, res, (data) => draw(data)));
+
+tournamentsRouter.patch('/:id/matches/:matchId', (req, res) =>
+  applyEdit(req, res, (data) => updateMatch(data, req.params.matchId, req.body)),
+);

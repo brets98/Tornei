@@ -163,7 +163,9 @@ describe('tournaments API', () => {
         },
       );
 
-      const res = await agent.post(`/api/tournaments/${tournament.id}/duplicate`);
+      const res = await agent
+        .post(`/api/tournaments/${tournament.id}/duplicate`)
+        .send({ name: 'Torneo di primavera (copia)' });
 
       expect(res.status).toBe(201);
       expect(res.body.id).not.toBe(tournament.id);
@@ -176,6 +178,97 @@ describe('tournaments API', () => {
         timeSlotId: 't1',
       });
       expect(res.body.summary).toEqual(tournament.summary);
+    });
+  });
+
+  describe('editing (players, groups, draw, matches)', () => {
+    const url = (id: string, path: string) => `/api/tournaments/${id}${path}`;
+
+    it('saves player names', async () => {
+      const { agent, tournament } = await createTournament();
+
+      const res = await agent
+        .patch(url(tournament.id, '/pairs/p1'))
+        .send({ players: ['Rossi', 'Bianchi'] });
+
+      expect(res.status).toBe(200);
+      expect(res.body.pairs[0].players).toEqual(['Rossi', 'Bianchi']);
+      const saved = await TournamentModel.findById(tournament.id);
+      expect(saved!.pairs[0].players).toEqual(['Rossi', 'Bianchi']);
+    });
+
+    it('saves a score and the recomputed standings and status', async () => {
+      const { agent, tournament } = await createTournament();
+
+      const res = await agent
+        .patch(url(tournament.id, '/matches/p1-p2'))
+        .send({ scoreA: 3, scoreB: 6, courtId: 'c2' });
+
+      expect(res.status).toBe(200);
+      const saved = (await TournamentModel.findById(tournament.id))!.toObject();
+      expect(saved.matches.find((m) => m.id === 'p1-p2')).toMatchObject({
+        scoreA: 3,
+        scoreB: 6,
+        courtId: 'c2',
+        state: 'done',
+        winner: 'p2',
+      });
+      expect(saved.groups[0].standings[0]).toMatchObject({ pairId: 'p2', wins: 1 });
+      expect(saved.summary).toMatchObject({ status: 'groups', matchesDone: 1 });
+    });
+
+    it('explains a refused change and saves nothing', async () => {
+      const { agent, tournament } = await createTournament();
+
+      const res = await agent.patch(url(tournament.id, '/matches/p1-p2')).send({ scoreA: -1 });
+
+      expect(res.status).toBe(400);
+      expect(res.body.issues).toEqual([{ code: 'SCORE_INVALID', params: { max: 99 } }]);
+      const saved = await TournamentModel.findById(tournament.id);
+      expect(saved!.summary.status).toBe('draft');
+    });
+
+    it('moves pairs and draws until the first result, then locks the groups', async () => {
+      const { agent, tournament } = await createTournament({ pairCount: 13 });
+      const groups = tournament.groups.map((g: { id: string; pairIds: string[] }) => ({
+        id: g.id,
+        pairIds: g.pairIds,
+      }));
+      groups[0].pairIds = ['p1', 'p2', 'p3'];
+      groups[1].pairIds = [...groups[1].pairIds, 'p4'];
+
+      const moved = await agent.put(url(tournament.id, '/groups')).send({ groups });
+      expect(moved.status).toBe(200);
+      expect(moved.body.groups[1].pairIds).toContain('p4');
+
+      expect((await agent.post(url(tournament.id, '/draw'))).status).toBe(200);
+
+      await agent.patch(url(tournament.id, '/matches/p1-p2')).send({ scoreA: 6 });
+      const locked = await agent.post(url(tournament.id, '/draw'));
+      expect(locked.status).toBe(400);
+      expect(locked.body.issues).toEqual([{ code: 'STRUCTURE_LOCKED' }]);
+    });
+
+    it('answers 404 for unknown matches and for other users', async () => {
+      const { agent, tournament } = await createTournament();
+      const { agent: otherAgent } = await signUp(t, other);
+
+      const unknown = await agent.patch(url(tournament.id, '/matches/nope')).send({});
+      const notOwner = await otherAgent
+        .patch(url(tournament.id, '/matches/p1-p2'))
+        .send({ scoreA: 6 });
+
+      expect(unknown.status).toBe(404);
+      expect(notOwner.status).toBe(404);
+    });
+
+    it('refuses to overwrite a tournament saved in the meantime', async () => {
+      const { agent, tournament } = await createTournament();
+      const stale = await TournamentModel.findById(tournament.id);
+      await agent.patch(url(tournament.id, '/matches/p1-p2')).send({ scoreA: 6 });
+
+      stale!.name = 'Changed elsewhere';
+      await expect(stale!.save()).rejects.toThrow(/No matching document/);
     });
   });
 });
