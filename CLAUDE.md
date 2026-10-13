@@ -9,16 +9,16 @@ Web app with user authentication. Features will be defined and added gradually: 
 ## Principles
 
 - **Vendor independence**: only open-source, self-hostable components. Do not introduce SaaS services, paid libraries or dependencies tied to a specific cloud without asking first.
-- **Minimal costs**: everything must run on a single cheap VPS with Docker Compose.
+- **Minimal costs**: production runs for free on Google Cloud Run + MongoDB Atlas M0 (decided 2026-10-14, see "Deploy"). Everything must still run on a single cheap VPS with Docker Compose, so the app stays portable: no Google-specific code or SDKs.
 - **Everything in Docker**: the whole project must start with `docker compose up`, in development and in production.
 
 ## Stack (MERN)
 
 - **Frontend**: React + Vite, TypeScript
 - **Backend**: Node.js (LTS, currently 24) + Express 5, TypeScript (ESM)
-- **Database**: MongoDB in a container, with data persisted on a Docker volume (no external managed database, for now)
+- **Database**: MongoDB. Development and the VPS stack: a container with a Docker volume. Production on Cloud Run: MongoDB Atlas free cluster (plain MongoDB, only `MONGODB_URI` changes)
 - **ODM**: Mongoose
-- **Reverse proxy / HTTPS (production)**: Caddy, with automatic certificates. The production `web` image is Caddy serving the built client and proxying `/api/*` to the server.
+- **Reverse proxy / HTTPS (VPS stack)**: Caddy, with automatic certificates. The production `web` image is Caddy serving the built client and proxying `/api/*` to the server. On Cloud Run there is no Caddy: Google terminates HTTPS and the server itself serves the built client when `CLIENT_DIR` is set (`server/src/static.ts`: hashed `/assets` cached for a year, `index.html` for every other non-`/api` GET).
 
 ## Authentication
 
@@ -31,13 +31,13 @@ Web app with user authentication. Features will be defined and added gradually: 
 - A user can link multiple providers to the same account (same email). Linking only happens when the email is verified on both sides (protects against account takeover).
 - Better Auth owns the `users`, `sessions`, `accounts` and `verifications` collections. `users` has the extra fields `surname` (required on email sign-up) and `role` (cannot be set by the client).
 - **Roles** are stored in the `roles` collection (`server/src/models/role.ts`); `user.role` holds the role's `name`. Current roles: `admin`, `user` (default), created on server startup by `ensureDefaultRoles()`. Use the `ROLES` constants in code, never string literals. `server/src/models/user.ts` is a Mongoose read model of `users`: new users are created only through sign-up or Google login.
-- To make someone an admin (no UI yet): open `docker compose exec mongo mongosh tornei` and run `db.users.updateOne({ email: '...' }, { $set: { role: 'admin' } })`.
+- To make someone an admin (no UI yet): open `docker compose exec mongo mongosh tornei` and run `db.users.updateOne({ email: '...' }, { $set: { role: 'admin' } })`. On Atlas: Browse Collections > `tornei.users`, set `role` to `admin`.
 ### Auth: still to do
 
 Before going live:
 - MongoDB indexes for Better Auth collections (`sessions.token`, `sessions.userId`, `accounts.userId`, `verifications.identifier`) and TTL indexes on `expiresAt` so expired sessions/tokens are deleted.
 - Test Google login and account linking end to end with real credentials.
-- Verify Better Auth's rate limiting sees the real client IP behind Caddy (`X-Forwarded-For`).
+- Verify Better Auth's rate limiting sees the real client IP behind Caddy and Cloud Run (`X-Forwarded-For`).
 
 When a feature needs it:
 - Account page (edit profile, change email), account deletion (GDPR) and privacy policy, admin user management UI, HTML email templates.
@@ -83,9 +83,11 @@ A repository of padel/tennis tournaments. `docs/prototype.html` is the original 
 /docker                      # Dockerfiles and configuration
   server.Dockerfile          #   targets: dev, prod
   web.Dockerfile             #   targets: dev (Vite), prod (Caddy + built client)
+  cloudrun.Dockerfile        #   single image for Cloud Run: server + built client
   Caddyfile
+/deploy/cloudrun             # Cloud Run setup script (run once in Cloud Shell) and guide
 docker-compose.yml           # development (hot reload)
-docker-compose.prod.yml      # production
+docker-compose.prod.yml      # production on a VPS
 .env.example                 # all required variables, without real values
 .github/workflows/ci.yml     # CI/CD with GitHub Actions
 ```
@@ -108,10 +110,13 @@ Client: React Router (`client/src/App.tsx` defines routes; signed-in pages rende
 ## Deploy
 
 - GitHub Actions: on every push runs lint, format check, typecheck, tests and build; on `main` it builds the Docker images and publishes them to GitHub Container Registry (`ghcr.io/brets98/tornei-server`, `ghcr.io/brets98/tornei-web`, tagged `latest` and the commit SHA).
-- The VPS pulls the new images and restarts with `docker-compose.prod.yml`.
-- **Secrets in production live only on the VPS**, in a `.env` created by hand and readable only by the deploy user (`chmod 600`). Images and CI never contain app secrets: the deploy job only needs an SSH key (GitHub Actions secret) to run `docker compose pull && docker compose up -d`. Possible later step: SOPS + age to version encrypted secrets in git. OpenBao/Vault only if there are multiple servers or people.
+- **Production: Google Cloud Run**, free tier (guide: `deploy/cloudrun/README.md`). One service `tornei` in `europe-west1`, image from `docker/cloudrun.Dockerfile` in Artifact Registry (cleanup keeps the 2 latest, to stay in the free 0.5 GB), `--min-instances=0 --max-instances=1` (the SSE event bus is in-process; it also caps the cost), 1 vCPU, 512 MiB, timeout 3600 s for the live stream. Database: MongoDB Atlas M0. `deploy/cloudrun/setup.sh` (run once in Cloud Shell) creates everything; then the `deploy` job in `ci.yml` builds and deploys every push to `main`, signing in with Workload Identity Federation (no keys; repository variables `GCP_PROJECT_ID`, `GCP_REGION`, `GCP_WIF_PROVIDER`, `GCP_DEPLOY_SA`; skipped while they are missing). The job changes only the image: env vars and secrets stay as the setup script set them.
+- On Cloud Run, app secrets (`MONGODB_URI`, `BETTER_AUTH_SECRET`, `SMTP_PASSWORD`, `GOOGLE_CLIENT_SECRET`) live in **Secret Manager** (`tornei-*`, readable only by the `tornei-run` service account); the other settings are plain env vars on the service. Keep within the free 6 active secret versions.
+- Free-tier caveat: Cloud Run bills while a request is open, and an open live result stream is one. Keep long-lived connections in mind when adding features.
+- Alternative: a VPS pulls the ghcr.io images and restarts with `docker-compose.prod.yml`.
+- On a VPS, **secrets live only on the VPS**, in a `.env` created by hand and readable only by the deploy user (`chmod 600`). Images and CI never contain app secrets: the deploy job only needs an SSH key (GitHub Actions secret) to run `docker compose pull && docker compose up -d`. Possible later step: SOPS + age to version encrypted secrets in git. OpenBao/Vault only if there are multiple servers or people.
 - Never put secrets in the client: `VITE_*` variables end up in the public JavaScript bundle.
-- Periodic backup of the MongoDB volume (to be defined together with the server).
+- Periodic backup of the database (to be defined; Atlas M0 has no automatic backups: `mongodump` for now).
 
 ## Commands
 
