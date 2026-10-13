@@ -864,3 +864,127 @@ table.standings tr.leader {
     grid-template-columns: 1fr;
   }
 }
+
+/* Knockout brackets: rounds in columns like the prototype, scrolling sideways on small screens */
+.warning {
+  background: var(--highlight);
+  border-left: 4px solid var(--error);
+  padding: 0.6rem 0.9rem;
+  border-radius: 0.4rem;
+}
+
+.bracket-wrap {
+  overflow-x: auto;
+}
+
+.bracket {
+  display: grid;
+  gap: 1.4rem;
+  min-width: max-content;
+}
+
+.round-column {
+  display: flex;
+  flex-direction: column;
+  min-width: 15rem;
+}
+
+.round-title {
+  text-align: center;
+  color: var(--navy);
+  font-size: 0.75rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  margin-bottom: 0.6rem;
+}
+
+/* Each match centred between the two it comes from */
+.round {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-around;
+  gap: 1rem;
+}
+
+.bm {
+  background: var(--panel);
+  border: 1px solid var(--panel-border);
+  border-left: 4px solid var(--navy);
+  border-radius: 0.5rem;
+  overflow: hidden;
+}
+
+.bm.bye {
+  border-left-color: var(--panel-border);
+  opacity: 0.8;
+}
+
+.bm.state-stale,
+.bm.state-invalid {
+  border-left-color: var(--error);
+}
+
+.bm-row {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.45rem 0.55rem;
+  border-bottom: 1px solid var(--panel-border);
+}
+
+.bm-row.win {
+  background: var(--highlight);
+  font-weight: 700;
+}
+
+.bm-name {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.bm-name.placeholder {
+  color: var(--muted-text);
+  font-style: italic;
+}
+
+.bm-meta {
+  display: flex;
+  gap: 0.35rem;
+  padding: 0.4rem 0.55rem;
+}
+
+.bm-meta .mini-select {
+  flex: 1;
+  max-width: none;
+  font-size: 0.75rem;
+}
+
+.bm-note {
+  margin: 0;
+  padding: 0.4rem 0.55rem;
+  font-size: 0.75rem;
+}
+
+.champion {
+  background: var(--highlight);
+  border: 1px solid var(--gold);
+  border-radius: 0.6rem;
+  padding: 0.8rem;
+  text-align: center;
+  color: var(--muted-text);
+}
+
+.champion.decided {
+  color: inherit;
+  font-weight: 700;
+}
+
+.champion b {
+  display: block;
+  color: var(--gold);
+  margin-bottom: 0.4rem;
+}

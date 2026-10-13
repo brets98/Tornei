@@ -177,7 +177,12 @@ export const it: Messages = {
   },
   tournament: {
     eyebrow: 'Torneo {sport}',
-    tabs: { overview: 'Riepilogo', groups: 'Gironi', entries: 'Iscritti' },
+    tabs: {
+      overview: 'Riepilogo',
+      groups: 'Gironi',
+      entries: 'Iscritti',
+      bracket: 'Tabellone {id}',
+    },
     overviewTitle: 'Riepilogo torneo',
     overviewHint: 'Vista operativa di gironi, campi e orari.',
     stats: {
@@ -224,6 +229,32 @@ export const it: Messages = {
     hint: "Inserisci i giocatori. L'ordine è quello del tabellone: i primi passano direttamente il primo turno.",
     draftHint: 'Finché non c’è un risultato puoi sorteggiare l’ordine a caso.',
     confirmDraw: 'Sorteggiare un nuovo ordine a caso? L’ordine attuale verrà sostituito.',
+  },
+  bracket: {
+    title: 'Tabellone {id}',
+    fromGroups:
+      'Si riempie con le classifiche dei gironi, appena ogni girone è completo. I vincitori avanzano automaticamente.',
+    knockout: 'I vincitori avanzano automaticamente al turno successivo.',
+    champion: 'Vincitore',
+    championOf: 'Vincitore tabellone {id}',
+    winnerOf: 'Vincitore {match}',
+    groupPosition: '{position}° Girone {group}',
+    seed: 'Testa di serie {n}',
+    bye: 'Riposo',
+    match: '{round} {n}',
+    stale:
+      'Dopo il risultato sono cambiate le coppie di questa partita: reinserisci o cancella il punteggio.',
+    staleWarning:
+      'Partite del tabellone con un risultato che non vale più perché sono cambiate le coppie: {count}. Reinserisci o cancella quei punteggi.',
+    clear: 'Cancella punteggio',
+  },
+  roundsShort: {
+    1: 'Finale',
+    2: 'Semifinale',
+    4: 'Quarto',
+    8: 'Ottavo',
+    16: 'Sedicesimo',
+    other: 'Turno {n}',
   },
   matchState: {
     todo: 'Da giocare',

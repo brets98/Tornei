@@ -1,6 +1,6 @@
 import { fill, useI18n } from '../../i18n/context';
 import { pairLabel, type Match, type Tournament } from '../../lib/tournaments';
-import { CommitInput } from './CommitInput';
+import { CourtSelect, ScoreInput, TimeSelect } from './MatchFields';
 
 export type MatchChanges = Partial<Pick<Match, 'scoreA' | 'scoreB' | 'courtId' | 'timeSlotId'>>;
 
@@ -10,32 +10,12 @@ interface Props {
   onChange: (changes: MatchChanges) => void;
 }
 
-/** '' → null (no score); a whole number → that number; anything else → undefined (ignored). */
-function parseScore(text: string): number | null | undefined {
-  const value = text.trim();
-  if (value === '') return null;
-  return /^\d{1,2}$/.test(value) ? Number(value) : undefined;
-}
-
-/** One match: who plays, the two scores, court, time and state. */
+/** One group match: who plays, the two scores, court, time and state. */
 export function MatchRow({ tournament, match, onChange }: Props) {
   const { t } = useI18n();
   const nameA = match.pairA ? pairLabel(tournament, match.pairA) : '—';
   const nameB = match.pairB ? pairLabel(tournament, match.pairB) : '—';
   const label = `${nameA} – ${nameB}`;
-
-  const score = (side: 'scoreA' | 'scoreB', name: string) => (
-    <CommitInput
-      className="score"
-      inputMode="numeric"
-      aria-label={fill(t.groups.scoreOf, { pair: name })}
-      value={match[side] === null ? '' : String(match[side])}
-      onCommit={(text) => {
-        const value = parseScore(text);
-        if (value !== undefined) onChange({ [side]: value });
-      }}
-    />
-  );
 
   return (
     <tr className={`match state-${match.state}`}>
@@ -45,39 +25,33 @@ export function MatchRow({ tournament, match, onChange }: Props) {
         <span className={match.winner === match.pairB ? 'match-winner' : undefined}>{nameB}</span>
       </td>
       <td className="scores">
-        {score('scoreA', nameA)}
+        <ScoreInput
+          value={match.scoreA}
+          label={fill(t.groups.scoreOf, { pair: nameA })}
+          onSave={(scoreA) => onChange({ scoreA })}
+        />
         <span className="versus">–</span>
-        {score('scoreB', nameB)}
+        <ScoreInput
+          value={match.scoreB}
+          label={fill(t.groups.scoreOf, { pair: nameB })}
+          onSave={(scoreB) => onChange({ scoreB })}
+        />
       </td>
       <td>
-        <select
-          className="mini-select"
-          aria-label={fill(t.groups.courtOf, { match: label })}
-          value={match.courtId ?? ''}
-          onChange={(e) => onChange({ courtId: e.target.value || null })}
-        >
-          <option value="">—</option>
-          {tournament.courts.map((court) => (
-            <option key={court.id} value={court.id}>
-              {court.name}
-            </option>
-          ))}
-        </select>
+        <CourtSelect
+          tournament={tournament}
+          value={match.courtId}
+          label={fill(t.groups.courtOf, { match: label })}
+          onSave={(courtId) => onChange({ courtId })}
+        />
       </td>
       <td>
-        <select
-          className="mini-select"
-          aria-label={fill(t.groups.timeOf, { match: label })}
-          value={match.timeSlotId ?? ''}
-          onChange={(e) => onChange({ timeSlotId: e.target.value || null })}
-        >
-          <option value="">—</option>
-          {tournament.timeSlots.map((slot) => (
-            <option key={slot.id} value={slot.id}>
-              {slot.time}
-            </option>
-          ))}
-        </select>
+        <TimeSelect
+          tournament={tournament}
+          value={match.timeSlotId}
+          label={fill(t.groups.timeOf, { match: label })}
+          onSave={(timeSlotId) => onChange({ timeSlotId })}
+        />
       </td>
       <td>
         <span className={`match-state ${match.state}`}>{t.matchState[match.state]}</span>

@@ -102,6 +102,40 @@ describe('TournamentPage', () => {
     expect(screen.getByRole('button', { name: 'Sorteggio casuale' })).toBeInTheDocument();
   });
 
+  it('has a tab per bracket and warns about results that no longer count', async () => {
+    const withBrackets: Tournament = {
+      ...tournament,
+      brackets: [
+        { id: 'A', size: 2, champion: null },
+        { id: 'B', size: 2, champion: null },
+      ],
+      matches: [
+        ...tournament.matches,
+        {
+          ...tournament.matches[0],
+          id: 'A0-0',
+          phase: 'knockout',
+          groupId: undefined,
+          bracket: 'A',
+          round: 0,
+          index: 0,
+          scoreA: 2,
+          scoreB: 0,
+          state: 'stale',
+        },
+      ],
+    };
+    stubApi({ 'GET /api/tournaments/t1': () => json(withBrackets) });
+    renderPage();
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Tabellone B' }));
+
+    expect(screen.getByRole('heading', { name: 'Tabellone B' })).toBeInTheDocument();
+    expect(screen.getByRole('alert')).toHaveTextContent(
+      'risultato che non vale più perché sono cambiate le coppie: 1.',
+    );
+  });
+
   describe('groups tab', () => {
     it('saves the player names when leaving the field', async () => {
       const fetchMock = stubApi({

@@ -178,7 +178,7 @@ export const en = {
   },
   tournament: {
     eyebrow: '{sport} tournament',
-    tabs: { overview: 'Overview', groups: 'Groups', entries: 'Entries' },
+    tabs: { overview: 'Overview', groups: 'Groups', entries: 'Entries', bracket: 'Bracket {id}' },
     overviewTitle: 'Tournament overview',
     overviewHint: 'Operational view of groups, courts and times.',
     stats: {
@@ -226,6 +226,32 @@ export const en = {
     draftHint: 'Until the first result is entered you can draw the order at random.',
     confirmDraw: 'Draw a new order at random? The current order will be replaced.',
   },
+  bracket: {
+    title: 'Bracket {id}',
+    fromGroups:
+      'Filled from the group standings once each group is complete. Winners advance automatically.',
+    knockout: 'Winners advance automatically to the next round.',
+    champion: 'Champion',
+    championOf: 'Winner of bracket {id}',
+    winnerOf: 'Winner {match}',
+    groupPosition: 'Group {group} #{position}',
+    seed: 'Seed {n}',
+    bye: 'Bye',
+    match: '{round} {n}',
+    stale:
+      'Who plays this match changed after the result was entered: re-enter or clear the score.',
+    staleWarning:
+      'Knockout matches whose result no longer counts because who plays them changed: {count}. Re-enter or clear those scores.',
+    clear: 'Clear score',
+  },
+  roundsShort: {
+    1: 'Final',
+    2: 'SF',
+    4: 'QF',
+    8: 'R16',
+    16: 'R32',
+    other: 'R{n}',
+  } as Record<number | 'other', string>,
   matchState: {
     todo: 'To play',
     done: 'Done',

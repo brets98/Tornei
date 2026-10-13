@@ -37,6 +37,13 @@ export interface Preview {
 
 export type MatchState = 'todo' | 'done' | 'invalid' | 'bye' | 'stale';
 
+/** Where a knockout side comes from. */
+export type Source =
+  | { kind: 'group'; groupId: string; position: number }
+  | { kind: 'seed'; index: number }
+  | { kind: 'winner'; matchId: string }
+  | { kind: 'bye' };
+
 export interface Match {
   id: string;
   phase: 'group' | 'knockout';
@@ -44,6 +51,8 @@ export interface Match {
   bracket?: 'A' | 'B';
   round?: number;
   index?: number;
+  sourceA?: Source;
+  sourceB?: Source;
   pairA: string | null;
   pairB: string | null;
   scoreA: number | null;
@@ -78,6 +87,14 @@ export interface Tournament extends TournamentListItem {
   groups: Group[];
   seeding: string[];
   matches: Match[];
+  brackets: Bracket[];
+}
+
+export interface Bracket {
+  id: 'A' | 'B';
+  /** Slots of the first round: a power of 2 */
+  size: number;
+  champion: string | null;
 }
 
 /** Groups and draw can change until any score is entered (same rule as the server). */
@@ -120,6 +137,20 @@ export function pairCode(tournament: Pick<Tournament, 'groups' | 'seeding'>, pai
   }
   const seed = tournament.seeding.indexOf(pairId);
   return seed !== -1 ? String(seed + 1) : pairId;
+}
+
+/** Short name of a knockout match: 'QF 2', 'Quarto 2', or just 'Final' for the only one. */
+export function knockoutMatchName(t: Messages, bracket: Bracket, match: Match) {
+  const inRound = bracket.size / 2 ** (match.round! + 1);
+  const round = t.roundsShort[inRound] ?? fill(t.roundsShort.other, { n: match.round! + 1 });
+  return inRound === 1 ? round : fill(t.bracket.match, { round, n: match.index! + 1 });
+}
+
+/** A typed score: '' → null (no score); a whole number up to 99 → that number; else undefined. */
+export function parseScore(text: string): number | null | undefined {
+  const value = text.trim();
+  if (value === '') return null;
+  return /^\d{1,2}$/.test(value) ? Number(value) : undefined;
 }
 
 /** '2026-10-20' → '20/10/2026', without timezone shifts. */

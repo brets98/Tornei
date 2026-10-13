@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useParams, useSearchParams } from 'react-router';
 import type { TournamentActions } from '../components/tournament/actions';
+import { BracketView } from '../components/tournament/BracketView';
 import { EntriesView } from '../components/tournament/EntriesView';
 import { GroupsView } from '../components/tournament/GroupsView';
 import { Overview } from '../components/tournament/Overview';
@@ -18,7 +19,7 @@ type SaveState =
   | { status: 'error'; reason: 'conflict' | 'failed' }
   | { status: 'error'; reason: 'issues'; issues: Issue[] };
 
-type Tab = 'overview' | 'groups' | 'entries';
+type Tab = 'overview' | 'groups' | 'entries' | `bracket-${string}`;
 
 export function TournamentPage() {
   const { id } = useParams();
@@ -104,9 +105,19 @@ export function TournamentPage() {
   }
 
   const { tournament } = state;
-  const tabs: Tab[] = ['overview', tournament.groups.length > 0 ? 'groups' : 'entries'];
+  const tabs: Tab[] = [
+    'overview',
+    tournament.groups.length > 0 ? 'groups' : 'entries',
+    ...tournament.brackets.map((b): Tab => `bracket-${b.id}`),
+  ];
   const requested = searchParams.get('tab') as Tab | null;
   const tab = requested && tabs.includes(requested) ? requested : 'overview';
+  const bracket = tournament.brackets.find((b) => tab === `bracket-${b.id}`);
+  const stale = tournament.matches.filter((m) => m.state === 'stale');
+  const tabLabel = (name: Tab) =>
+    name.startsWith('bracket-')
+      ? fill(t.tournament.tabs.bracket, { id: name.slice('bracket-'.length) })
+      : t.tournament.tabs[name as Exclude<Tab, `bracket-${string}`>];
 
   return (
     <article className="tournament">
@@ -129,15 +140,21 @@ export function TournamentPage() {
             aria-current={name === tab ? 'page' : undefined}
             onClick={() => setSearchParams(name === 'overview' ? {} : { tab: name })}
           >
-            {t.tournament.tabs[name]}
+            {tabLabel(name)}
           </button>
         ))}
         <SaveStatus state={saveState} />
       </nav>
 
+      {stale.length > 0 && (
+        <p className="warning" role="alert">
+          {fill(t.bracket.staleWarning, { count: stale.length })}
+        </p>
+      )}
       {tab === 'overview' && <Overview tournament={tournament} />}
       {tab === 'groups' && <GroupsView tournament={tournament} actions={actions} />}
       {tab === 'entries' && <EntriesView tournament={tournament} actions={actions} />}
+      {bracket && <BracketView tournament={tournament} bracket={bracket} actions={actions} />}
     </article>
   );
 }

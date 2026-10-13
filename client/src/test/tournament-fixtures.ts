@@ -77,4 +77,5 @@ export const tournament: Tournament = {
   ],
   seeding: [],
   matches: [groupMatch('A', 'p1', 'p2'), groupMatch('B', 'p3', 'p4')],
+  brackets: [],
 };
