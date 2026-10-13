@@ -1,6 +1,6 @@
 import { act, fireEvent, render, screen } from '@testing-library/react';
 import { MemoryRouter } from 'react-router';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { App } from './App';
 import { authClient } from './lib/auth-client';
 import { FakeEventSource } from './test/fake-event-source';
@@ -45,6 +45,15 @@ function fill(label: string, value: string) {
 describe('App', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    // The signed-in home loads the tournament list
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(() => Promise.resolve(new Response('[]', { status: 200 }))),
+    );
+  });
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
   });
 
   describe('signed out', () => {
@@ -102,12 +111,13 @@ describe('App', () => {
   });
 
   describe('signed in', () => {
-    it('shows the landing page with the menu and the current user', () => {
+    it('shows the tournament list with the menu and the current user', async () => {
       signedInAs('user');
       renderAt('/');
 
-      expect(screen.getByRole('heading', { name: 'Welcome to Tornei' })).toBeInTheDocument();
-      expect(screen.getByRole('link', { name: 'Home' })).toBeInTheDocument();
+      expect(screen.getByRole('heading', { name: 'I miei tornei' })).toBeInTheDocument();
+      expect(await screen.findByText('Non hai ancora creato tornei.')).toBeInTheDocument();
+      expect(screen.getByRole('link', { name: 'Tornei' })).toBeInTheDocument();
       expect(screen.getByRole('link', { name: 'Change password' })).toBeInTheDocument();
       expect(screen.getByText('Mario Rossi')).toBeInTheDocument();
     });
@@ -124,14 +134,6 @@ describe('App', () => {
       renderAt('/');
       expect(screen.getByRole('link', { name: 'Results' })).toBeInTheDocument();
       expect(screen.getByRole('link', { name: 'Users' })).toBeInTheDocument();
-    });
-
-    it('shows the latest result on the home page', async () => {
-      signedInAs('user');
-      renderAt('/');
-
-      pushResult();
-      expect(screen.getByText('Team A 2 - 1 Team B')).toBeInTheDocument();
     });
 
     it('shows a not-found page for unknown paths', () => {

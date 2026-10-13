@@ -20,7 +20,7 @@ export function Layout({ user }: Props) {
         <div className="brand">Tornei</div>
         <nav aria-label="Main">
           <NavLink to="/" end>
-            Home
+            Tornei
           </NavLink>
           {isAdmin && <NavLink to="/results">Results</NavLink>}
           {isAdmin && <NavLink to="/users">Users</NavLink>}

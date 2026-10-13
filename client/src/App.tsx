@@ -3,11 +3,13 @@ import { Layout } from './components/Layout';
 import { authClient } from './lib/auth-client';
 import { AuthPage } from './pages/AuthPage';
 import { ChangePasswordPage } from './pages/ChangePasswordPage';
-import { LandingPage } from './pages/LandingPage';
+import { NewTournamentPage } from './pages/NewTournamentPage';
 import { NotFoundPage } from './pages/NotFoundPage';
 import { PublicLandingPage } from './pages/PublicLandingPage';
 import { ResetPasswordPage } from './pages/ResetPasswordPage';
 import { ResultsPage } from './pages/ResultsPage';
+import { TournamentPage } from './pages/TournamentPage';
+import { TournamentsPage } from './pages/TournamentsPage';
 import { UsersPage } from './pages/UsersPage';
 
 export function App() {
@@ -35,7 +37,9 @@ export function App() {
       <Route path="reset-password" element={<ResetPasswordPage />} />
       <Route path="sign-in" element={<Navigate to="/" replace />} />
       <Route element={<Layout user={user} />}>
-        <Route index element={<LandingPage />} />
+        <Route index element={<TournamentsPage />} />
+        <Route path="tournaments/new" element={<NewTournamentPage />} />
+        <Route path="tournaments/:id" element={<TournamentPage />} />
         <Route path="results" element={<ResultsPage isAdmin={isAdmin} />} />
         <Route path="users" element={<UsersPage />} />
         <Route path="account/password" element={<ChangePasswordPage email={user.email} />} />
