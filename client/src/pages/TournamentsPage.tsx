@@ -1,8 +1,14 @@
 import { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router';
 import { fill, useI18n } from '../i18n/context';
-import { apiDelete, apiGet, apiPost } from '../lib/api';
-import { formatDate, type Tournament, type TournamentListItem } from '../lib/tournaments';
+import { ApiError, apiDelete, apiGet, apiPost } from '../lib/api';
+import {
+  formatDate,
+  issueMessage,
+  type Issue,
+  type Tournament,
+  type TournamentListItem,
+} from '../lib/tournaments';
 
 type State =
   { status: 'loading' } | { status: 'error' } | { status: 'ok'; tournaments: TournamentListItem[] };
@@ -53,13 +59,57 @@ export function TournamentsPage() {
     }
   }
 
+  /** A file exported from a tournament's settings, always created as a new tournament. */
+  async function importFile(file: File) {
+    setError('');
+    let body: unknown;
+    try {
+      body = JSON.parse(await file.text());
+    } catch {
+      setError(issueMessage(t, { code: 'IMPORT_UNREADABLE' }));
+      return;
+    }
+    setBusy(true);
+    try {
+      const created = await apiPost<Tournament>('/tournaments/import', body);
+      navigate(`/tournaments/${created.id}`);
+    } catch (err) {
+      const issues = err instanceof ApiError ? (err.body.issues as Issue[] | undefined) : undefined;
+      setError(
+        issues?.length
+          ? issues.map((issue) => issueMessage(t, issue)).join(' ')
+          : t.list.importError,
+      );
+      setBusy(false);
+    }
+  }
+
   return (
     <article className="page wide">
       <div className="page-head">
         <h1>{t.list.title}</h1>
-        <Link className="button" to="/tournaments/new">
-          {t.list.new}
-        </Link>
+        <div className="row-actions">
+          <label
+            className={`button secondary${busy ? ' disabled' : ''}`}
+            title={t.list.importTitle}
+          >
+            {t.list.import}
+            <input
+              type="file"
+              accept="application/json,.json"
+              hidden
+              disabled={busy}
+              onChange={(e) => {
+                const file = e.target.files?.[0];
+                e.target.value = '';
+                if (file) importFile(file);
+              }}
+            />
+          </label>
+          <Link className="button" to="/tournaments/new">
+            {t.list.new}
+          </Link>
+        </div>
       </div>
 
       {state.status === 'loading' && <p>{t.common.loading}</p>}

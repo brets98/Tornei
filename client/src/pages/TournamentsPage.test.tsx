@@ -77,4 +77,43 @@ describe('TournamentsPage', () => {
 
     expect(await screen.findByText('Pagina del torneo')).toBeInTheDocument();
   });
+
+  const chooseFile = async (text: string) =>
+    fireEvent.change(await screen.findByLabelText('Importa'), {
+      target: { files: [new File([text], 'torneo.json', { type: 'application/json' })] },
+    });
+
+  it('imports a tournament file as a new tournament and opens it', async () => {
+    const file = { format: 'tornei.tournament', version: 1, tournament: { name: 'X' } };
+    const fetchMock = stubApi({
+      'GET /api/tournaments': () => json([]),
+      'POST /api/tournaments/import': () => json({ ...listItem, id: 't9' }, 201),
+    });
+    renderPage();
+
+    await chooseFile(JSON.stringify(file));
+
+    expect(await screen.findByText('Pagina del torneo')).toBeInTheDocument();
+    const [, init] = fetchMock.mock.calls.find(([url]) => url === '/api/tournaments/import')!;
+    expect(JSON.parse(init!.body as string)).toEqual(file);
+  });
+
+  it('explains why a file cannot be imported', async () => {
+    stubApi({
+      'GET /api/tournaments': () => json([]),
+      'POST /api/tournaments/import': () =>
+        json({ issues: [{ code: 'IMPORT_VERSION', params: { version: '2' } }] }, 400),
+    });
+    renderPage();
+
+    await chooseFile('not json');
+    expect(
+      await screen.findByText('Il file non si legge: scegli un torneo esportato in JSON.'),
+    ).toBeInTheDocument();
+
+    await chooseFile('{}');
+    expect(
+      await screen.findByText(/un’altra versione dell’app \(versione 2\)/),
+    ).toBeInTheDocument();
+  });
 });

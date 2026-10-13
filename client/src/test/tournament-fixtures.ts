@@ -1,4 +1,5 @@
 import { vi } from 'vitest';
+import type { TournamentActions } from '../components/tournament/actions';
 import type { Match, StandingRow, Tournament, TournamentListItem } from '../lib/tournaments';
 
 export const row = (pairId: string, changes: Partial<StandingRow> = {}): StandingRow => ({
@@ -24,6 +25,17 @@ export const groupMatch = (groupId: string, pairA: string, pairB: string): Match
   timeSlotId: null,
   state: 'todo',
   winner: null,
+});
+
+/** Tournament actions that only record their calls. */
+export const mockActions = (): TournamentActions => ({
+  setPlayers: vi.fn(),
+  updateMatch: vi.fn(),
+  setGroups: vi.fn(),
+  draw: vi.fn(),
+  updateSettings: vi.fn(),
+  resetResults: vi.fn(),
+  reportUnreadable: vi.fn(),
 });
 
 export const json = (body: unknown, status = 200) =>
@@ -57,6 +69,7 @@ export const listItem: TournamentListItem = {
 
 export const tournament: Tournament = {
   ...listItem,
+  updatedAt: '2026-10-13T10:00:00.000Z',
   courts: [
     { id: 'c1', name: 'Bigi' },
     { id: 'c2', name: 'Mediolanum' },
@@ -80,4 +93,5 @@ export const tournament: Tournament = {
   seeding: [],
   matches: [groupMatch('A', 'p1', 'p2'), groupMatch('B', 'p3', 'p4')],
   brackets: [],
+  conflicts: [],
 };

@@ -4,9 +4,9 @@ import {
   knockoutMatchName,
   pairLabel,
   roundName,
+  sideLabel,
   type Bracket,
   type Match,
-  type Source,
   type Tournament,
 } from '../../lib/tournaments';
 import type { TournamentActions } from './actions';
@@ -25,26 +25,6 @@ export function BracketView({ tournament, bracket, actions }: Props) {
   const rounds = Array.from({ length: Math.log2(bracket.size) }, (_, round) =>
     matches.filter((m) => m.round === round).sort((a, b) => a.index! - b.index!),
   );
-  const byId = new Map(matches.map((m) => [m.id, m]));
-
-  /** Who plays a side: the pair once known, otherwise where it will come from. */
-  function sideLabel(pairId: string | null, source: Source | undefined) {
-    if (pairId) return pairLabel(tournament, pairId);
-    switch (source?.kind) {
-      case 'group':
-        return fill(t.bracket.groupPosition, { group: source.groupId, position: source.position });
-      case 'seed':
-        return fill(t.bracket.seed, { n: source.index + 1 });
-      case 'winner': {
-        const from = byId.get(source.matchId);
-        return from
-          ? fill(t.bracket.winnerOf, { match: knockoutMatchName(t, bracket, from) })
-          : '—';
-      }
-      default:
-        return t.bracket.bye;
-    }
-  }
 
   const champion = bracket.champion
     ? pairLabel(tournament, bracket.champion)
@@ -71,8 +51,8 @@ export function BracketView({ tournament, bracket, actions }: Props) {
                     tournament={tournament}
                     match={match}
                     name={knockoutMatchName(t, bracket, match)}
-                    labelA={sideLabel(match.pairA, match.sourceA)}
-                    labelB={sideLabel(match.pairB, match.sourceB)}
+                    labelA={sideLabel(t, tournament, match, 'A')}
+                    labelB={sideLabel(t, tournament, match, 'B')}
                     actions={actions}
                   />
                 ))}

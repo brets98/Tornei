@@ -1,3 +1,4 @@
+import { Types } from 'mongoose';
 import request from 'supertest';
 import { beforeEach, describe, expect, it } from 'vitest';
 import { TournamentModel } from '../src/models/tournament.js';
@@ -118,6 +119,18 @@ describe('tournaments API', () => {
 
       expect(res.status).toBe(200);
       expect(res.body).toEqual(tournament);
+    });
+
+    it('reads tournaments saved before conflicts were computed', async () => {
+      const { agent, tournament } = await createTournament();
+      await TournamentModel.collection.updateOne(
+        { _id: new Types.ObjectId(tournament.id as string) },
+        { $unset: { conflicts: '' } },
+      );
+
+      const res = await agent.get(`/api/tournaments/${tournament.id}`);
+
+      expect(res.body.conflicts).toEqual([]);
     });
 
     it("answers 404 for someone else's tournament or an invalid id", async () => {

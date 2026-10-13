@@ -3,15 +3,8 @@ import { useNavigate } from 'react-router';
 import type { Messages } from '../i18n/en';
 import { fill, useI18n } from '../i18n/context';
 import { ApiError, apiPost } from '../lib/api';
-import {
-  buildMatchFormat,
-  DECIDERS,
-  decidingSet,
-  exampleResult,
-  SETS_CHOICES,
-  type Decider,
-  type SetsChoice,
-} from '../lib/score';
+import { MatchFormatFields } from '../components/tournament/MatchFormatFields';
+import { buildMatchFormat, type Decider, type SetsChoice } from '../lib/score';
 import {
   entriesLabel,
   issueMessage,
@@ -314,7 +307,6 @@ function StructureStep({
 }: StepProps & { entries: ReturnType<typeof entriesLabel>; preview: Preview | null }) {
   const { t } = useI18n();
   const withGroups = form.structureType === 'groups_knockout';
-  const matchFormat = buildMatchFormat(form.sets, form.decider);
   return (
     <fieldset>
       <label>
@@ -385,43 +377,12 @@ function StructureStep({
           />
         </label>
       )}
-      <div className="choice column">
-        <span>{t.matchFormats.sets}</span>
-        {SETS_CHOICES.filter((sets) => form.sport === 'tennis' || sets !== 'bestOf5').map(
-          (sets) => (
-            <label key={sets} className="checkbox">
-              <input
-                type="radio"
-                name="sets"
-                checked={form.sets === sets}
-                onChange={() => update({ sets })}
-              />
-              {t.matchFormats[sets]}
-            </label>
-          ),
-        )}
-      </div>
-      {matchFormat.bestOf > 1 && (
-        <div className="choice column">
-          <span>
-            {fill(t.matchFormats.decider, { nth: t.matchFormats.nth[decidingSet(matchFormat)] })}
-          </span>
-          {DECIDERS.map((decider) => (
-            <label key={decider} className="checkbox">
-              <input
-                type="radio"
-                name="decider"
-                checked={form.decider === decider}
-                onChange={() => update({ decider })}
-              />
-              {t.matchFormats.deciders[decider]}
-            </label>
-          ))}
-        </div>
-      )}
-      <p className="muted">
-        {fill(t.wizard.resultExample, { example: exampleResult(matchFormat) })}
-      </p>
+      <MatchFormatFields
+        sport={form.sport}
+        sets={form.sets}
+        decider={form.decider}
+        onChange={update}
+      />
       {preview && <PreviewBox preview={preview} entries={entries} />}
     </fieldset>
   );
