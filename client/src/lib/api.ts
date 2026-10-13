@@ -24,12 +24,24 @@ export function apiGet<T>(path: string): Promise<T> {
   return request<T>(path);
 }
 
-export function apiPost<T>(path: string, body: unknown = {}): Promise<T> {
+function send<T>(method: 'POST' | 'PATCH' | 'PUT', path: string, body: unknown): Promise<T> {
   return request<T>(path, {
-    method: 'POST',
+    method,
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(body),
   });
+}
+
+export function apiPost<T>(path: string, body: unknown = {}): Promise<T> {
+  return send<T>('POST', path, body);
+}
+
+export function apiPatch<T>(path: string, body: unknown): Promise<T> {
+  return send<T>('PATCH', path, body);
+}
+
+export function apiPut<T>(path: string, body: unknown): Promise<T> {
+  return send<T>('PUT', path, body);
 }
 
 export function apiDelete(path: string): Promise<void> {

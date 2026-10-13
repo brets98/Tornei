@@ -1,5 +1,29 @@
 import { vi } from 'vitest';
-import type { Tournament, TournamentListItem } from '../lib/tournaments';
+import type { Match, StandingRow, Tournament, TournamentListItem } from '../lib/tournaments';
+
+export const row = (pairId: string, changes: Partial<StandingRow> = {}): StandingRow => ({
+  pairId,
+  played: 0,
+  wins: 0,
+  losses: 0,
+  gamesFor: 0,
+  gamesAgainst: 0,
+  ...changes,
+});
+
+export const groupMatch = (groupId: string, pairA: string, pairB: string): Match => ({
+  id: `${pairA}-${pairB}`,
+  phase: 'group',
+  groupId,
+  pairA,
+  pairB,
+  scoreA: null,
+  scoreB: null,
+  courtId: null,
+  timeSlotId: null,
+  state: 'todo',
+  winner: null,
+});
 
 export const json = (body: unknown, status = 200) =>
   new Response(status === 204 ? null : JSON.stringify(body), { status });
@@ -48,8 +72,9 @@ export const tournament: Tournament = {
     { id: 'p4', players: ['', ''] },
   ],
   groups: [
-    { id: 'A', pairIds: ['p1', 'p2'] },
-    { id: 'B', pairIds: ['p3', 'p4'] },
+    { id: 'A', pairIds: ['p1', 'p2'], standings: [row('p1'), row('p2')], complete: false },
+    { id: 'B', pairIds: ['p3', 'p4'], standings: [row('p3'), row('p4')], complete: false },
   ],
   seeding: [],
+  matches: [groupMatch('A', 'p1', 'p2'), groupMatch('B', 'p3', 'p4')],
 };

@@ -1,12 +1,15 @@
-import { render, screen } from '@testing-library/react';
+import { fireEvent, screen, waitFor, within } from '@testing-library/react';
 import { MemoryRouter, Route, Routes } from 'react-router';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { json, stubApi, tournament } from '../test/tournament-fixtures';
+import type { Tournament } from '../lib/tournaments';
+import { renderIn } from '../test/render';
+import { json, row, stubApi, tournament } from '../test/tournament-fixtures';
 import { TournamentPage } from './TournamentPage';
 
-function renderPage(id = 't1') {
-  render(
-    <MemoryRouter initialEntries={[`/tournaments/${id}`]}>
+function renderPage(path = '/tournaments/t1') {
+  renderIn(
+    'it',
+    <MemoryRouter initialEntries={[path]}>
       <Routes>
         <Route path="tournaments/:id" element={<TournamentPage />} />
       </Routes>
@@ -14,9 +17,38 @@ function renderPage(id = 't1') {
   );
 }
 
+const groupsTab = '/tournaments/t1?tab=groups';
+
+/** What the API received for `METHOD url`, parsed. */
+function sent(fetchMock: ReturnType<typeof stubApi>, method: string, url: string) {
+  const call = fetchMock.mock.calls.find(([u, init]) => u === url && init?.method === method);
+  return call && JSON.parse(call[1]!.body as string);
+}
+
+/** p1 beat p2 6-3 in group A, as the server would answer. */
+const afterScore: Tournament = {
+  ...tournament,
+  summary: { status: 'groups', matchesDone: 1, matchesTotal: 2 },
+  matches: tournament.matches.map((m) =>
+    m.id === 'p1-p2' ? { ...m, scoreA: 6, scoreB: 3, state: 'done', winner: 'p1' } : m,
+  ),
+  groups: tournament.groups.map((g) =>
+    g.id === 'A'
+      ? {
+          ...g,
+          standings: [
+            row('p1', { played: 1, wins: 1, gamesFor: 6, gamesAgainst: 3 }),
+            row('p2', { played: 1, losses: 1, gamesFor: 3, gamesAgainst: 6 }),
+          ],
+        }
+      : g,
+  ),
+};
+
 describe('TournamentPage', () => {
   afterEach(() => {
     vi.unstubAllGlobals();
+    vi.restoreAllMocks();
   });
 
   it('shows the overview: stats, groups, courts and time slots', async () => {
@@ -36,8 +68,198 @@ describe('TournamentPage', () => {
 
   it('says when the tournament does not exist', async () => {
     stubApi({});
-    renderPage('missing');
+    renderPage('/tournaments/missing');
 
     expect(await screen.findByText('Torneo non trovato.')).toBeInTheDocument();
+  });
+
+  it('opens the groups tab from the menu of tabs', async () => {
+    stubApi({ 'GET /api/tournaments/t1': () => json(tournament) });
+    renderPage();
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Gironi' }));
+
+    expect(screen.getByText('GIRONE A')).toBeInTheDocument();
+    expect(screen.getAllByRole('heading', { name: 'Classifica' })).toHaveLength(2);
+  });
+
+  it('shows the entries in seed order for a knockout without groups', async () => {
+    const knockout: Tournament = {
+      ...tournament,
+      structure: { type: 'knockout', groupCount: 0, advanceA: 0, advanceB: 0 },
+      groups: [],
+      seeding: ['p3', 'p1', 'p2', 'p4'],
+      matches: [],
+    };
+    stubApi({ 'GET /api/tournaments/t1': () => json(knockout) });
+    renderPage();
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Iscritti' }));
+
+    expect(screen.queryByRole('button', { name: 'Gironi' })).not.toBeInTheDocument();
+    // p1 is second in the seeding
+    expect(screen.getByLabelText('Giocatore 1 di 2')).toHaveValue('Rossi');
+    expect(screen.getByRole('button', { name: 'Sorteggio casuale' })).toBeInTheDocument();
+  });
+
+  describe('groups tab', () => {
+    it('saves the player names when leaving the field', async () => {
+      const fetchMock = stubApi({
+        'GET /api/tournaments/t1': () => json(tournament),
+        'PATCH /api/tournaments/t1/pairs/p2': (body) =>
+          json({
+            ...tournament,
+            pairs: tournament.pairs.map((p) =>
+              p.id === 'p2' ? { ...p, players: (body as { players: string[] }).players } : p,
+            ),
+          }),
+      });
+      renderPage(groupsTab);
+
+      const input = await screen.findByLabelText('Giocatore 1 di A2');
+      fireEvent.change(input, { target: { value: 'Verdi' } });
+      expect(fetchMock).not.toHaveBeenCalledWith('/api/tournaments/t1/pairs/p2', expect.anything());
+      fireEvent.blur(input);
+
+      expect(await screen.findByText('Salvato')).toBeInTheDocument();
+      expect(sent(fetchMock, 'PATCH', '/api/tournaments/t1/pairs/p2')).toEqual({
+        players: ['Verdi', ''],
+      });
+      // The pair now goes by its player's name
+      const standings = screen.getAllByRole('table')[1];
+      expect(within(standings).getByText('Verdi')).toBeInTheDocument();
+    });
+
+    it('saves a score and shows the standings computed by the server', async () => {
+      const fetchMock = stubApi({
+        'GET /api/tournaments/t1': () => json(tournament),
+        'PATCH /api/tournaments/t1/matches/p1-p2': () => json(afterScore),
+      });
+      renderPage(groupsTab);
+
+      const scoreA = await screen.findByLabelText('Punteggio di Rossi / Bianchi');
+      fireEvent.change(scoreA, { target: { value: '6' } });
+      fireEvent.blur(scoreA);
+
+      expect(await screen.findByText('Giocata')).toBeInTheDocument();
+      expect(sent(fetchMock, 'PATCH', '/api/tournaments/t1/matches/p1-p2')).toEqual({ scoreA: 6 });
+      const standings = screen.getAllByRole('table')[1];
+      const leader = within(standings).getAllByRole('row')[1];
+      expect(leader).toHaveClass('leader');
+      expect(within(leader).getByText('+3')).toBeInTheDocument();
+    });
+
+    it('ignores a score that is not a number', async () => {
+      const fetchMock = stubApi({ 'GET /api/tournaments/t1': () => json(tournament) });
+      renderPage(groupsTab);
+
+      const scoreA = await screen.findByLabelText('Punteggio di Rossi / Bianchi');
+      fireEvent.change(scoreA, { target: { value: 'sei' } });
+      fireEvent.blur(scoreA);
+
+      expect(scoreA).toHaveValue('');
+      expect(fetchMock).toHaveBeenCalledTimes(1);
+    });
+
+    it('saves court and time from the dropdowns', async () => {
+      const fetchMock = stubApi({
+        'GET /api/tournaments/t1': () => json(tournament),
+        'PATCH /api/tournaments/t1/matches/p1-p2': () => json(tournament),
+      });
+      renderPage(groupsTab);
+
+      fireEvent.change(await screen.findByLabelText('Campo di Rossi / Bianchi – A2'), {
+        target: { value: 'c2' },
+      });
+
+      await waitFor(() =>
+        expect(sent(fetchMock, 'PATCH', '/api/tournaments/t1/matches/p1-p2')).toEqual({
+          courtId: 'c2',
+        }),
+      );
+    });
+
+    it('moves a pair to another group before the first result', async () => {
+      const fetchMock = stubApi({
+        'GET /api/tournaments/t1': () => json(tournament),
+        'PUT /api/tournaments/t1/groups': () => json(tournament),
+      });
+      renderPage(groupsTab);
+
+      fireEvent.change(await screen.findByLabelText('Girone di A2'), { target: { value: 'B' } });
+
+      await waitFor(() =>
+        expect(sent(fetchMock, 'PUT', '/api/tournaments/t1/groups')).toEqual({
+          groups: [
+            { id: 'A', pairIds: ['p1'] },
+            { id: 'B', pairIds: ['p3', 'p4', 'p2'] },
+          ],
+        }),
+      );
+    });
+
+    it('explains a refused change and shows the saved data again', async () => {
+      stubApi({
+        'GET /api/tournaments/t1': () => json(tournament),
+        'PUT /api/tournaments/t1/groups': () =>
+          json(
+            { error: 'Invalid change', issues: [{ code: 'GROUP_TOO_SMALL', params: { min: 2 } }] },
+            400,
+          ),
+      });
+      renderPage(groupsTab);
+
+      fireEvent.change(await screen.findByLabelText('Girone di A2'), { target: { value: 'B' } });
+
+      expect(
+        await screen.findByText('Ogni girone deve avere almeno 2 iscritti.'),
+      ).toBeInTheDocument();
+    });
+
+    it('draws the groups after confirmation', async () => {
+      const fetchMock = stubApi({
+        'GET /api/tournaments/t1': () => json(tournament),
+        'POST /api/tournaments/t1/draw': () => json(tournament),
+      });
+      vi.spyOn(window, 'confirm').mockReturnValue(true);
+      renderPage(groupsTab);
+
+      fireEvent.click(await screen.findByRole('button', { name: 'Sorteggio casuale' }));
+
+      await waitFor(() =>
+        expect(fetchMock).toHaveBeenCalledWith('/api/tournaments/t1/draw', expect.anything()),
+      );
+    });
+
+    it('locks groups and draw once a result is entered', async () => {
+      stubApi({ 'GET /api/tournaments/t1': () => json(afterScore) });
+      renderPage(groupsTab);
+
+      expect(
+        await screen.findByText('Ci sono già risultati: i gironi non si possono più modificare.'),
+      ).toBeInTheDocument();
+      expect(screen.queryByRole('button', { name: 'Sorteggio casuale' })).not.toBeInTheDocument();
+      expect(screen.queryByLabelText('Girone di A2')).not.toBeInTheDocument();
+    });
+
+    it('reloads the tournament if it was changed elsewhere', async () => {
+      const fetchMock = stubApi({
+        'GET /api/tournaments/t1': () => json(tournament),
+        'PATCH /api/tournaments/t1/matches/p1-p2': () => json({ error: 'Changed' }, 409),
+      });
+      renderPage(groupsTab);
+
+      const scoreA = await screen.findByLabelText('Punteggio di Rossi / Bianchi');
+      fireEvent.change(scoreA, { target: { value: '6' } });
+      fireEvent.blur(scoreA);
+
+      expect(
+        await screen.findByText(
+          'Il torneo è stato modificato altrove: ricaricato con i dati aggiornati.',
+        ),
+      ).toBeInTheDocument();
+      await waitFor(() => expect(scoreA).toHaveValue(''));
+      expect(fetchMock.mock.calls.filter(([url]) => url === '/api/tournaments/t1')).toHaveLength(2);
+    });
   });
 });
