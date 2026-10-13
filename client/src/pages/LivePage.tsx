@@ -1,13 +1,34 @@
 import { useCallback, useEffect, useState } from 'react';
-import { useNavigate, useParams, useSearchParams } from 'react-router';
+import { Link, useParams, useSearchParams } from 'react-router';
 import { BracketView } from '../components/tournament/BracketView';
 import { GroupsBoard } from '../components/tournament/GroupsBoard';
 import { fill, useI18n } from '../i18n/context';
 import { ApiError, apiGet } from '../lib/api';
 import { formatDate, type Tournament, type TournamentListItem } from '../lib/tournaments';
+import { useFullscreen } from '../lib/useFullscreen';
 
 /** How often the shown tournament is loaded again. */
 export const REFRESH_MS = 30 * 1000;
+
+/** One tournament to choose: name, sport, date, status and progress; opens its live view. */
+function TournamentCard({ item }: { item: TournamentListItem }) {
+  const { t } = useI18n();
+  const { matchesDone, matchesTotal, status } = item.summary;
+  return (
+    <Link className="tournament-card" to={`/live/${item.id}`}>
+      <span className="eyebrow">{`${t.sport[item.sport]} · ${formatDate(item.date)}`}</span>
+      <b>{item.name}</b>
+      {item.subtitle && <span className="muted">{item.subtitle}</span>}
+      <span className="card-foot">
+        <span className={`badge status-${status}`}>{t.status[status]}</span>
+        <span className="progress">
+          <progress value={matchesDone} max={Math.max(matchesTotal, 1)} />
+          <span>{fill(t.list.progressValue, { done: matchesDone, total: matchesTotal })}</span>
+        </span>
+      </span>
+    </Link>
+  );
+}
 
 /** 'groups' or 'bracket-A' / 'bracket-B'. */
 type View = 'groups' | `bracket-${string}`;
@@ -16,9 +37,10 @@ type View = 'groups' | `bracket-${string}`;
  * Groups or one bracket, with a switch between them (kept in the address, `?view=`). Until one
  * is chosen it follows the tournament: the groups while they are played, then bracket A.
  */
-function Board({ tournament }: { tournament: Tournament }) {
+function Board({ tournament, updated }: { tournament: Tournament; updated: string }) {
   const { t } = useI18n();
   const [searchParams, setSearchParams] = useSearchParams();
+  const { ref, fullscreen, toggle } = useFullscreen<HTMLDivElement>();
   const views: View[] = [
     ...(tournament.groups.length > 0 ? ['groups' as const] : []),
     ...tournament.brackets.map((b): View => `bracket-${b.id}`),
@@ -32,24 +54,35 @@ function Board({ tournament }: { tournament: Tournament }) {
   const bracket = tournament.brackets.find((b) => view === `bracket-${b.id}`);
 
   return (
-    <>
-      {views.length > 1 && (
-        <nav className="tabs live-switch" aria-label={t.live.switch}>
-          {views.map((name) => (
-            <button
-              key={name}
-              type="button"
-              className={`tab${name === view ? ' active' : ''}`}
-              aria-current={name === view ? 'page' : undefined}
-              onClick={() => setSearchParams({ view: name }, { replace: true })}
-            >
-              {name === 'groups'
-                ? t.groups.title
-                : fill(t.tournament.tabs.bracket, { id: name.slice('bracket-'.length) })}
-            </button>
-          ))}
-        </nav>
-      )}
+    <div ref={ref} className={`live-board${fullscreen ? ' fullscreen' : ''}`}>
+      <div className="live-toolbar">
+        {fullscreen && (
+          <div className="live-title">
+            <b>{tournament.name}</b>
+            <span className="muted">{updated}</span>
+          </div>
+        )}
+        {views.length > 1 && (
+          <nav className="tabs live-switch" aria-label={t.live.switch}>
+            {views.map((name) => (
+              <button
+                key={name}
+                type="button"
+                className={`tab${name === view ? ' active' : ''}`}
+                aria-current={name === view ? 'page' : undefined}
+                onClick={() => setSearchParams({ view: name }, { replace: true })}
+              >
+                {name === 'groups'
+                  ? t.groups.title
+                  : fill(t.tournament.tabs.bracket, { id: name.slice('bracket-'.length) })}
+              </button>
+            ))}
+          </nav>
+        )}
+        <button type="button" className="secondary fullscreen-toggle" onClick={toggle}>
+          {fullscreen ? t.live.exitFullscreen : t.live.fullscreen}
+        </button>
+      </div>
       {view === 'groups' && (
         <section>
           <div className="view-title">
@@ -59,7 +92,7 @@ function Board({ tournament }: { tournament: Tournament }) {
         </section>
       )}
       {bracket && <BracketView tournament={tournament} bracket={bracket} />}
-    </>
+    </div>
   );
 }
 
@@ -74,7 +107,6 @@ type Shown =
  */
 export function LivePage() {
   const { id } = useParams();
-  const navigate = useNavigate();
   const { t, locale } = useI18n();
   const [list, setList] = useState<TournamentListItem[] | null>(null);
   const [loaded, setLoaded] = useState<Shown | null>(null);
@@ -121,27 +153,34 @@ export function LivePage() {
   }, [id, load]);
 
   const shown = loaded && loaded.id === id ? loaded : { status: 'loading' as const };
+  const updated =
+    shown.status === 'ok'
+      ? fill(t.live.updated, {
+          time: shown.at.toLocaleTimeString(locale, { hour: '2-digit', minute: '2-digit' }),
+        })
+      : '';
 
   return (
     <article className="page wide live">
       <div className="page-head">
         <h1>{t.live.title}</h1>
-        <label className="inline">
-          {t.live.choose}
-          <select value={id ?? ''} onChange={(e) => navigate(`/live/${e.target.value}`)}>
-            <option value="" disabled>
-              {t.live.placeholder}
-            </option>
-            {list?.map((item) => (
-              <option key={item.id} value={item.id}>
-                {`${item.name} · ${formatDate(item.date)}`}
-              </option>
-            ))}
-          </select>
-        </label>
+        {id && <Link to="/live">{t.live.all}</Link>}
       </div>
 
-      {!id && <p className="muted">{list?.length === 0 ? t.list.empty : t.live.pick}</p>}
+      {!id && list === null && <p>{t.common.loading}</p>}
+      {!id && list?.length === 0 && <p className="muted">{t.list.empty}</p>}
+      {!id && list && list.length > 0 && (
+        <>
+          <p className="muted">{t.live.pick}</p>
+          <ul className="tournament-cards">
+            {list.map((item) => (
+              <li key={item.id}>
+                <TournamentCard item={item} />
+              </li>
+            ))}
+          </ul>
+        </>
+      )}
       {id && shown.status === 'loading' && <p>{t.common.loading}</p>}
       {id && shown.status === 'notFound' && <p className="error">{t.tournament.notFound}</p>}
       {id && shown.status === 'ok' && (
@@ -156,9 +195,7 @@ export function LivePage() {
             </h2>
             <div className="live-status">
               <span className="muted" role="status">
-                {fill(t.live.updated, {
-                  time: shown.at.toLocaleTimeString(locale, { hour: '2-digit', minute: '2-digit' }),
-                })}
+                {updated}
               </span>
               <button type="button" className="secondary" onClick={() => load()}>
                 {t.live.refresh}
@@ -170,7 +207,7 @@ export function LivePage() {
               </p>
             )}
           </header>
-          <Board tournament={shown.tournament} />
+          <Board tournament={shown.tournament} updated={updated} />
         </>
       )}
     </article>

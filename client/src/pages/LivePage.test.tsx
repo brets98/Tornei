@@ -42,28 +42,43 @@ describe('LivePage', () => {
     vi.unstubAllGlobals();
   });
 
-  it('lets you choose a tournament, then shows it read-only', async () => {
+  it('lets you choose a tournament by its card, then shows it read-only', async () => {
+    const other = { ...listItem, id: 't2', name: 'Open d’autunno', sport: 'tennis' as const };
     stubApi({
-      'GET /api/tournaments': () => json([listItem]),
+      'GET /api/tournaments': () => json([listItem, other]),
       'GET /api/tournaments/t1': () => json(scored),
     });
     renderPage();
 
+    const card = await screen.findByRole('link', { name: /Torneo di primavera/ });
+    expect(card).toHaveTextContent('Padel · 20/10/2026');
+    expect(card).toHaveTextContent('Fase a gironi');
+    expect(card).toHaveTextContent('3/22 partite');
+    expect(screen.getByRole('link', { name: /Open d’autunno/ })).toHaveTextContent('Tennis');
     expect(
       screen.getByText(/Scegli un torneo per seguirne gironi e tabelloni/),
     ).toBeInTheDocument();
-    const choose = screen.getByLabelText('Torneo');
-    await screen.findByRole('option', { name: 'Torneo di primavera · 20/10/2026' });
-    fireEvent.change(choose, { target: { value: 't1' } });
+    fireEvent.click(card);
 
     const groupA = await screen.findByLabelText('Girone A');
     expect(within(groupA).getByText('6-3 6-4')).toBeInTheDocument();
     expect(
       within(screen.getByLabelText('Girone B')).getByText('Mediolanum · 19:30'),
     ).toBeInTheDocument();
-    // Nothing to edit: no text fields, and the tournament choice is the only dropdown
+    // Nothing to edit: no text fields, no dropdowns, and no cards while a tournament is shown
     expect(screen.queryAllByRole('textbox')).toHaveLength(0);
-    expect(screen.getAllByRole('combobox')).toHaveLength(1);
+    expect(screen.queryAllByRole('combobox')).toHaveLength(0);
+    expect(screen.queryByRole('link', { name: /Open d’autunno/ })).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('link', { name: '← Tutti i tornei' }));
+    expect(await screen.findByRole('link', { name: /Open d’autunno/ })).toBeInTheDocument();
+  });
+
+  it('says when there are no tournaments to choose', async () => {
+    stubApi({ 'GET /api/tournaments': () => json([]) });
+    renderPage();
+
+    expect(await screen.findByText('Non hai ancora creato tornei.')).toBeInTheDocument();
   });
 
   it('updates by itself every 30 seconds, and on request', async () => {
@@ -215,6 +230,58 @@ describe('LivePage', () => {
       'aria-current',
       'page',
     );
+  });
+
+  describe('full screen', () => {
+    afterEach(() => {
+      delete (document as { fullscreenEnabled?: boolean }).fullscreenEnabled;
+      delete (HTMLElement.prototype as { requestFullscreen?: unknown }).requestFullscreen;
+    });
+
+    it('covers the screen with the chosen view, and leaves with the button or Escape', async () => {
+      stubApi({
+        'GET /api/tournaments': () => json([listItem]),
+        'GET /api/tournaments/t1': () => json(withBracket),
+      });
+      renderPage('/live/t1?view=bracket-A');
+      await screen.findByText('1° Girone A');
+      const board = document.querySelector('.live-board')!;
+
+      fireEvent.click(screen.getByRole('button', { name: 'Schermo intero' }));
+      expect(board).toHaveClass('fullscreen');
+      // The tournament name and the update time stay visible, and the switch still works
+      expect(within(board as HTMLElement).getByText('Torneo di primavera')).toBeInTheDocument();
+      expect(within(board as HTMLElement).getByText(/Aggiornato alle/)).toBeInTheDocument();
+      expect(screen.getByText('1° Girone A')).toBeInTheDocument();
+      fireEvent.click(screen.getByRole('button', { name: 'Gironi' }));
+      expect(within(board as HTMLElement).getByLabelText('Girone A')).toBeInTheDocument();
+
+      fireEvent.click(screen.getByRole('button', { name: 'Esci dallo schermo intero' }));
+      expect(board).not.toHaveClass('fullscreen');
+
+      fireEvent.click(screen.getByRole('button', { name: 'Schermo intero' }));
+      fireEvent.keyDown(document, { key: 'Escape' });
+      expect(board).not.toHaveClass('fullscreen');
+    });
+
+    it("uses the browser's full screen where available", async () => {
+      Object.defineProperty(document, 'fullscreenEnabled', { value: true, configurable: true });
+      const requestFullscreen = vi.fn(() => Promise.resolve());
+      Object.defineProperty(HTMLElement.prototype, 'requestFullscreen', {
+        value: requestFullscreen,
+        configurable: true,
+      });
+      stubApi({
+        'GET /api/tournaments': () => json([listItem]),
+        'GET /api/tournaments/t1': () => json(withBracket),
+      });
+      renderPage('/live/t1');
+
+      fireEvent.click(await screen.findByRole('button', { name: 'Schermo intero' }));
+
+      expect(requestFullscreen).toHaveBeenCalledTimes(1);
+      expect(requestFullscreen.mock.contexts[0]).toHaveClass('live-board');
+    });
   });
 
   it('says when the tournament does not exist', async () => {
