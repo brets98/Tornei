@@ -1,6 +1,6 @@
 import { fill } from '../i18n/context';
 import type { Messages } from '../i18n/en';
-import type { MatchFormat, SetScore } from './score';
+import { decidingSet, setsChoice, type MatchFormat, type SetScore } from './score';
 
 /** Shapes returned by /api/tournaments (see server/src/domain/types.ts). */
 
@@ -114,6 +114,16 @@ export function issueMessage(t: Messages, { code, params }: Issue): string {
 /** 'Coppie' / 'giocatori', etc., for the tournament's format. */
 export function entriesLabel(t: Messages, format: Format) {
   return t.entries[format];
+}
+
+/** 'Al meglio dei 5 set, tie-break a 10 sul 6-6 nel quinto set' */
+export function matchFormatName(t: Messages, format: MatchFormat): string {
+  const sets = setsChoice(format);
+  if (sets === 'oneSet' || sets === 'proSet') return t.matchFormats[sets];
+  return fill(t.matchFormats.names[format.decider], {
+    sets: t.matchFormats[sets],
+    nth: t.matchFormats.nth[decidingSet(format)],
+  });
 }
 
 /** Name of a knockout round from how many matches it has: 1 → 'Finale', 2 → 'Semifinali', … */

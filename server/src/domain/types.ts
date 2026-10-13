@@ -12,13 +12,15 @@ export type StructureType = (typeof STRUCTURE_TYPES)[number];
 export type BracketId = 'A' | 'B';
 
 /**
- * How a match is played: best of `bestOf` sets to `gamesPerSet` games; the deciding set
- * (the last possible one) can be replaced by a super tie-break to 10 points.
+ * How a match is played: best of `bestOf` sets to `gamesPerSet` games. The deciding set (the
+ * last possible one) is a normal set (`set`), a set whose tie-break at 6-6 is played to 10
+ * (`tiebreak10`, as in Grand Slams), or a super tie-break to 10 instead of the set
+ * (`superTiebreak`, common in padel).
  */
 export interface MatchFormat {
   bestOf: number;
   gamesPerSet: number;
-  decider: 'set' | 'superTiebreak';
+  decider: 'set' | 'tiebreak10' | 'superTiebreak';
 }
 
 /** One set from side A's point of view. A super tie-break stores its points as `a`/`b`. */

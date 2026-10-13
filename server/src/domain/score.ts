@@ -1,12 +1,16 @@
 import type { Issue } from './setup.js';
 import type { MatchFormat, SetScore } from './types.js';
 
-/** The match formats a tournament can choose (see the wizard). */
+/** Common match formats, for tests and scripts. Any valid combination can be chosen. */
 export const MATCH_FORMATS = {
   /** Best of 3 sets to 6, tie-break at 6-6 */
   bestOf3: { bestOf: 3, gamesPerSet: 6, decider: 'set' },
-  /** Best of 3 sets to 6, the third set is a super tie-break to 10 */
+  /** Best of 3 sets to 6, the third set is a super tie-break to 10 (common in padel) */
   bestOf3SuperTiebreak: { bestOf: 3, gamesPerSet: 6, decider: 'superTiebreak' },
+  /** Best of 5 sets to 6, tie-break at 6-6 */
+  bestOf5: { bestOf: 5, gamesPerSet: 6, decider: 'set' },
+  /** Best of 5 sets, the fifth set's tie-break at 6-6 is played to 10 (Grand Slams) */
+  bestOf5Tiebreak10: { bestOf: 5, gamesPerSet: 6, decider: 'tiebreak10' },
   /** One set to 6, tie-break at 6-6 */
   oneSet: { bestOf: 1, gamesPerSet: 6, decider: 'set' },
   /** One set to 9, tie-break at 8-8 */
@@ -15,13 +19,20 @@ export const MATCH_FORMATS = {
 
 export const DEFAULT_MATCH_FORMAT: MatchFormat = MATCH_FORMATS.bestOf3;
 
-export function isKnownMatchFormat(format: unknown): format is MatchFormat {
+export const DECIDERS = ['set', 'tiebreak10', 'superTiebreak'] as const;
+
+/**
+ * One set to 6 or a pro set to 9; or best of 3 or 5 sets to 6, whose deciding set can have its
+ * tie-break played to 10 or be replaced by a super tie-break to 10. Best of 5 is tennis only.
+ */
+export function isValidMatchFormat(format: unknown): format is MatchFormat {
   const f = format as Partial<MatchFormat> | null;
-  return Object.values(MATCH_FORMATS).some(
-    (known) =>
-      f?.bestOf === known.bestOf &&
-      f.gamesPerSet === known.gamesPerSet &&
-      f.decider === known.decider,
+  if (!f || typeof f !== 'object') return false;
+  if (f.bestOf === 1) return (f.gamesPerSet === 6 || f.gamesPerSet === 9) && f.decider === 'set';
+  return (
+    (f.bestOf === 3 || f.bestOf === 5) &&
+    f.gamesPerSet === 6 &&
+    (DECIDERS as readonly unknown[]).includes(f.decider)
   );
 }
 
@@ -29,6 +40,14 @@ export function isKnownMatchFormat(format: unknown): format is MatchFormat {
 const MAX_NUMBER = 99;
 const SUPER_TIEBREAK_POINTS = 10;
 const TIEBREAK_POINTS = 7;
+const LONG_TIEBREAK_POINTS = 10;
+
+/** Points a set's tie-break is played to: 7, or 10 in a deciding set that says so. */
+export function tiebreakPoints(format: MatchFormat, index: number) {
+  return format.decider === 'tiebreak10' && index === format.bestOf - 1
+    ? LONG_TIEBREAK_POINTS
+    : TIEBREAK_POINTS;
+}
 
 /** Games at which a set goes to a tie-break: 6-6 (to 6), 4-4 (to 4), 8-8 (pro set to 9). */
 function tiebreakAt(gamesPerSet: number) {
@@ -70,9 +89,9 @@ function checkSet(set: SetScore, format: MatchFormat, index: number): string | n
   if (set.tiebreak) {
     if (!isTiebreakSet) return 'SCORE_TIEBREAK_NOT_PLAYED';
     const { a, b } = set.tiebreak;
-    // The set's winner must have won the tie-break, to 7 by 2
+    // The set's winner must have won the tie-break, to 7 (or 10) by 2
     const [tw, tl] = set.a > set.b ? [a, b] : [b, a];
-    if (!isRaceWon(tw, tl, TIEBREAK_POINTS)) return 'SCORE_TIEBREAK_INVALID';
+    if (!isRaceWon(tw, tl, tiebreakPoints(format, index))) return 'SCORE_TIEBREAK_INVALID';
   }
   return null;
 }
@@ -107,7 +126,14 @@ export function checkSets(sets: unknown, format: MatchFormat): Issue | null {
       index,
     );
     if (problem) {
-      return { code: problem, params: { set: index + 1, games: format.gamesPerSet } };
+      return {
+        code: problem,
+        params: {
+          set: index + 1,
+          games: format.gamesPerSet,
+          points: tiebreakPoints(format, index),
+        },
+      };
     }
     if (set.a > set.b) wonA++;
     else wonB++;
@@ -120,7 +146,7 @@ export interface Outcome {
   winner: 'A' | 'B';
   setsA: number;
   setsB: number;
-  /** A super tie-break counts as one game to its winner */
+  /** A super tie-break counts as a set, and as one game to its winner */
   gamesA: number;
   gamesB: number;
 }

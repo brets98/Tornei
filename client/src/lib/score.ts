@@ -7,57 +7,73 @@ export interface SetScore {
   tiebreak?: { a: number; b: number };
 }
 
+/**
+ * How a match is played (same rules as server/src/domain/score.ts): one set to 6, a pro set to
+ * 9, or best of 3 or 5 sets (5 in tennis only) whose deciding set is a normal set, has its
+ * tie-break at 6-6 played to 10 (`tiebreak10`), or is a super tie-break to 10 (`superTiebreak`).
+ */
 export interface MatchFormat {
   bestOf: number;
   gamesPerSet: number;
-  decider: 'set' | 'superTiebreak';
+  decider: Decider;
 }
 
-/** The formats a tournament can choose; same list as server/src/domain/score.ts. */
-export const MATCH_FORMATS = {
-  bestOf3: { bestOf: 3, gamesPerSet: 6, decider: 'set' },
-  bestOf3SuperTiebreak: { bestOf: 3, gamesPerSet: 6, decider: 'superTiebreak' },
-  oneSet: { bestOf: 1, gamesPerSet: 6, decider: 'set' },
-  proSet: { bestOf: 1, gamesPerSet: 9, decider: 'set' },
-} as const satisfies Record<string, MatchFormat>;
+export type Decider = 'set' | 'tiebreak10' | 'superTiebreak';
+export const DECIDERS: Decider[] = ['set', 'tiebreak10', 'superTiebreak'];
 
-export type MatchFormatId = keyof typeof MATCH_FORMATS;
+/** How many sets, as chosen in the wizard. */
+export type SetsChoice = 'bestOf3' | 'bestOf5' | 'oneSet' | 'proSet';
+export const SETS_CHOICES: SetsChoice[] = ['bestOf3', 'bestOf5', 'oneSet', 'proSet'];
 
-export function matchFormatId(format: MatchFormat): MatchFormatId | undefined {
-  return (Object.keys(MATCH_FORMATS) as MatchFormatId[]).find((id) => {
-    const known = MATCH_FORMATS[id];
-    return (
-      known.bestOf === format.bestOf &&
-      known.gamesPerSet === format.gamesPerSet &&
-      known.decider === format.decider
-    );
-  });
-}
-
-/** An example result for the format, to show how to type one. */
-export function exampleResult(format: MatchFormat): string {
-  switch (matchFormatId(format)) {
-    case 'bestOf3SuperTiebreak':
-      return '6-4 3-6 10-8';
+export function buildMatchFormat(sets: SetsChoice, decider: Decider): MatchFormat {
+  switch (sets) {
     case 'oneSet':
-      return '6-4';
+      return { bestOf: 1, gamesPerSet: 6, decider: 'set' };
     case 'proSet':
-      return '9-7';
+      return { bestOf: 1, gamesPerSet: 9, decider: 'set' };
     default:
-      return '6-4 3-6 7-6(5)';
+      return { bestOf: sets === 'bestOf5' ? 5 : 3, gamesPerSet: 6, decider };
   }
 }
 
+export function setsChoice(format: MatchFormat): SetsChoice {
+  if (format.bestOf === 1) return format.gamesPerSet === 9 ? 'proSet' : 'oneSet';
+  return format.bestOf === 5 ? 'bestOf5' : 'bestOf3';
+}
+
+/** 'third' or 'fifth': the set the decider applies to. */
+export const decidingSet = (format: MatchFormat) => (format.bestOf === 5 ? 'fifth' : 'third');
+
+/** An example result for the format, to show how to type one. */
+export function exampleResult(format: MatchFormat): string {
+  if (format.bestOf === 1) return format.gamesPerSet === 9 ? '9-7' : '6-4';
+  const decider = { set: '7-6(5)', tiebreak10: '7-6(8)', superTiebreak: '10-8' }[format.decider];
+  return [...(format.bestOf === 5 ? ['6-4', '3-6', '6-3', '4-6'] : ['6-4', '3-6']), decider].join(
+    ' ',
+  );
+}
+
 const TIEBREAK_POINTS = 7;
+const LONG_TIEBREAK_POINTS = 10;
+
+function tiebreakPoints(format: MatchFormat | undefined, index: number) {
+  return format?.decider === 'tiebreak10' && index === format.bestOf - 1
+    ? LONG_TIEBREAK_POINTS
+    : TIEBREAK_POINTS;
+}
 const SET = /^(\d{1,2})-(\d{1,2})(?:\((\d{1,2})(?:-(\d{1,2}))?\))?$/;
 
 /**
  * Reads a typed result. Sets are separated by spaces or commas; a tie-break goes in brackets,
  * either the loser's points ('7-6(5)': won 7-5) or both ('7-6(7-5)'). A super tie-break is
- * typed like a set ('10-8', also '[10-8]'). Empty text clears the result. Whether the result
- * is valid for the match format is checked by the server.
+ * typed like a set ('10-8', also '[10-8]'). Empty text clears the result. With the match
+ * format, '7-6(5)' in a deciding set with a tie-break to 10 reads as won 10-5. Whether the
+ * result is valid for the format is checked by the server.
  */
-export function parseResult(text: string): { sets: SetScore[] } | { unreadable: string } {
+export function parseResult(
+  text: string,
+  format?: MatchFormat,
+): { sets: SetScore[] } | { unreadable: string } {
   const tokens = text
     .replace(/[–—:/]/g, '-')
     .replace(/\s*-\s*/g, '-')
@@ -79,7 +95,7 @@ export function parseResult(text: string): { sets: SetScore[] } | { unreadable: 
     } else {
       // '(5)': the points of whoever lost the set
       const loser = Number(match[3]);
-      const winner = Math.max(TIEBREAK_POINTS, loser + 2);
+      const winner = Math.max(tiebreakPoints(format, sets.length), loser + 2);
       sets.push({ a, b, tiebreak: a > b ? { a: winner, b: loser } : { a: loser, b: winner } });
     }
   }

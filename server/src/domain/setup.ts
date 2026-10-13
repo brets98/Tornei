@@ -1,4 +1,4 @@
-import { DEFAULT_MATCH_FORMAT, isKnownMatchFormat } from './score.js';
+import { DEFAULT_MATCH_FORMAT, isValidMatchFormat } from './score.js';
 import { FORMATS, SPORTS, STRUCTURE_TYPES, type Setup, type StructureType } from './types.js';
 
 export const LIMITS = {
@@ -121,7 +121,11 @@ export function parseSetup(input: unknown): { setup: Setup; issues: Issue[] } {
 
   // Not sent: the usual best of 3 sets
   const matchFormat = body.matchFormat ?? DEFAULT_MATCH_FORMAT;
-  if (!isKnownMatchFormat(matchFormat)) issues.push({ code: 'MATCH_FORMAT_INVALID' });
+  const validFormat = isValidMatchFormat(matchFormat);
+  if (!validFormat) issues.push({ code: 'MATCH_FORMAT_INVALID' });
+  if (validFormat && sport === 'padel' && matchFormat.bestOf > 3) {
+    issues.push({ code: 'MATCH_FORMAT_PADEL_FIVE_SETS' });
+  }
 
   return {
     setup: {
@@ -134,7 +138,7 @@ export function parseSetup(input: unknown): { setup: Setup; issues: Issue[] } {
       courts,
       timeSlots: timeSlots.filter((t): t is string => t !== null).sort(),
       structure,
-      matchFormat: isKnownMatchFormat(matchFormat)
+      matchFormat: validFormat
         ? {
             bestOf: matchFormat.bestOf,
             gamesPerSet: matchFormat.gamesPerSet,

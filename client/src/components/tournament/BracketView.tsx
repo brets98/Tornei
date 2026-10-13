@@ -1,5 +1,5 @@
 import { fill, useI18n } from '../../i18n/context';
-import { exampleResult, sideGames } from '../../lib/score';
+import { sideGames } from '../../lib/score';
 import {
   knockoutMatchName,
   pairLabel,
@@ -146,8 +146,8 @@ function BracketMatch({
       <div className="bm-meta">
         <ResultInput
           value={match.sets}
+          format={tournament.matchFormat}
           label={fill(t.groups.resultOf, { match: name })}
-          placeholder={exampleResult(tournament.matchFormat)}
           disabled={!ready && match.sets.length === 0}
           onSave={(sets) => save({ sets })}
           onUnreadable={actions.reportUnreadable}

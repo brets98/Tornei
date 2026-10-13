@@ -1,4 +1,10 @@
-import { formatResult, parseResult, type SetScore } from '../../lib/score';
+import {
+  exampleResult,
+  formatResult,
+  parseResult,
+  type MatchFormat,
+  type SetScore,
+} from '../../lib/score';
 import type { Tournament } from '../../lib/tournaments';
 import { CommitInput } from './CommitInput';
 
@@ -8,15 +14,15 @@ import { CommitInput } from './CommitInput';
  */
 export function ResultInput({
   value,
+  format,
   label,
-  placeholder,
   disabled,
   onSave,
   onUnreadable,
 }: {
   value: SetScore[];
+  format: MatchFormat;
   label: string;
-  placeholder: string;
   disabled?: boolean;
   onSave: (sets: SetScore[]) => void;
   onUnreadable: (text: string) => void;
@@ -25,11 +31,11 @@ export function ResultInput({
     <CommitInput
       className="result-input"
       aria-label={label}
-      placeholder={placeholder}
+      placeholder={exampleResult(format)}
       disabled={disabled}
       value={formatResult(value)}
       onCommit={(text) => {
-        const result = parseResult(text);
+        const result = parseResult(text, format);
         if ('sets' in result) onSave(result.sets);
         else onUnreadable(result.unreadable);
       }}

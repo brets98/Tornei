@@ -3,10 +3,19 @@ import { useNavigate } from 'react-router';
 import type { Messages } from '../i18n/en';
 import { fill, useI18n } from '../i18n/context';
 import { ApiError, apiPost } from '../lib/api';
-import { exampleResult, MATCH_FORMATS, type MatchFormatId } from '../lib/score';
+import {
+  buildMatchFormat,
+  DECIDERS,
+  decidingSet,
+  exampleResult,
+  SETS_CHOICES,
+  type Decider,
+  type SetsChoice,
+} from '../lib/score';
 import {
   entriesLabel,
   issueMessage,
+  matchFormatName,
   roundName,
   type Format,
   type Issue,
@@ -24,7 +33,8 @@ interface Form {
   date: string;
   pairCount: string;
   structureType: StructureType;
-  matchFormat: MatchFormatId;
+  sets: SetsChoice;
+  decider: Decider;
   groupCount: string;
   advanceA: string;
   withB: boolean;
@@ -34,7 +44,11 @@ interface Form {
 }
 
 const STRUCTURE_TYPES: StructureType[] = ['groups_knockout', 'knockout', 'groups'];
-const MATCH_FORMAT_IDS = Object.keys(MATCH_FORMATS) as MatchFormatId[];
+/** Padel usually plays a super tie-break instead of the third set; tennis plays it out. */
+const DEFAULT_MATCH_FORMAT: Record<Sport, Pick<Form, 'sets' | 'decider'>> = {
+  padel: { sets: 'bestOf3', decider: 'superTiebreak' },
+  tennis: { sets: 'bestOf3', decider: 'set' },
+};
 const SPORTS: Sport[] = ['padel', 'tennis'];
 const FORMATS: Format[] = ['doubles', 'singles'];
 const MAX_COURTS = 20;
@@ -83,7 +97,7 @@ const initialForm = (t: Messages): Form => ({
   date: today(),
   pairCount: '12',
   structureType: 'groups_knockout',
-  matchFormat: 'bestOf3',
+  ...DEFAULT_MATCH_FORMAT.padel,
   groupCount: '4',
   advanceA: '2',
   withB: true,
@@ -110,7 +124,7 @@ function toSetup(form: Form) {
       advanceA: number(form.advanceA),
       advanceB: form.withB ? number(form.advanceB) : 0,
     },
-    matchFormat: MATCH_FORMATS[form.matchFormat],
+    matchFormat: buildMatchFormat(form.sets, form.decider),
   };
 }
 
@@ -256,7 +270,13 @@ function InfoStep({ form, update }: StepProps) {
               type="radio"
               name="sport"
               checked={form.sport === sport}
-              onChange={() => update({ sport, ...(sport === 'padel' && { format: 'doubles' }) })}
+              onChange={() =>
+                update({
+                  sport,
+                  ...(sport !== form.sport && DEFAULT_MATCH_FORMAT[sport]),
+                  ...(sport === 'padel' && { format: 'doubles' }),
+                })
+              }
             />
             {t.sport[sport]}
           </label>
@@ -294,6 +314,7 @@ function StructureStep({
 }: StepProps & { entries: ReturnType<typeof entriesLabel>; preview: Preview | null }) {
   const { t } = useI18n();
   const withGroups = form.structureType === 'groups_knockout';
+  const matchFormat = buildMatchFormat(form.sets, form.decider);
   return (
     <fieldset>
       <label>
@@ -365,24 +386,42 @@ function StructureStep({
         </label>
       )}
       <div className="choice column">
-        <span>{t.wizard.matchFormat}</span>
-        {MATCH_FORMAT_IDS.map((id) => (
-          <label key={id} className="checkbox">
-            <input
-              type="radio"
-              name="matchFormat"
-              checked={form.matchFormat === id}
-              onChange={() => update({ matchFormat: id })}
-            />
-            {t.matchFormats[id]}
-          </label>
-        ))}
-        <span className="muted">
-          {fill(t.wizard.resultExample, {
-            example: exampleResult(MATCH_FORMATS[form.matchFormat]),
-          })}
-        </span>
+        <span>{t.matchFormats.sets}</span>
+        {SETS_CHOICES.filter((sets) => form.sport === 'tennis' || sets !== 'bestOf5').map(
+          (sets) => (
+            <label key={sets} className="checkbox">
+              <input
+                type="radio"
+                name="sets"
+                checked={form.sets === sets}
+                onChange={() => update({ sets })}
+              />
+              {t.matchFormats[sets]}
+            </label>
+          ),
+        )}
       </div>
+      {matchFormat.bestOf > 1 && (
+        <div className="choice column">
+          <span>
+            {fill(t.matchFormats.decider, { nth: t.matchFormats.nth[decidingSet(matchFormat)] })}
+          </span>
+          {DECIDERS.map((decider) => (
+            <label key={decider} className="checkbox">
+              <input
+                type="radio"
+                name="decider"
+                checked={form.decider === decider}
+                onChange={() => update({ decider })}
+              />
+              {t.matchFormats.deciders[decider]}
+            </label>
+          ))}
+        </div>
+      )}
+      <p className="muted">
+        {fill(t.wizard.resultExample, { example: exampleResult(matchFormat) })}
+      </p>
       {preview && <PreviewBox preview={preview} entries={entries} />}
     </fieldset>
   );
@@ -570,7 +609,7 @@ function SummaryStep({
         <dt>{t.wizard.structure}</dt>
         <dd>{t.structure[form.structureType]}</dd>
         <dt>{t.wizard.matchFormat}</dt>
-        <dd>{t.matchFormats[form.matchFormat]}</dd>
+        <dd>{matchFormatName(t, buildMatchFormat(form.sets, form.decider))}</dd>
         <dt>{t.wizard.courts}</dt>
         <dd>{form.courts.join(', ')}</dd>
         <dt>{t.wizard.timeSlots}</dt>

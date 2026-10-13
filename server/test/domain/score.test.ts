@@ -52,7 +52,7 @@ describe('checkSets', () => {
   it('says which set is wrong', () => {
     expect(checkSets(sets('6-4 6-5'), bestOf3)).toEqual({
       code: 'SCORE_SET_INVALID',
-      params: { set: 2, games: 6 },
+      params: { set: 2, games: 6, points: 7 },
     });
   });
 
@@ -63,6 +63,36 @@ describe('checkSets', () => {
     expect(code('6-4 3-6 6-3', bestOf3SuperTiebreak)).toBe('SCORE_SUPER_TIEBREAK_INVALID');
     // Only the deciding set is a super tie-break
     expect(code('10-8 6-3', bestOf3SuperTiebreak)).toBe('SCORE_SET_INVALID');
+  });
+
+  it('plays best of 5, also with the fifth set tie-break to 10 at 6-6', () => {
+    const { bestOf5, bestOf5Tiebreak10 } = MATCH_FORMATS;
+    expect(code('6-4 3-6 6-3', bestOf5)).toBe('SCORE_INCOMPLETE');
+    expect(code('6-4 3-6 6-3 4-6 7-5', bestOf5)).toBeNull();
+    expect(code('6-4 6-3 6-2 6-1', bestOf5)).toBe('SCORE_TOO_MANY_SETS');
+
+    const fifthSet = (a: number, b: number) =>
+      checkSets(
+        [...sets('6-4 3-6 6-3 4-6'), { a: 7, b: 6, tiebreak: { a, b } }],
+        bestOf5Tiebreak10,
+      );
+    expect(fifthSet(10, 8)).toBeNull();
+    expect(fifthSet(13, 11)).toBeNull();
+    expect(fifthSet(7, 5)).toEqual({
+      code: 'SCORE_TIEBREAK_INVALID',
+      params: { set: 5, games: 6, points: 10 },
+    });
+    // Earlier sets keep the tie-break to 7
+    expect(code('7-6(5) 3-6 6-3 4-6 7-6(8)', bestOf5Tiebreak10)).toBeNull();
+    // The fifth set is still a set: 7-5 or 6-4 are fine, a super tie-break score is not
+    expect(code('6-4 3-6 6-3 4-6 7-5', bestOf5Tiebreak10)).toBeNull();
+    expect(code('6-4 3-6 6-3 4-6 10-8', bestOf5Tiebreak10)).toBe('SCORE_SET_INVALID');
+  });
+
+  it('plays the fifth set as a super tie-break when the format says so', () => {
+    const format: MatchFormat = { bestOf: 5, gamesPerSet: 6, decider: 'superTiebreak' };
+    expect(code('6-4 3-6 6-3 4-6 10-7', format)).toBeNull();
+    expect(code('6-4 3-6 10-7', format)).toBe('SCORE_SET_INVALID');
   });
 
   it('plays one set, or a pro set to 9 with the tie-break at 8-8', () => {
@@ -99,7 +129,17 @@ describe('outcome', () => {
     });
   });
 
-  it('counts a super tie-break as one game', () => {
+  it('counts a fifth set tie-break to 10 like any set won 7-6', () => {
+    expect(outcome(sets('6-4 3-6 6-3 4-6 6-7(8)'), MATCH_FORMATS.bestOf5Tiebreak10)).toEqual({
+      winner: 'B',
+      setsA: 2,
+      setsB: 3,
+      gamesA: 25,
+      gamesB: 26,
+    });
+  });
+
+  it('counts a super tie-break as a set and one game', () => {
     expect(outcome(sets('4-6 6-3 8-10'), bestOf3SuperTiebreak)).toEqual({
       winner: 'B',
       setsA: 1,

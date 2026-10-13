@@ -95,11 +95,23 @@ export const it: Messages = {
   sport: { padel: 'Padel', tennis: 'Tennis' },
   format: { singles: 'Singolo', doubles: 'Doppio' },
   matchFormats: {
-    bestOf3: 'Al meglio dei 3 set (tie-break sul 6-6)',
-    bestOf3SuperTiebreak: 'Al meglio dei 3 set, super tie-break a 10 al posto del terzo set',
+    sets: 'Set',
+    bestOf3: 'Al meglio dei 3 set',
+    bestOf5: 'Al meglio dei 5 set',
     oneSet: 'Set unico a 6 (tie-break sul 6-6)',
     proSet: 'Pro set a 9 (tie-break sull’8-8)',
-    custom: 'Formato personalizzato',
+    decider: 'Set decisivo (il {nth})',
+    deciders: {
+      set: 'Un set normale, tie-break a 7 sul 6-6',
+      tiebreak10: 'Un set con il tie-break sul 6-6 a 10 punti (come negli Slam)',
+      superTiebreak: 'Un super tie-break a 10 al posto del set (comune nel padel)',
+    },
+    names: {
+      set: '{sets} (tie-break sul 6-6)',
+      tiebreak10: '{sets}, tie-break a 10 sul 6-6 nel {nth} set',
+      superTiebreak: '{sets}, super tie-break a 10 al posto del {nth} set',
+    },
+    nth: { third: 'terzo', fifth: 'quinto' },
   },
   entries: {
     singles: { one: 'giocatore', many: 'giocatori', One: 'Giocatore', Many: 'Giocatori' },
@@ -312,12 +324,13 @@ export const it: Messages = {
     SCORE_TIEBREAK_NOT_PLAYED:
       'Il set {set} non è finito al tie-break: togli i punti tra parentesi.',
     SCORE_TIEBREAK_INVALID:
-      'Il tie-break del set {set} non è valido: si vince a 7 punti con 2 di scarto, e lo vince chi vince il set.',
+      'Il tie-break del set {set} non è valido: si vince a {points} punti con 2 di scarto, e lo vince chi vince il set.',
     SCORE_SUPER_TIEBREAK_INVALID:
       'Il super tie-break (set {set}) si vince a 10 punti con 2 di scarto, ad esempio 10-8.',
     SCORE_INCOMPLETE: 'Il risultato è incompleto: nessuno ha ancora vinto la partita.',
     SCORE_TOO_MANY_SETS: 'Troppi set: la partita era già finita.',
     MATCH_FORMAT_INVALID: 'Scegli come si giocano le partite.',
+    MATCH_FORMAT_PADEL_FIVE_SETS: 'Nel padel le partite sono al massimo al meglio dei 3 set.',
     MATCH_BYE: 'In questa partita non gioca nessuno: è un turno di riposo.',
     MATCH_NOT_READY: 'Prima di inserire il punteggio devono essere note entrambe le coppie.',
     COURT_UNKNOWN: 'Questo campo non esiste più.',

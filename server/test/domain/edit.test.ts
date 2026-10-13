@@ -150,7 +150,7 @@ describe('updateMatch', () => {
     const t = build();
 
     expect(updateMatch(t, 'p1-p2', { sets: sets('6-4 6-5') }).issues).toEqual([
-      { code: 'SCORE_SET_INVALID', params: { set: 2, games: 6 } },
+      { code: 'SCORE_SET_INVALID', params: { set: 2, games: 6, points: 7 } },
     ]);
     expect(codes(updateMatch(t, 'p1-p2', { sets: sets('6-4') }))).toEqual(['SCORE_INCOMPLETE']);
     expect(codes(updateMatch(t, 'p1-p2', { sets: '6-4 6-4' }))).toEqual(['SCORE_MALFORMED']);

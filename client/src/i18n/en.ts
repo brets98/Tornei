@@ -96,11 +96,24 @@ export const en = {
   sport: { padel: 'Padel', tennis: 'Tennis' },
   format: { singles: 'Singles', doubles: 'Doubles' },
   matchFormats: {
-    bestOf3: 'Best of 3 sets (tie-break at 6-6)',
-    bestOf3SuperTiebreak: 'Best of 3 sets, super tie-break to 10 instead of the third set',
+    sets: 'Sets',
+    bestOf3: 'Best of 3 sets',
+    bestOf5: 'Best of 5 sets',
     oneSet: 'One set to 6 (tie-break at 6-6)',
     proSet: 'Pro set to 9 (tie-break at 8-8)',
-    custom: 'Custom format',
+    decider: 'Deciding set (the {nth})',
+    deciders: {
+      set: 'A normal set, tie-break to 7 at 6-6',
+      tiebreak10: 'A set with the tie-break at 6-6 played to 10 (as in Grand Slams)',
+      superTiebreak: 'A super tie-break to 10 instead of the set (common in padel)',
+    },
+    /** Name of a best of 3 or 5 format: {sets} is "Best of 3 sets" */
+    names: {
+      set: '{sets} (tie-break at 6-6)',
+      tiebreak10: '{sets}, tie-break to 10 at 6-6 in the {nth} set',
+      superTiebreak: '{sets}, super tie-break to 10 instead of the {nth} set',
+    },
+    nth: { third: 'third', fifth: 'fifth' },
   },
   entries: {
     singles: { one: 'player', many: 'players', One: 'Player', Many: 'Players' },
@@ -306,12 +319,13 @@ export const en = {
     SCORE_TIEBREAK_NOT_PLAYED:
       'Set {set} was not decided by a tie-break: remove the points in brackets.',
     SCORE_TIEBREAK_INVALID:
-      'The tie-break of set {set} is not valid: it is won at 7 points with a 2-point lead, by whoever wins the set.',
+      'The tie-break of set {set} is not valid: it is won at {points} points with a 2-point lead, by whoever wins the set.',
     SCORE_SUPER_TIEBREAK_INVALID:
       'The super tie-break (set {set}) is won at 10 points with a 2-point lead, e.g. 10-8.',
     SCORE_INCOMPLETE: 'The result is incomplete: nobody has won the match yet.',
     SCORE_TOO_MANY_SETS: 'Too many sets: the match was already over.',
     MATCH_FORMAT_INVALID: 'Choose how matches are played.',
+    MATCH_FORMAT_PADEL_FIVE_SETS: 'Padel matches are best of 3 sets at most.',
     MATCH_BYE: 'Nobody plays this match: it is a bye.',
     MATCH_NOT_READY: 'Both sides of this match must be known before entering the score.',
     COURT_UNKNOWN: 'This court does not exist anymore.',

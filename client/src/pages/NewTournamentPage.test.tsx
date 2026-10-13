@@ -68,6 +68,46 @@ describe('NewTournamentPage', () => {
     expect(screen.getByLabelText('Singolo')).toBeEnabled();
   });
 
+  it('offers best of 5 sets in tennis, with the deciding set rule', async () => {
+    const fetchMock = stubApi({
+      'POST /api/tournaments/preview': previewFor as never,
+      'POST /api/tournaments': () => json({ id: 't1' }, 201),
+    });
+    renderPage();
+    type('Nome', 'Open');
+    await previewChecked();
+    next();
+    await screen.findByText('Girone A: 3 coppie');
+    expect(screen.queryByLabelText('Al meglio dei 5 set')).not.toBeInTheDocument();
+    expect(screen.getByLabelText(/super tie-break a 10 al posto del set/)).toBeChecked();
+    expect(screen.getByText('I risultati si scrivono così: 6-4 3-6 10-8.')).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Indietro' }));
+    fireEvent.click(screen.getByLabelText('Tennis'));
+    next();
+    fireEvent.click(await screen.findByLabelText('Al meglio dei 5 set'));
+    expect(screen.getByText('Set decisivo (il quinto)')).toBeInTheDocument();
+    fireEvent.click(screen.getByLabelText(/tie-break sul 6-6 a 10 punti/));
+    expect(
+      screen.getByText('I risultati si scrivono così: 6-4 3-6 6-3 4-6 7-6(8).'),
+    ).toBeInTheDocument();
+
+    next();
+    type('Nome campo 1', 'Centrale');
+    next();
+    expect(
+      screen.getByText('Al meglio dei 5 set, tie-break a 10 sul 6-6 nel quinto set'),
+    ).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Crea torneo' }));
+    await screen.findByText('Pagina del torneo');
+    const [, init] = fetchMock.mock.calls.filter(([url]) => url === '/api/tournaments').at(-1)!;
+    expect(JSON.parse(init!.body as string).matchFormat).toEqual({
+      bestOf: 5,
+      gamesPerSet: 6,
+      decider: 'tiebreak10',
+    });
+  });
+
   it('shows the group sizes and explains an impossible structure', async () => {
     stubApi({ 'POST /api/tournaments/preview': previewFor as never });
     renderPage();
@@ -113,7 +153,8 @@ describe('NewTournamentPage', () => {
       courts: ['Bigi', 'Campo 2', 'Campo 3', 'Campo 4'],
       timeSlots: ['19:00', '19:30', '20:00', '20:30', '21:00', '21:30', '22:00', '22:30', '23:00'],
       structure: { type: 'groups_knockout', groupCount: 4, advanceA: 2, advanceB: 1 },
-      matchFormat: { bestOf: 3, gamesPerSet: 6, decider: 'set' },
+      // Padel: a super tie-break instead of the third set, unless chosen otherwise
+      matchFormat: { bestOf: 3, gamesPerSet: 6, decider: 'superTiebreak' },
     });
   });
 

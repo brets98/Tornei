@@ -105,9 +105,23 @@ describe('parseSetup', () => {
     });
     const proSet = { bestOf: 1, gamesPerSet: 9, decider: 'set' };
     expect(parseSetup({ ...validSetup, matchFormat: proSet }).setup.matchFormat).toEqual(proSet);
-    expect(
-      codes({ ...validSetup, matchFormat: { bestOf: 2, gamesPerSet: 6, decider: 'set' } }),
-    ).toEqual(['MATCH_FORMAT_INVALID']);
+    for (const invalid of [
+      { bestOf: 2, gamesPerSet: 6, decider: 'set' },
+      { bestOf: 1, gamesPerSet: 6, decider: 'superTiebreak' },
+      { bestOf: 3, gamesPerSet: 9, decider: 'set' },
+      { bestOf: 3, gamesPerSet: 6, decider: 'advantage' },
+    ]) {
+      expect(codes({ ...validSetup, matchFormat: invalid })).toEqual(['MATCH_FORMAT_INVALID']);
+    }
+  });
+
+  it('plays best of 5 sets in tennis only', () => {
+    const bestOf5 = { bestOf: 5, gamesPerSet: 6, decider: 'tiebreak10' };
+    const tennis = { ...validSetup, sport: 'tennis', format: 'singles', matchFormat: bestOf5 };
+    expect(parseSetup(tennis).setup.matchFormat).toEqual(bestOf5);
+    expect(codes({ ...validSetup, matchFormat: bestOf5 })).toEqual([
+      'MATCH_FORMAT_PADEL_FIVE_SETS',
+    ]);
   });
 
   it('ignores group fields that do not apply to the structure', () => {

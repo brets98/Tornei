@@ -227,7 +227,7 @@ describe('tournaments API', () => {
 
       expect(res.status).toBe(400);
       expect(res.body.issues).toEqual([
-        { code: 'SCORE_SET_INVALID', params: { set: 2, games: 6 } },
+        { code: 'SCORE_SET_INVALID', params: { set: 2, games: 6, points: 7 } },
       ]);
       const saved = await TournamentModel.findById(tournament.id);
       expect(saved!.summary.status).toBe('draft');

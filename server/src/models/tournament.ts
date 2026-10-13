@@ -1,5 +1,6 @@
 import { model, Schema, type SchemaDefinition, type Types } from 'mongoose';
 import { createSchema } from '../db/schema.js';
+import { DECIDERS } from '../domain/score.js';
 import { FORMATS, SPORTS, STRUCTURE_TYPES, type TournamentData } from '../domain/types.js';
 
 /**
@@ -81,7 +82,7 @@ const tournamentSchema = createSchema<Tournament>({
   matchFormat: embedded({
     bestOf: { type: Number, required: true },
     gamesPerSet: { type: Number, required: true },
-    decider: { type: String, enum: ['set', 'superTiebreak'], required: true },
+    decider: { type: String, enum: DECIDERS, required: true },
   }),
   pairs: [embedded({ id: { type: String, required: true }, players: [String] })],
   groups: [

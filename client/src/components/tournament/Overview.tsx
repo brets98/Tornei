@@ -1,12 +1,16 @@
 import { fill, useI18n } from '../../i18n/context';
-import { matchFormatId } from '../../lib/score';
-import { entriesLabel, pairCode, pairLabel, type Tournament } from '../../lib/tournaments';
+import {
+  entriesLabel,
+  matchFormatName,
+  pairCode,
+  pairLabel,
+  type Tournament,
+} from '../../lib/tournaments';
 
 /** Dashboard of a tournament: stats, groups, courts, time slots and match format. */
 export function Overview({ tournament }: { tournament: Tournament }) {
   const { t } = useI18n();
   const entries = entriesLabel(t, tournament.format);
-  const formatId = matchFormatId(tournament.matchFormat);
   return (
     <section>
       <div className="view-title">
@@ -59,7 +63,7 @@ export function Overview({ tournament }: { tournament: Tournament }) {
           <h3>{t.tournament.timeSlots}</h3>
           <p>{tournament.timeSlots.map((s) => s.time).join(' · ')}</p>
           <h3>{t.wizard.matchFormat}</h3>
-          <p>{formatId ? t.matchFormats[formatId] : t.matchFormats.custom}</p>
+          <p>{matchFormatName(t, tournament.matchFormat)}</p>
         </div>
       </div>
     </section>
