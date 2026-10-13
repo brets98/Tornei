@@ -17,7 +17,7 @@ const auth = createAuth({
   mailer: createSmtpMailer(config.smtp),
 });
 
-const server = createApp({ auth }).listen(config.port, () => {
+const server = createApp({ auth, clientDir: config.clientDir }).listen(config.port, () => {
   console.log(`API listening on port ${config.port}`);
 });
 

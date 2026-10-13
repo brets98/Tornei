@@ -7,11 +7,23 @@ import { healthRouter } from './routes/health.js';
 import { publicResultsRouter, resultsRouter } from './routes/results.js';
 import { tournamentsRouter } from './routes/tournaments.js';
 import { usersRouter } from './routes/users.js';
+import { clientRouter } from './static.js';
 
-export function createApp({ auth }: { auth: Auth }) {
+interface AppOptions {
+  auth: Auth;
+  /** Built client to serve (single-container deploys); unset when Caddy serves it. */
+  clientDir?: string;
+}
+
+export function createApp({ auth, clientDir }: AppOptions) {
   const app = express();
 
   app.disable('x-powered-by');
+
+  // Outside /api, so it never meets requireAuth; the page itself is public, its data is not
+  if (clientDir) {
+    app.use(clientRouter(clientDir));
+  }
 
   // Better Auth parses its own request bodies, so it goes before express.json()
   app.all('/api/auth/{*splat}', toNodeHandler(auth));

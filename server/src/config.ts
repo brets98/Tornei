@@ -12,6 +12,8 @@ function optional(name: string): string | undefined {
 
 export interface Config {
   port: number;
+  /** Built client to serve from the API server (Cloud Run); unset behind Caddy. */
+  clientDir?: string;
   mongodbUri: string;
   auth: {
     secret: string;
@@ -35,6 +37,7 @@ export function loadConfig(): Config {
 
   return {
     port: Number(process.env.PORT ?? 3000),
+    clientDir: optional('CLIENT_DIR'),
     mongodbUri: required('MONGODB_URI'),
     auth: {
       secret: required('BETTER_AUTH_SECRET'),
