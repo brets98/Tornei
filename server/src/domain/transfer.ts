@@ -1,6 +1,6 @@
 import { setGroups, setPlayers, type EditResult } from './edit.js';
 import { checkSets, cleanSets } from './score.js';
-import { normalizeTime, parseSetup } from './setup.js';
+import { LEVELS, normalizeTime, parseSetup } from './setup.js';
 import { buildTournament, refreshTournament } from './tournament.js';
 import type { SetScore, TournamentData } from './types.js';
 
@@ -27,7 +27,7 @@ export function exportTournament(data: TournamentData) {
       matchFormat: data.matchFormat,
       courts: data.courts.map(({ id, name }) => ({ id, name })),
       timeSlots: data.timeSlots.map(({ id, time }) => ({ id, time })),
-      pairs: data.pairs.map(({ id, players }) => ({ id, players })),
+      pairs: data.pairs.map(({ id, players, level }) => ({ id, players, ...(level && { level }) })),
       groups: data.groups.map(({ id, pairIds }) => ({ id, pairIds })),
       seeding: data.seeding,
       matches: data.matches.map((m) => ({
@@ -73,6 +73,9 @@ export function importTournament(file: unknown): EditResult {
   const { setup, issues } = parseSetup({
     ...t,
     pairCount: pairs.length,
+    players: pairs.map((p) => p.players),
+    // Files from before levels: everyone at the default level
+    levels: pairs.map((p) => p.level ?? LEVELS),
     courts: courts.map((c) => c.name),
     timeSlots: slots.map((s) => s.time),
   });

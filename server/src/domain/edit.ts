@@ -1,7 +1,7 @@
 import { shuffle } from './groups.js';
 import { checkSets, cleanSets } from './score.js';
-import { checkGroups, LIMITS, normalizeTime, parseSetup, type Issue } from './setup.js';
-import { buildMatches, refreshTournament } from './tournament.js';
+import { checkGroups, LEVELS, LIMITS, normalizeTime, parseSetup, type Issue } from './setup.js';
+import { buildMatches, drawByLevel, refreshTournament } from './tournament.js';
 import type { SetScore, TournamentData } from './types.js';
 
 /** The edited tournament, refreshed; or why the edit can't be done. `NOT_FOUND`: unknown pair/match. */
@@ -35,11 +35,45 @@ export function setPlayers(data: TournamentData, pairId: string, players: unknow
   ) {
     return fail('PLAYERS_INVALID', { max: LIMITS.playerNameLength });
   }
+  // The consolation draw is made from the names: they can change but not be removed
+  if (data.structure.type === 'knockout_consolation' && names.some((n: string) => !n.trim())) {
+    return fail('PLAYERS_REQUIRED');
+  }
 
   const pairs = data.pairs.map((p) =>
     p.id === pairId ? { ...p, players: names.map((n: string) => n.trim()) } : p,
   );
   return { data: refreshTournament({ ...data, pairs }) };
+}
+
+/**
+ * A pair's level in the consolation draw, until the first result. It counts from the next
+ * draw: the current one stays as it is.
+ */
+export function setLevel(data: TournamentData, pairId: string, level: unknown): EditResult {
+  const pair = data.pairs.find((p) => p.id === pairId);
+  if (!pair || data.structure.type !== 'knockout_consolation') return fail('NOT_FOUND');
+  if (hasResults(data)) return fail('STRUCTURE_LOCKED');
+  if (!(Number.isInteger(level) && (level as number) >= 1 && (level as number) <= LEVELS)) {
+    return fail('LEVELS_INVALID', { max: LEVELS });
+  }
+
+  const pairs = data.pairs.map((p) => (p.id === pairId ? { ...p, level: level as number } : p));
+  return { data: refreshTournament({ ...data, pairs }) };
+}
+
+/** Changes a pair's players and/or level: only the fields sent (at least one). */
+export function updatePair(
+  data: TournamentData,
+  pairId: string,
+  changes: { players?: unknown; level?: unknown },
+): EditResult {
+  const { players, level } = changes;
+  if (players === undefined && level === undefined) {
+    return fail('PLAYERS_INVALID', { max: LIMITS.playerNameLength });
+  }
+  const result = players === undefined ? { data } : setPlayers(data, pairId, players);
+  return level === undefined || !result.data ? result : setLevel(result.data, pairId, level);
 }
 
 /**
@@ -82,10 +116,16 @@ export function setGroups(data: TournamentData, groups: unknown): EditResult {
   });
 }
 
-/** Random draw: shuffles pairs across groups keeping the group sizes, or the knockout seeding. */
+/**
+ * Random draw: shuffles pairs across groups keeping the group sizes, or the knockout seeding
+ * (the consolation draw by level, at random among equal levels).
+ */
 export function draw(data: TournamentData, random: () => number = Math.random): EditResult {
   if (hasResults(data)) return fail('STRUCTURE_LOCKED');
 
+  if (data.structure.type === 'knockout_consolation') {
+    return restructure(data, { seeding: drawByLevel(data.pairs, random) });
+  }
   if (data.groups.length === 0) {
     return restructure(data, { seeding: shuffle(data.seeding, random) });
   }
@@ -109,6 +149,22 @@ export function resetResults(data: TournamentData): EditResult {
     sets: [],
     ...(m.phase === 'knockout' && { scoredPairs: [] }),
   }));
+  return { data: refreshTournament({ ...data, matches }) };
+}
+
+/** The brackets cleared with `id`: itself, and the consolation when it is filled from A. */
+export function bracketsCleared(data: TournamentData, id: string): string[] {
+  if (!data.brackets.some((b) => b.id === id)) return [];
+  return id === 'A' && data.brackets.some((b) => b.id === 'C') ? ['A', 'C'] : [id];
+}
+
+/** Clears every result of a bracket (and of those it fills), keeping pairs and schedule. */
+export function resetBracket(data: TournamentData, id: string): EditResult {
+  const cleared = bracketsCleared(data, id);
+  if (cleared.length === 0) return fail('NOT_FOUND');
+  const matches = data.matches.map((m) =>
+    m.bracket && cleared.includes(m.bracket) ? { ...m, sets: [], scoredPairs: [] } : m,
+  );
   return { data: refreshTournament({ ...data, matches }) };
 }
 

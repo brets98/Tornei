@@ -2,9 +2,10 @@ import { Router, type Request, type Response } from 'express';
 import { isValidObjectId } from 'mongoose';
 import {
   draw,
+  resetBracket,
   resetResults,
   setGroups,
-  setPlayers,
+  updatePair,
   updateMatch,
   updateSettings,
   type EditResult,
@@ -192,8 +193,12 @@ tournamentsRouter.post('/:id/reset', (req, res) =>
   applyEdit(req, res, (data) => resetResults(data)),
 );
 
+tournamentsRouter.post('/:id/brackets/:bracketId/reset', (req, res) =>
+  applyEdit(req, res, (data) => resetBracket(data, req.params.bracketId)),
+);
+
 tournamentsRouter.patch('/:id/pairs/:pairId', (req, res) =>
-  applyEdit(req, res, (data) => setPlayers(data, req.params.pairId, req.body?.players)),
+  applyEdit(req, res, (data) => updatePair(data, req.params.pairId, req.body ?? {})),
 );
 
 tournamentsRouter.put('/:id/groups', (req, res) =>

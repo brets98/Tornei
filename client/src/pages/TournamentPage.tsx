@@ -8,7 +8,14 @@ import { Overview } from '../components/tournament/Overview';
 import { SettingsView } from '../components/tournament/SettingsView';
 import { fill, useI18n } from '../i18n/context';
 import { ApiError, apiGet, apiPatch, apiPost, apiPut } from '../lib/api';
-import { formatDate, issueMessage, type Issue, type Tournament } from '../lib/tournaments';
+import {
+  bracketName,
+  formatDate,
+  issueMessage,
+  type BracketId,
+  type Issue,
+  type Tournament,
+} from '../lib/tournaments';
 
 type State =
   | { status: 'loading' }
@@ -85,6 +92,14 @@ export function TournamentPage() {
             pairs: tournament.pairs.map((p) => (p.id === pairId ? { ...p, players } : p)),
           }),
         ),
+      setLevel: (pairId, level) =>
+        save(
+          () => apiPatch(`${path}/pairs/${pairId}`, { level }),
+          (tournament) => ({
+            ...tournament,
+            pairs: tournament.pairs.map((p) => (p.id === pairId ? { ...p, level } : p)),
+          }),
+        ),
       updateMatch: (matchId, changes) =>
         save(
           () => apiPatch(`${path}/matches/${matchId}`, changes),
@@ -97,6 +112,7 @@ export function TournamentPage() {
       draw: () => save(() => apiPost(`${path}/draw`)),
       updateSettings: (changes) => save(() => apiPatch(`${path}/settings`, changes)),
       resetResults: () => save(() => apiPost(`${path}/reset`)),
+      resetBracket: (bracketId) => save(() => apiPost(`${path}/brackets/${bracketId}/reset`)),
       reportUnreadable: (text) =>
         setSaveState({
           status: 'error',
@@ -126,7 +142,7 @@ export function TournamentPage() {
   const stale = tournament.matches.filter((m) => m.state === 'stale');
   const tabLabel = (name: Tab) =>
     name.startsWith('bracket-')
-      ? fill(t.tournament.tabs.bracket, { id: name.slice('bracket-'.length) })
+      ? bracketName(t, name.slice('bracket-'.length) as BracketId)
       : t.tournament.tabs[name as Exclude<Tab, `bracket-${string}`>];
 
   return (

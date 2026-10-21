@@ -6,10 +6,20 @@ export type Sport = (typeof SPORTS)[number];
 export const FORMATS = ['singles', 'doubles'] as const;
 export type Format = (typeof FORMATS)[number];
 
-export const STRUCTURE_TYPES = ['groups_knockout', 'knockout', 'groups'] as const;
+/**
+ * `knockout_consolation`: a knockout drawn at random, plus a consolation bracket (C) for
+ * everyone who loses their first match.
+ */
+export const STRUCTURE_TYPES = [
+  'groups_knockout',
+  'knockout',
+  'groups',
+  'knockout_consolation',
+] as const;
 export type StructureType = (typeof STRUCTURE_TYPES)[number];
 
-export type BracketId = 'A' | 'B';
+/** A and B: main brackets; C: the consolation bracket of `knockout_consolation`. */
+export type BracketId = 'A' | 'B' | 'C';
 
 /**
  * How a match is played: best of `bestOf` sets to `gamesPerSet` games. The deciding set (the
@@ -58,6 +68,8 @@ export interface Pair {
   id: string;
   /** 1 (singles) or 2 (doubles) names; empty strings until entered */
   players: string[];
+  /** Consolation draw: strength from 1 (best) to `LEVELS`; seeds the draw */
+  level?: number;
 }
 
 export interface StandingRow {
@@ -87,6 +99,12 @@ export type Source =
   | { kind: 'group'; groupId: string; position: number }
   | { kind: 'seed'; index: number }
   | { kind: 'winner'; matchId: string }
+  /**
+   * Consolation: whoever loses their first match among those who started in this
+   * first-round match: its loser, or, after a bye, the bye pair if it loses the next match
+   * (if it wins, nobody comes from here and the other side gets a bye).
+   */
+  | { kind: 'firstLoser'; matchId: string }
   | { kind: 'bye' };
 
 /**
@@ -160,6 +178,10 @@ export interface Setup {
   timeSlots: string[];
   structure: Structure;
   matchFormat: MatchFormat;
+  /** Players of each pair, in entry order; required for `knockout_consolation` only */
+  players?: string[][];
+  /** `knockout_consolation`: each pair's level, 1 (best) to `LEVELS` */
+  levels?: number[];
 }
 
 /** A tournament without the persistence fields (id, owner, timestamps). */

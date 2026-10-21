@@ -1,5 +1,12 @@
 import { DEFAULT_MATCH_FORMAT, isValidMatchFormat } from './score.js';
-import { FORMATS, SPORTS, STRUCTURE_TYPES, type Setup, type StructureType } from './types.js';
+import {
+  FORMATS,
+  SPORTS,
+  STRUCTURE_TYPES,
+  type Format,
+  type Setup,
+  type StructureType,
+} from './types.js';
 
 export const LIMITS = {
   nameLength: 100,
@@ -14,6 +21,12 @@ export const LIMITS = {
 
 /** Smallest group allowed: a round robin needs someone to play against. */
 export const MIN_GROUP_SIZE = 2;
+
+/** Fewer entries would leave the consolation bracket with at most one first-match loser. */
+export const MIN_CONSOLATION_PAIRS = 4;
+
+/** Levels of the consolation draw: 1 is the strongest, LEVELS the weakest (and the default). */
+export const LEVELS = 4;
 
 /** A reason why a setup can't work. The client turns `code` + `params` into a message. */
 export interface Issue {
@@ -77,12 +90,27 @@ export function parseSetup(input: unknown): { setup: Setup; issues: Issue[] } {
   const date = text(body.date);
   if (!isValidDate(date)) issues.push({ code: 'DATE_INVALID' });
 
-  const pairCount = integer(body.pairCount);
-  if (!(pairCount >= LIMITS.minPairs && pairCount <= LIMITS.maxPairs)) {
-    issues.push({
-      code: 'PAIR_COUNT_RANGE',
-      params: { min: LIMITS.minPairs, max: LIMITS.maxPairs },
-    });
+  const type = oneOf(STRUCTURE_TYPES, rawStructure.type);
+  if (!type) issues.push({ code: 'STRUCTURE_INVALID' });
+  const structure = normalizeStructure(type ?? 'knockout', rawStructure);
+
+  // With the consolation draw the pairs are entered in the wizard: their list is the count
+  const consolation = type === 'knockout_consolation';
+  const entryFormat = sport === 'padel' ? 'doubles' : (format ?? 'doubles');
+  const players = consolation ? parsePlayers(body.players, entryFormat, issues) : [];
+  // Not sent: everyone at the same level, a fully random draw
+  const levels = consolation
+    ? Array.isArray(body.levels)
+      ? body.levels.map(integer)
+      : players.map(() => LEVELS)
+    : [];
+  if (levels.length !== players.length || !levels.every((l) => l >= 1 && l <= LEVELS)) {
+    issues.push({ code: 'LEVELS_INVALID', params: { max: LEVELS } });
+  }
+  const pairCount = consolation ? players.length : integer(body.pairCount);
+  const minPairs = consolation ? MIN_CONSOLATION_PAIRS : LIMITS.minPairs;
+  if (!(pairCount >= minPairs && pairCount <= LIMITS.maxPairs)) {
+    issues.push({ code: 'PAIR_COUNT_RANGE', params: { min: minPairs, max: LIMITS.maxPairs } });
   }
 
   const courts = strings(body.courts);
@@ -110,9 +138,6 @@ export function parseSetup(input: unknown): { setup: Setup; issues: Issue[] } {
   const duplicateSlot = timeSlots.find((t, i) => t && timeSlots.indexOf(t) !== i);
   if (duplicateSlot) issues.push({ code: 'SLOT_DUPLICATE', params: { time: duplicateSlot } });
 
-  const type = oneOf(STRUCTURE_TYPES, rawStructure.type);
-  if (!type) issues.push({ code: 'STRUCTURE_INVALID' });
-  const structure = normalizeStructure(type ?? 'knockout', rawStructure);
   if (type === 'groups_knockout' && pairCount >= LIMITS.minPairs) {
     issues.push(
       ...checkGroups(pairCount, structure.groupCount, structure.advanceA, structure.advanceB),
@@ -132,12 +157,13 @@ export function parseSetup(input: unknown): { setup: Setup; issues: Issue[] } {
       name,
       subtitle: text(body.subtitle),
       sport: sport ?? 'padel',
-      format: sport === 'padel' ? 'doubles' : (format ?? 'doubles'),
+      format: entryFormat,
       date,
       pairCount,
       courts,
       timeSlots: timeSlots.filter((t): t is string => t !== null).sort(),
       structure,
+      ...(consolation && { players, levels }),
       matchFormat: validFormat
         ? {
             bestOf: matchFormat.bestOf,
@@ -150,9 +176,26 @@ export function parseSetup(input: unknown): { setup: Setup; issues: Issue[] } {
   };
 }
 
+/**
+ * The players of each pair, trimmed: 1 name each for singles, 2 for doubles, none empty or
+ * too long. Problems are added to `issues`, with the 1-based number of the first wrong entry.
+ */
+function parsePlayers(value: unknown, format: Format, issues: Issue[]): string[][] {
+  const list = Array.isArray(value) ? value : [];
+  const count = format === 'singles' ? 1 : 2;
+  const players = list.map((names) => strings(names));
+  const incomplete = players.findIndex((names) => names.length !== count || names.some((n) => !n));
+  if (incomplete !== -1) issues.push({ code: 'PLAYERS_INCOMPLETE', params: { n: incomplete + 1 } });
+  if (players.some((names) => names.some((n) => n.length > LIMITS.playerNameLength))) {
+    issues.push({ code: 'PLAYER_NAME_TOO_LONG', params: { max: LIMITS.playerNameLength } });
+  }
+  return players;
+}
+
 function normalizeStructure(type: StructureType, raw: Record<string, unknown>) {
   switch (type) {
     case 'knockout':
+    case 'knockout_consolation':
       return { type, groupCount: 0, advanceA: 0, advanceB: 0 };
     case 'groups':
       return { type, groupCount: 1, advanceA: 0, advanceB: 0 };

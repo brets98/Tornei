@@ -8,6 +8,7 @@ import { buildMatchFormat, type Decider, type SetsChoice } from '../lib/score';
 import {
   entriesLabel,
   issueMessage,
+  LEVELS,
   matchFormatName,
   roundName,
   type Format,
@@ -25,6 +26,8 @@ interface Form {
   format: Format;
   date: string;
   pairCount: string;
+  /** Random draw + consolation: each entry's players (2 fields; singles uses the first) and level */
+  entryRows: EntryRow[];
   structureType: StructureType;
   sets: SetsChoice;
   decider: Decider;
@@ -36,7 +39,12 @@ interface Form {
   timeSlots: string[];
 }
 
-const STRUCTURE_TYPES: StructureType[] = ['groups_knockout', 'knockout', 'groups'];
+const STRUCTURE_TYPES: StructureType[] = [
+  'groups_knockout',
+  'knockout',
+  'groups',
+  'knockout_consolation',
+];
 /** Padel usually plays a super tie-break instead of the third set; tennis plays it out. */
 const DEFAULT_MATCH_FORMAT: Record<Sport, Pick<Form, 'sets' | 'decider'>> = {
   padel: { sets: 'bestOf3', decider: 'superTiebreak' },
@@ -45,12 +53,22 @@ const DEFAULT_MATCH_FORMAT: Record<Sport, Pick<Form, 'sets' | 'decider'>> = {
 const SPORTS: Sport[] = ['padel', 'tennis'];
 const FORMATS: Format[] = ['doubles', 'singles'];
 const MAX_COURTS = 20;
+/** Rows the entry list starts with: the fewest a consolation draw allows */
+const INITIAL_ENTRY_ROWS = 4;
+
+interface EntryRow {
+  players: string[];
+  level: number;
+}
+
+/** A new row starts at the weakest level: with every row equal the draw is fully random */
+const emptyEntryRow = (): EntryRow => ({ players: ['', ''], level: LEVELS.at(-1)! });
 const PREVIEW_DELAY_MS = 250;
 
 /** Which wizard step each issue belongs to (unknown codes go to the summary). */
 const STEP_OF_ISSUE: [RegExp, number][] = [
   [/^(NAME_|SPORT_|FORMAT_|PADEL_|DATE_)/, 0],
-  [/^(PAIR_|STRUCTURE_|GROUP_|ADVANCE_|BRACKET_|MATCH_FORMAT_)/, 1],
+  [/^(PAIR_|PLAYER|STRUCTURE_|GROUP_|ADVANCE_|BRACKET_|MATCH_FORMAT_)/, 1],
   [/^(COURT|SLOT)/, 2],
 ];
 const LAST_STEP = 3;
@@ -89,6 +107,7 @@ const initialForm = (t: Messages): Form => ({
   format: 'doubles',
   date: today(),
   pairCount: '12',
+  entryRows: Array.from({ length: INITIAL_ENTRY_ROWS }, emptyEntryRow),
   structureType: 'groups_knockout',
   ...DEFAULT_MATCH_FORMAT.padel,
   groupCount: '4',
@@ -102,13 +121,19 @@ const initialForm = (t: Messages): Form => ({
 /** What the API expects (see parseSetup on the server). Empty numbers become null: invalid. */
 function toSetup(form: Form) {
   const number = (value: string) => (value.trim() === '' ? null : Number(value));
+  const format = form.sport === 'padel' ? 'doubles' : form.format;
+  const players =
+    form.structureType === 'knockout_consolation'
+      ? form.entryRows.map((row) => row.players.slice(0, format === 'singles' ? 1 : 2))
+      : undefined;
   return {
     name: form.name,
     subtitle: form.subtitle,
     sport: form.sport,
-    format: form.sport === 'padel' ? 'doubles' : form.format,
+    format,
     date: form.date,
-    pairCount: number(form.pairCount),
+    pairCount: players ? players.length : number(form.pairCount),
+    ...(players && { players, levels: form.entryRows.map((row) => row.level) }),
     courts: form.courts,
     timeSlots: form.timeSlots,
     structure: {
@@ -307,17 +332,20 @@ function StructureStep({
 }: StepProps & { entries: ReturnType<typeof entriesLabel>; preview: Preview | null }) {
   const { t } = useI18n();
   const withGroups = form.structureType === 'groups_knockout';
+  const withList = form.structureType === 'knockout_consolation';
   return (
     <fieldset>
-      <label>
-        {fill(t.wizard.entryCount, { entries: entries.many })}
-        <input
-          type="number"
-          min={2}
-          value={form.pairCount}
-          onChange={(e) => update({ pairCount: e.target.value })}
-        />
-      </label>
+      {!withList && (
+        <label>
+          {fill(t.wizard.entryCount, { entries: entries.many })}
+          <input
+            type="number"
+            min={2}
+            value={form.pairCount}
+            onChange={(e) => update({ pairCount: e.target.value })}
+          />
+        </label>
+      )}
       <div className="choice column">
         <span>{t.wizard.structure}</span>
         {STRUCTURE_TYPES.map((type) => (
@@ -334,6 +362,7 @@ function StructureStep({
           </label>
         ))}
       </div>
+      {withList && <EntryRows form={form} update={update} entries={entries} />}
       {withGroups && (
         <div className="inline-fields">
           <label>
@@ -388,6 +417,80 @@ function StructureStep({
   );
 }
 
+/** The entries of a consolation draw, one row each, with a field per player. */
+function EntryRows({
+  form,
+  update,
+  entries,
+}: StepProps & { entries: ReturnType<typeof entriesLabel> }) {
+  const { t } = useI18n();
+  const players = form.sport === 'tennis' && form.format === 'singles' ? 1 : 2;
+  const setRow = (row: number, changes: Partial<EntryRow>) =>
+    update({
+      entryRows: form.entryRows.map((entry, i) => (i === row ? { ...entry, ...changes } : entry)),
+    });
+
+  return (
+    <div className="entry-rows">
+      <span>{fill(t.wizard.entryList, { entries: entries.many })}</span>
+      <p className="muted">{t.wizard.levelsHint}</p>
+      <div className="pair-list">
+        {form.entryRows.map((entry, i) => (
+          <div key={i} className="pair-row">
+            <span className="code">{i + 1}</span>
+            <span className="player-inputs">
+              {entry.players.slice(0, players).map((name, p) => (
+                <input
+                  key={p}
+                  value={name}
+                  maxLength={60}
+                  aria-label={fill(t.groups.playerName, { n: p + 1, pair: i + 1 })}
+                  onChange={(e) =>
+                    setRow(i, {
+                      players: entry.players.map((n, k) => (k === p ? e.target.value : n)),
+                    })
+                  }
+                />
+              ))}
+            </span>
+            <select
+              aria-label={fill(t.wizard.entryLevel, { entry: entries.one, n: i + 1 })}
+              value={entry.level}
+              onChange={(e) => setRow(i, { level: Number(e.target.value) })}
+            >
+              {LEVELS.map((level) => (
+                <option key={level} value={level}>
+                  {fill(t.wizard.level, { n: level })}
+                </option>
+              ))}
+            </select>
+            <button
+              type="button"
+              className="link"
+              aria-label={fill(t.wizard.removeEntry, { entry: entries.one, n: i + 1 })}
+              onClick={() => update({ entryRows: form.entryRows.filter((_, k) => k !== i) })}
+            >
+              ×
+            </button>
+          </div>
+        ))}
+      </div>
+      <div className="inline-fields">
+        <button
+          type="button"
+          className="secondary"
+          onClick={() => update({ entryRows: [...form.entryRows, emptyEntryRow()] })}
+        >
+          {fill(t.wizard.addEntry, { entry: entries.one })}
+        </button>
+        <span className="muted">
+          {fill(t.wizard.entryListCount, { count: form.entryRows.length, entries: entries.many })}
+        </span>
+      </div>
+    </div>
+  );
+}
+
 function PreviewBox({
   preview,
   entries,
@@ -413,18 +516,30 @@ function PreviewBox({
         </ul>
       )}
       <ul>
-        {preview.brackets.map((b) => (
-          <li key={b.id}>
-            {fill(t.wizard.bracket, {
-              id: b.id,
-              count: b.entrants,
-              entries: entries.many,
-              round: roundName(t, b.size / 2, 0).toLowerCase(),
-            })}
-            {b.byes > 0 && ` (${fill(t.wizard.byes, { count: b.byes })})`}
-          </li>
-        ))}
-        <li>{fill(t.wizard.matchesTotal, { count: preview.matchesTotal })}</li>
+        {preview.brackets.map((b) =>
+          b.id === 'C' ? (
+            <li key={b.id}>{t.wizard.consolation}</li>
+          ) : (
+            <li key={b.id}>
+              {fill(t.wizard.bracket, {
+                id: b.id,
+                count: b.entrants,
+                entries: entries.many,
+                round: roundName(t, b.size / 2, 0).toLowerCase(),
+              })}
+              {b.byes > 0 && ` (${fill(t.wizard.byes, { count: b.byes })})`}
+            </li>
+          ),
+        )}
+        <li>
+          {fill(
+            // The consolation bracket shrinks when pairs after a bye win their first match
+            preview.brackets.some((b) => b.id === 'C')
+              ? t.wizard.matchesUpTo
+              : t.wizard.matchesTotal,
+            { count: preview.matchesTotal },
+          )}
+        </li>
       </ul>
     </section>
   );
@@ -566,7 +681,9 @@ function SummaryStep({
         <dt>{t.wizard.date}</dt>
         <dd>{form.date}</dd>
         <dt>{entries.Many}</dt>
-        <dd>{form.pairCount}</dd>
+        <dd>
+          {form.structureType === 'knockout_consolation' ? form.entryRows.length : form.pairCount}
+        </dd>
         <dt>{t.wizard.structure}</dt>
         <dd>{t.structure[form.structureType]}</dd>
         <dt>{t.wizard.matchFormat}</dt>

@@ -1,5 +1,5 @@
 import { fireEvent, screen, within } from '@testing-library/react';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import type { Match, Tournament } from '../../lib/tournaments';
 import { renderIn } from '../../test/render';
 import { mockActions, tournament as base } from '../../test/tournament-fixtures';
@@ -52,11 +52,15 @@ function knockout(changes: { matches?: Match[]; champion?: string | null } = {})
   };
 }
 
-function renderBracket(tournament: Tournament, language: 'it' | 'en' = 'it') {
+function renderBracket(tournament: Tournament, language: 'it' | 'en' = 'it', bracketIndex = 0) {
   const actions = mockActions();
   renderIn(
     language,
-    <BracketView tournament={tournament} bracket={tournament.brackets[0]} actions={actions} />,
+    <BracketView
+      tournament={tournament}
+      bracket={tournament.brackets[bracketIndex]}
+      actions={actions}
+    />,
   );
   return actions;
 }
@@ -77,7 +81,7 @@ describe('BracketView', () => {
         .getAllByRole('textbox')
         .every((input) => input.hasAttribute('disabled')),
     ).toBe(true);
-    expect(screen.getByText('Vincitore tabellone A')).toBeInTheDocument();
+    expect(screen.getByText('Vincitore Tabellone A')).toBeInTheDocument();
   });
 
   it('saves a result when both sides are known', () => {
@@ -190,5 +194,63 @@ describe('BracketView', () => {
     expect(screen.getByText('Group A #1')).toBeInTheDocument();
     expect(screen.getByText('Group B #1')).toBeInTheDocument();
     expect(screen.getByText(/Filled from the group standings/)).toBeInTheDocument();
+  });
+
+  it('shows where consolation entrants come from', () => {
+    const main = knockout();
+    const consolation: Tournament = {
+      ...main,
+      structure: { ...main.structure, type: 'knockout_consolation' },
+      brackets: [...main.brackets, { id: 'C', size: 2, champion: null }],
+      matches: [
+        ...main.matches,
+        knockoutMatch(0, 0, {
+          id: 'C0-0',
+          bracket: 'C',
+          sourceA: { kind: 'firstLoser', matchId: 'A0-0' },
+          sourceB: { kind: 'firstLoser', matchId: 'A0-1' },
+        }),
+      ],
+    };
+    renderBracket(consolation, 'en', 1);
+
+    expect(screen.getByRole('heading', { name: 'Consolation' })).toBeInTheDocument();
+    expect(screen.getByText(/Everyone who loses their first match plays here/)).toBeInTheDocument();
+    // p1 had a bye: it comes only if it loses its first match, the final
+    expect(screen.getByText('Rossi / Bianchi, if they lose Final')).toBeInTheDocument();
+    expect(screen.getByText('Loser SF 2')).toBeInTheDocument();
+    expect(screen.getByText('Consolation winner')).toBeInTheDocument();
+  });
+
+  it('empties the bracket after confirmation, with the consolation it fills', () => {
+    const confirm = vi.spyOn(window, 'confirm').mockReturnValue(true);
+    const main = knockout();
+    const played: Tournament = {
+      ...main,
+      brackets: [...main.brackets, { id: 'C', size: 2, champion: null }],
+      matches: main.matches.map((m) =>
+        m.id === 'A0-1'
+          ? {
+              ...m,
+              sets: [
+                { a: 6, b: 1 },
+                { a: 6, b: 1 },
+              ],
+              state: 'done',
+            }
+          : m,
+      ),
+    };
+    const actions = renderBracket(played);
+
+    fireEvent.click(screen.getByRole('button', { name: 'Svuota tabellone' }));
+    expect(confirm).toHaveBeenCalledWith(expect.stringContaining('consolazione compresa'));
+    expect(actions.resetBracket).toHaveBeenCalledWith('A');
+    confirm.mockRestore();
+  });
+
+  it('offers no emptying without results', () => {
+    renderBracket(knockout());
+    expect(screen.queryByRole('button', { name: 'Svuota tabellone' })).not.toBeInTheDocument();
   });
 });

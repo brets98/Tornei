@@ -158,6 +158,61 @@ describe('NewTournamentPage', () => {
     });
   });
 
+  it('creates a random draw with consolation from the list of pairs', async () => {
+    const fetchMock = stubApi({
+      'POST /api/tournaments/preview': () =>
+        json({
+          issues: [],
+          preview: {
+            groupSizes: [],
+            brackets: [
+              { id: 'A', entrants: 5, size: 8, byes: 3 },
+              { id: 'C', entrants: 4, size: 4, byes: 0 },
+            ],
+            matchesTotal: 7,
+          },
+        }),
+      'POST /api/tournaments': () => json({ id: 't1' }, 201),
+    });
+    renderPage();
+    type('Nome', 'Torneo del venerdì');
+    await previewChecked();
+    next();
+    fireEvent.click(screen.getByLabelText(/Sorteggio \+ consolazione/));
+    expect(screen.queryByLabelText('Numero di coppie')).not.toBeInTheDocument();
+    // Starts with 4 empty rows: add a fifth, and a sixth that is then removed
+    fireEvent.click(screen.getByRole('button', { name: 'Aggiungi coppia' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Aggiungi coppia' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Rimuovi coppia 6' }));
+    expect(screen.getByText('5 coppie')).toBeInTheDocument();
+    const names = ['Rossi', 'Bianchi', 'Verdi', 'Neri', 'Gialli', 'Blu', 'Mori', 'Conti', 'Sala'];
+    names.forEach((name, i) => type(`Giocatore ${(i % 2) + 1} di ${Math.floor(i / 2) + 1}`, name));
+    type('Giocatore 2 di 5', 'Riva');
+    // Every row starts at the weakest level
+    fireEvent.change(screen.getByLabelText('Livello coppia 2'), { target: { value: '1' } });
+    fireEvent.change(screen.getByLabelText('Livello coppia 4'), { target: { value: '2' } });
+    expect(await screen.findByText('Consolazione: chi perde la prima partita')).toBeInTheDocument();
+    expect(screen.getByText('Fino a 7 partite in totale')).toBeInTheDocument();
+    next();
+    next();
+    fireEvent.click(screen.getByRole('button', { name: 'Crea torneo' }));
+
+    expect(await screen.findByText('Pagina del torneo')).toBeInTheDocument();
+    const [, init] = fetchMock.mock.calls.filter(([url]) => url === '/api/tournaments').at(-1)!;
+    expect(JSON.parse(init!.body as string)).toMatchObject({
+      pairCount: 5,
+      structure: { type: 'knockout_consolation' },
+      players: [
+        ['Rossi', 'Bianchi'],
+        ['Verdi', 'Neri'],
+        ['Gialli', 'Blu'],
+        ['Mori', 'Conti'],
+        ['Sala', 'Riva'],
+      ],
+      levels: [4, 1, 4, 2, 4],
+    });
+  });
+
   it('generates and edits the time slots', async () => {
     stubApi({ 'POST /api/tournaments/preview': previewFor as never });
     renderPage();

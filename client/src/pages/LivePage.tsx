@@ -4,7 +4,13 @@ import { BracketView } from '../components/tournament/BracketView';
 import { GroupsBoard } from '../components/tournament/GroupsBoard';
 import { fill, useI18n } from '../i18n/context';
 import { ApiError, apiGet } from '../lib/api';
-import { formatDate, type Tournament, type TournamentListItem } from '../lib/tournaments';
+import {
+  bracketName,
+  formatDate,
+  type BracketId,
+  type Tournament,
+  type TournamentListItem,
+} from '../lib/tournaments';
 import { useFullscreen } from '../lib/useFullscreen';
 
 /** How often the shown tournament is loaded again. */
@@ -74,7 +80,7 @@ function Board({ tournament, updated }: { tournament: Tournament; updated: strin
               >
                 {name === 'groups'
                   ? t.groups.title
-                  : fill(t.tournament.tabs.bracket, { id: name.slice('bracket-'.length) })}
+                  : bracketName(t, name.slice('bracket-'.length) as BracketId)}
               </button>
             ))}
           </nav>
