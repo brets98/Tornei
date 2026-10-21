@@ -10,6 +10,8 @@ import { FORMATS, SPORTS, STRUCTURE_TYPES, type TournamentData } from '../domain
  */
 export interface Tournament extends TournamentData {
   ownerId: Types.ObjectId;
+  /** A stage of one of the owner's circuits, in one of its categories; null otherwise */
+  circuit: { circuitId: Types.ObjectId; categoryId: string } | null;
 }
 
 /** Embedded objects: their own string `id`, no MongoDB `_id`. */
@@ -62,6 +64,13 @@ const standingSchema = embedded({
 
 const tournamentSchema = createSchema<Tournament>({
   ownerId: { type: Schema.Types.ObjectId, ref: 'User', required: true },
+  circuit: {
+    type: embedded({
+      circuitId: { type: Schema.Types.ObjectId, ref: 'Circuit', required: true },
+      categoryId: { type: String, required: true },
+    }),
+    default: null,
+  },
   name: { type: String, required: true, trim: true },
   subtitle: { type: String, default: '', trim: true },
   sport: { type: String, enum: SPORTS, required: true },
@@ -84,7 +93,14 @@ const tournamentSchema = createSchema<Tournament>({
     gamesPerSet: { type: Number, required: true },
     decider: { type: String, enum: DECIDERS, required: true },
   }),
-  pairs: [embedded({ id: { type: String, required: true }, players: [String], level: Number })],
+  pairs: [
+    embedded({
+      id: { type: String, required: true },
+      players: [String],
+      playerIds: { type: [String], default: undefined },
+      level: Number,
+    }),
+  ],
   groups: [
     embedded({
       id: { type: String, required: true },
@@ -121,5 +137,7 @@ const tournamentSchema = createSchema<Tournament>({
 // Two tabs saving the same tournament: the second save fails (409) instead of overwriting
 tournamentSchema.set('optimisticConcurrency', true);
 tournamentSchema.index({ ownerId: 1, date: -1, createdAt: -1 });
+tournamentSchema.index({ 'circuit.circuitId': 1 });
+tournamentSchema.index({ ownerId: 1, 'pairs.playerIds': 1 });
 
 export const TournamentModel = model<Tournament>('Tournament', tournamentSchema);

@@ -68,6 +68,11 @@ export interface Pair {
   id: string;
   /** 1 (singles) or 2 (doubles) names; empty strings until entered */
   players: string[];
+  /**
+   * Circuit stages: the registry player (`players` collection) of each name, null when not
+   * linked. Set by the server; cleared when the names change.
+   */
+  playerIds?: (string | null)[];
   /** Consolation draw: strength from 1 (best) to `LEVELS`; seeds the draw */
   level?: number;
 }

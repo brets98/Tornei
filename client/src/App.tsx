@@ -3,10 +3,13 @@ import { Layout } from './components/Layout';
 import { useI18n } from './i18n/context';
 import { authClient } from './lib/auth-client';
 import { AuthPage } from './pages/AuthPage';
+import { CircuitPage } from './pages/CircuitPage';
+import { CircuitsPage } from './pages/CircuitsPage';
 import { ChangePasswordPage } from './pages/ChangePasswordPage';
 import { LivePage } from './pages/LivePage';
 import { NewTournamentPage } from './pages/NewTournamentPage';
 import { NotFoundPage } from './pages/NotFoundPage';
+import { PlayersPage } from './pages/PlayersPage';
 import { PublicLandingPage } from './pages/PublicLandingPage';
 import { ResetPasswordPage } from './pages/ResetPasswordPage';
 import { ResultsPage } from './pages/ResultsPage';
@@ -43,6 +46,9 @@ export function App() {
         <Route index element={<TournamentsPage />} />
         <Route path="tournaments/new" element={<NewTournamentPage />} />
         <Route path="tournaments/:id" element={<TournamentPage />} />
+        <Route path="circuits" element={<CircuitsPage />} />
+        <Route path="circuits/:id" element={<CircuitPage />} />
+        <Route path="players" element={<PlayersPage />} />
         <Route path="live" element={<LivePage />} />
         <Route path="live/:id" element={<LivePage />} />
         <Route path="results" element={<ResultsPage isAdmin={isAdmin} />} />

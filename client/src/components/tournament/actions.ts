@@ -1,3 +1,4 @@
+import type { StageLink } from '../../lib/circuits';
 import type { MatchFormat } from '../../lib/score';
 import type { BracketId } from '../../lib/tournaments';
 import type { MatchChanges } from './MatchRow';
@@ -10,6 +11,8 @@ export interface SettingsChanges {
   courts: { id?: string; name: string }[];
   timeSlots: { id?: string; time: string }[];
   matchFormat: MatchFormat;
+  /** A stage of this circuit, or null */
+  circuit: StageLink | null;
 }
 
 /** The changes the tournament views can make; each one is saved by TournamentPage. */

@@ -1,9 +1,12 @@
 import { useEffect, useMemo, useState, type FormEvent } from 'react';
-import { useNavigate } from 'react-router';
+import { useNavigate, useSearchParams } from 'react-router';
 import type { Messages } from '../i18n/en';
 import { fill, useI18n } from '../i18n/context';
 import { ApiError, apiPost } from '../lib/api';
+import { PlayersDatalist } from '../components/PlayersDatalist';
+import { StageLinkFields } from '../components/StageLinkFields';
 import { MatchFormatFields } from '../components/tournament/MatchFormatFields';
+import { PLAYERS_LIST_ID, type StageLink } from '../lib/circuits';
 import { buildMatchFormat, type Decider, type SetsChoice } from '../lib/score';
 import {
   entriesLabel,
@@ -37,6 +40,8 @@ interface Form {
   advanceB: string;
   courts: string[];
   timeSlots: string[];
+  /** A stage of this circuit, or null */
+  circuit: StageLink | null;
 }
 
 const STRUCTURE_TYPES: StructureType[] = [
@@ -67,7 +72,7 @@ const PREVIEW_DELAY_MS = 250;
 
 /** Which wizard step each issue belongs to (unknown codes go to the summary). */
 const STEP_OF_ISSUE: [RegExp, number][] = [
-  [/^(NAME_|SPORT_|FORMAT_|PADEL_|DATE_)/, 0],
+  [/^(NAME_|SPORT_|FORMAT_|PADEL_|DATE_|CIRCUIT_)/, 0],
   [/^(PAIR_|PLAYER|STRUCTURE_|GROUP_|ADVANCE_|BRACKET_|MATCH_FORMAT_)/, 1],
   [/^(COURT|SLOT)/, 2],
 ];
@@ -100,7 +105,7 @@ function generateSlots(from: string, to: string, every: number): string[] {
 
 const defaultCourt = (t: Messages, n: number) => fill(t.wizard.defaultCourt, { n });
 
-const initialForm = (t: Messages): Form => ({
+const initialForm = (t: Messages, circuitId: string | null): Form => ({
   name: '',
   subtitle: '',
   sport: 'padel',
@@ -116,6 +121,8 @@ const initialForm = (t: Messages): Form => ({
   advanceB: '1',
   courts: [1, 2, 3, 4].map((n) => defaultCourt(t, n)),
   timeSlots: generateSlots('19:00', '23:00', 30),
+  // 'New stage' from a circuit: its first category, chosen once the circuits are loaded
+  circuit: circuitId ? { circuitId, categoryId: '' } : null,
 });
 
 /** What the API expects (see parseSetup on the server). Empty numbers become null: invalid. */
@@ -143,13 +150,15 @@ function toSetup(form: Form) {
       advanceB: form.withB ? number(form.advanceB) : 0,
     },
     matchFormat: buildMatchFormat(form.sets, form.decider),
+    circuit: form.circuit,
   };
 }
 
 export function NewTournamentPage() {
   const { t } = useI18n();
   const navigate = useNavigate();
-  const [form, setForm] = useState<Form>(() => initialForm(t));
+  const [searchParams] = useSearchParams();
+  const [form, setForm] = useState<Form>(() => initialForm(t, searchParams.get('circuit')));
   const [step, setStep] = useState(0);
   const [tried, setTried] = useState(false);
   const [checked, setChecked] = useState<{ issues: Issue[]; preview: Preview | null } | null>(null);
@@ -320,6 +329,10 @@ function InfoStep({ form, update }: StepProps) {
         {t.wizard.date}
         <input type="date" value={form.date} onChange={(e) => update({ date: e.target.value })} />
       </label>
+      <div className="choice">
+        <span>{t.stageLink.title}</span>
+        <StageLinkFields value={form.circuit} onChange={(circuit) => update({ circuit })} />
+      </div>
     </fieldset>
   );
 }
@@ -432,6 +445,7 @@ function EntryRows({
 
   return (
     <div className="entry-rows">
+      {form.circuit && <PlayersDatalist />}
       <span>{fill(t.wizard.entryList, { entries: entries.many })}</span>
       <p className="muted">{t.wizard.levelsHint}</p>
       <div className="pair-list">
@@ -444,6 +458,7 @@ function EntryRows({
                   key={p}
                   value={name}
                   maxLength={60}
+                  list={form.circuit ? PLAYERS_LIST_ID : undefined}
                   aria-label={fill(t.groups.playerName, { n: p + 1, pair: i + 1 })}
                   onChange={(e) =>
                     setRow(i, {

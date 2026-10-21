@@ -144,9 +144,41 @@ describe('TournamentPage', () => {
           courts: [{ id: 'c2', name: 'Centrale' }, { name: 'Campo 2' }],
           timeSlots: [{ time: '18:30' }, { id: 't1', time: '19:00' }, { id: 't2', time: '19:30' }],
           matchFormat: { bestOf: 3, gamesPerSet: 6, decider: 'set' },
+          circuit: null,
         }),
       );
       expect(await screen.findByRole('heading', { name: /Torneo d’estate/ })).toBeInTheDocument();
+    });
+
+    it('makes the tournament a stage of a circuit', async () => {
+      const fetchMock = stubApi({
+        'GET /api/tournaments/t1': () => json(tournament),
+        'GET /api/circuits': () =>
+          json([
+            {
+              id: 'x1',
+              name: 'Circuito',
+              season: '2027',
+              stageCount: 0,
+              categories: [
+                { id: 'k1', name: 'Major', points: { places: [], groups: 0, participation: 0 } },
+                { id: 'k2', name: 'P1', points: { places: [], groups: 0, participation: 0 } },
+              ],
+            },
+          ]),
+        'PATCH /api/tournaments/t1/settings': () => json(tournament),
+      });
+      renderPage(settingsTab);
+
+      fireEvent.change(await screen.findByLabelText('Circuito'), { target: { value: 'x1' } });
+      fireEvent.change(screen.getByLabelText('Categoria'), { target: { value: 'k2' } });
+      fireEvent.click(screen.getByRole('button', { name: 'Salva modifiche' }));
+
+      await waitFor(() =>
+        expect(sent(fetchMock, 'PATCH', '/api/tournaments/t1/settings')).toMatchObject({
+          circuit: { circuitId: 'x1', categoryId: 'k2' },
+        }),
+      );
     });
 
     it('saves nothing if the removal is not confirmed', async () => {

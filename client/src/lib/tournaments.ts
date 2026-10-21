@@ -1,5 +1,6 @@
 import { fill } from '../i18n/context';
 import type { Messages } from '../i18n/en';
+import type { StageLink } from './circuits';
 import { decidingSet, setsChoice, type MatchFormat, type SetScore } from './score';
 
 /** Shapes returned by /api/tournaments (see server/src/domain/types.ts). */
@@ -24,6 +25,8 @@ export interface TournamentListItem {
   sport: Sport;
   format: Format;
   date: string;
+  /** A stage of a circuit, or null */
+  circuit?: StageLink | null;
   summary: Summary;
 }
 
@@ -101,8 +104,11 @@ export interface Tournament extends TournamentListItem {
   timeSlots: { id: string; time: string }[];
   structure: { type: StructureType; groupCount: number; advanceA: number; advanceB: number };
   matchFormat: MatchFormat;
-  /** `level`: consolation draw only, 1 (strongest) to 4 */
-  pairs: { id: string; players: string[]; level?: number }[];
+  /**
+   * `level`: consolation draw only, 1 (strongest) to 4; `playerIds`: circuit stages, the
+   * registry player of each name
+   */
+  pairs: { id: string; players: string[]; playerIds?: (string | null)[]; level?: number }[];
   groups: Group[];
   seeding: string[];
   matches: Match[];

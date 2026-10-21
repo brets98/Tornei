@@ -1238,3 +1238,76 @@ label.button.disabled {
   font-size: 1.4rem;
   color: var(--navy);
 }
+
+/* Players and circuits */
+.player-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  margin: 0;
+  list-style: none;
+}
+
+.player-list li {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+}
+
+.player-list input {
+  flex: 1;
+  min-width: 0;
+}
+
+.stage-link {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  flex: 1 1 100%;
+}
+
+.stage-link p {
+  margin: 0;
+}
+
+.points-table {
+  border-collapse: collapse;
+  margin-bottom: 0.75rem;
+}
+
+.points-table th,
+.points-table td {
+  padding: 0.3rem 0.4rem;
+  text-align: left;
+  border-bottom: 1px solid var(--panel-border);
+}
+
+.points-table tbody th {
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+.category-head {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+}
+
+.category-head input {
+  width: 7rem;
+  font-weight: 600;
+}
+
+.points-input {
+  width: 6rem;
+}
+
+.ranking details summary {
+  cursor: pointer;
+}
+
+.stage-points {
+  margin: 0.3rem 0 0;
+  padding-left: 1rem;
+  font-size: 0.9rem;
+}
