@@ -58,3 +58,29 @@ jobs:
             ghcr.io/brets98/tornei-${{ matrix.image }}:${{ github.sha }}
           cache-from: type=gha,scope=${{ matrix.image }}
           cache-to: type=gha,mode=max,scope=${{ matrix.image }}
+
+  # Runs only once the VPS is configured: repository variables VPS_HOST, VPS_USER and
+  # VPS_DIR (folder with .env), secrets VPS_SSH_KEY (private key) and VPS_KNOWN_HOSTS
+  # (output of `ssh-keyscan <host>`).
+  deploy:
+    name: Deploy to the VPS
+    needs: publish
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main' && vars.VPS_HOST != ''
+    runs-on: ubuntu-latest
+    concurrency: production
+    steps:
+      - uses: actions/checkout@v5
+      - name: Set up SSH
+        run: |
+          install -m 700 -d ~/.ssh
+          echo "${{ secrets.VPS_SSH_KEY }}" > ~/.ssh/id_deploy
+          echo "${{ secrets.VPS_KNOWN_HOSTS }}" > ~/.ssh/known_hosts
+          chmod 600 ~/.ssh/id_deploy ~/.ssh/known_hosts
+      - name: Copy the compose file and restart on the new images
+        env:
+          TARGET: ${{ vars.VPS_USER }}@${{ vars.VPS_HOST }}
+          DIR: ${{ vars.VPS_DIR }}
+        run: |
+          scp -i ~/.ssh/id_deploy docker-compose.prod.yml "$TARGET:$DIR/docker-compose.yml"
+          ssh -i ~/.ssh/id_deploy "$TARGET" "cd '$DIR' && export IMAGE_TAG=${{ github.sha }} \
+            && docker compose pull && docker compose up -d --remove-orphans && docker image prune -f"
