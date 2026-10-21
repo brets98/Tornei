@@ -16,7 +16,7 @@ Web app with user authentication. Features will be defined and added gradually: 
 
 - **Frontend**: React + Vite, TypeScript
 - **Backend**: Node.js (LTS, currently 24) + Express 5, TypeScript (ESM)
-- **Database**: MongoDB in a container, with data persisted on a Docker volume (no external managed database, for now)
+- **Database**: MongoDB. Development: a container with data on a Docker volume. Production: a **MongoDB Atlas** cluster (chosen by the user on 2026-10-21, replacing Mongo on the VM), reached through `MONGODB_URI` in `.env`; the app only needs a standard MongoDB connection string, so it can move back to a self-hosted Mongo by changing that value.
 - **ODM**: Mongoose
 - **Reverse proxy / HTTPS (production)**: Caddy, with automatic certificates. The production `web` image is Caddy serving the built client and proxying `/api/*` to the server.
 
@@ -32,7 +32,7 @@ Web app with user authentication. Features will be defined and added gradually: 
 - A user can link multiple providers to the same account (same email). Linking only happens when the email is verified on both sides (protects against account takeover).
 - Better Auth owns the `users`, `sessions`, `accounts` and `verifications` collections. `users` has the extra fields `surname` (required on email sign-up) and `role` (cannot be set by the client).
 - **Roles** are stored in the `roles` collection (`server/src/models/role.ts`); `user.role` holds the role's `name`. Current roles: `admin`, `user` (default), created on server startup by `ensureDefaultRoles()`. Use the `ROLES` constants in code, never string literals. `server/src/models/user.ts` is a Mongoose read model of `users`: new users are created only through sign-up or Google login.
-- To make someone an admin (no UI yet): open `docker compose exec mongo mongosh tornei` and run `db.users.updateOne({ email: '...' }, { $set: { role: 'admin' } })`. In production mongo needs the root credentials: `docker compose exec mongo mongosh -u "$MONGO_ROOT_USERNAME" -p --authenticationDatabase admin tornei` (from the folder with `.env`, after `set -a; . ./.env; set +a`).
+- To make someone an admin (no UI yet): open `docker compose exec mongo mongosh tornei` and run `db.users.updateOne({ email: '...' }, { $set: { role: 'admin' } })`. In production (Atlas), from the folder with the compose file: `docker compose exec backup bash -c 'mongosh "$MONGODB_URI"'`.
 - Better Auth doesn't create MongoDB indexes: `ensureAuthIndexes()` (`server/src/auth/indexes.ts`) creates them on startup, with TTL indexes on `expiresAt` that delete expired sessions and tokens. Add one there when a new query needs it.
 - Client IP (rate limiting, sessions): Better Auth reads `X-Forwarded-For`, which Caddy sets to the connecting client's address (it ignores the value sent by clients). The server port is not published in production, so every request goes through Caddy.
 
@@ -109,12 +109,12 @@ Client: React Router (`client/src/App.tsx` defines routes; signed-in pages rende
 
 ## Deploy
 
-- **Target server**: Google Cloud's free `e2-micro` VM (1 GB RAM, `us-east1`), used as a plain VPS; step-by-step setup in `docs/deploy-gcp.md`. MongoDB runs on the same VM (chosen 2026-10-21 over a hosted free database). `docker-compose.prod.yml` is sized for it: Mongo's cache capped at 0.25 GB, rotated container logs, 2 GB swap on the host. Keep new services light.
+- **Target server**: Google Cloud's free `e2-micro` VM (1 GB RAM, `us-east1`), used as a plain VPS; step-by-step setup in `docs/deploy-gcp.md`. The database is MongoDB Atlas (the VM's IP must be in Atlas' Network Access list). `docker-compose.prod.yml` is sized for the VM: rotated container logs, 2 GB swap on the host. Keep new services light.
 - GitHub Actions: on every push runs lint, format check, typecheck, tests and build; on `main` it builds the Docker images and publishes them to GitHub Container Registry (`ghcr.io/brets98/tornei-server`, `ghcr.io/brets98/tornei-web`, tagged `latest` and the commit SHA).
 - The `deploy` job (after publishing, on `main`) copies `docker-compose.prod.yml` to the VPS as `docker-compose.yml` in `VPS_DIR` and runs `docker compose pull && up -d` with `IMAGE_TAG` set to the commit SHA. It is skipped until the repository variables `VPS_HOST`, `VPS_USER`, `VPS_DIR` and the secrets `VPS_SSH_KEY`, `VPS_KNOWN_HOSTS` are set. If the GHCR packages are private, run `docker login ghcr.io` once on the VPS with a read-only token.
 - **Secrets in production live only on the VPS**, in a `.env` created by hand and readable only by the deploy user (`chmod 600`). Images and CI never contain app secrets: the deploy job only needs an SSH key (GitHub Actions secret) to run `docker compose pull && docker compose up -d`. Possible later step: SOPS + age to version encrypted secrets in git. OpenBao/Vault only if there are multiple servers or people.
 - Never put secrets in the client: `VITE_*` variables end up in the public JavaScript bundle.
-- **Backups**: the `backup` service in `docker-compose.prod.yml` runs `mongodump` on start and every 24 hours into `./backups` on the VPS, keeping `BACKUP_KEEP_DAYS` days (restore command in the compose file). Still to do: copy them off the server (another machine or storage), or a disk failure loses them too.
+- **Backups**: the `backup` service in `docker-compose.prod.yml` runs `mongodump` against Atlas on start and every 24 hours into `./backups` on the VPS, keeping `BACKUP_KEEP_DAYS` days (restore command in the compose file). Still to do: copy them off the server (another machine or storage), or a disk failure loses them too.
 
 ## Commands
 

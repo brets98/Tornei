@@ -1,7 +1,7 @@
 # Deploy on Google Cloud's free VM
 
-The whole app (Caddy, API, MongoDB, backups) runs with Docker Compose on one free
-**e2-micro** VM. Google Cloud is only used as a plain Linux server: moving to another
+The app (Caddy, API, backups) runs with Docker Compose on one free **e2-micro** VM; the
+database is a MongoDB Atlas cluster. Google Cloud is only used as a plain Linux server: moving to another
 VPS means repeating these steps there.
 
 Free tier limits (check [the current terms](https://docs.cloud.google.com/free/docs/free-cloud-features)):
@@ -48,7 +48,7 @@ Open **SSH** from the VM's row in the console, then:
 # Docker
 curl -fsSL https://get.docker.com | sudo sh
 
-# 2 GB swap: 1 GB of RAM is tight for MongoDB + Node
+# 2 GB swap: 1 GB of RAM is tight for Node, Caddy and image pulls
 sudo fallocate -l 2G /swapfile && sudo chmod 600 /swapfile
 sudo mkswap /swapfile && sudo swapon /swapfile
 echo '/swapfile none swap sw 0 0' | sudo tee -a /etc/fstab
@@ -102,7 +102,13 @@ chmod 600 .env
 ```
 
 - `DOMAIN`: the domain from step 3.
-- `MONGO_ROOT_PASSWORD`, `BETTER_AUTH_SECRET`: generate each with `openssl rand -hex 32`.
+- `MONGODB_URI`: from the Atlas cluster (**Connect → Drivers**). Before that, in Atlas:
+  **Database Access** → a user with _Read and write to any database_ (a password without
+  special characters avoids URL-encoding), and **Network Access** → add `<IP>/32`.
+  Write the database name after the host: `…mongodb.net/tornei?retryWrites=true&w=majority`.
+  A cluster close to `us-east1` (e.g. Google Cloud `us-east1` or AWS `us-east-1`) keeps
+  queries fast.
+- `BETTER_AUTH_SECRET`: generate it with `openssl rand -hex 32`.
 - SMTP values from step 6.
 - `SIGNUP_ENABLED=true` for now (step 9), Google values later (step 10).
 
@@ -132,8 +138,8 @@ minute while Caddy gets the certificate.
 
    ```bash
    cd /opt/tornei
-   docker compose exec mongo mongosh -u "$(grep ^MONGO_ROOT_USERNAME .env | cut -d= -f2)" -p --authenticationDatabase admin tornei
-   # at the prompt: the MONGO_ROOT_PASSWORD, then
+   docker compose exec backup bash -c 'mongosh "$MONGODB_URI"'
+   # then at the prompt
    db.users.updateOne({ email: '<your email>' }, { $set: { role: 'admin' } })
    ```
 
