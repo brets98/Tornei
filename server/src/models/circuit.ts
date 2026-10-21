@@ -1,10 +1,11 @@
 import { model, Schema, type SchemaDefinition, type Types } from 'mongoose';
 import { createSchema } from '../db/schema.js';
-import type { CircuitData } from '../domain/circuit.js';
+import { PLACES, type CircuitData, type PastStage } from '../domain/circuit.js';
 
 /** A series of tournaments with a ranking; its stages point to it (`tournament.circuit`). */
 export interface Circuit extends CircuitData {
   ownerId: Types.ObjectId;
+  pastStages: PastStage[];
 }
 
 const embedded = (definition: SchemaDefinition) =>
@@ -23,6 +24,21 @@ const circuitSchema = createSchema<Circuit>({
         groups: Number,
         participation: Number,
       }),
+    }),
+  ],
+  pastStages: [
+    embedded({
+      id: { type: String, required: true },
+      name: { type: String, required: true },
+      date: { type: String, required: true },
+      categoryId: { type: String, required: true },
+      entries: [
+        embedded({
+          players: [String],
+          playerIds: [String],
+          place: { type: String, enum: [...PLACES, 'groups'], required: true },
+        }),
+      ],
     }),
   ],
 });

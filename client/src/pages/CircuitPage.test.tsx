@@ -29,8 +29,10 @@ const circuit: Circuit = {
       date: '2026-10-20',
       categoryId: 'k2',
       summary: { status: 'finished', matchesDone: 1, matchesTotal: 1 },
+      past: false,
     },
   ],
+  pastStages: [],
   ranking: [
     {
       playerId: 'a',
@@ -121,6 +123,53 @@ describe('CircuitPage', () => {
         categories: [
           { id: 'k2', name: 'P1', points: { ...points(100), places: [150, 50, 30, 20, 10, 5, 2] } },
           { name: 'Categoria 2', points: { ...points(100), places: [150, 50, 30, 20, 10, 5, 2] } },
+        ],
+      }),
+    );
+  });
+
+  it('adds a past stage with the final results only', async () => {
+    const fetchMock = stubApi({
+      'GET /api/circuits/x1': () => json(circuit),
+      'GET /api/players': () => json([]),
+      'POST /api/circuits/x1/stages': () => json(circuit, 201),
+    });
+    renderAt('/circuits/x1?tab=stages');
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Aggiungi tappa passata' }));
+    fireEvent.change(screen.getByLabelText('Nome della tappa'), { target: { value: 'Tappa 0' } });
+    fireEvent.change(screen.getByLabelText('Data'), { target: { value: '2026-06-01' } });
+    fireEvent.change(screen.getByLabelText('Categoria'), { target: { value: 'k2' } });
+    for (const n of [4, 3]) {
+      fireEvent.click(screen.getByRole('button', { name: `Rimuovi coppia ${n}` }));
+    }
+    const names = [
+      ['Rossi', 'Bianchi'],
+      ['Verdi', ''],
+    ];
+    names.forEach((pair, i) =>
+      pair.forEach((name, p) =>
+        fireEvent.change(screen.getByLabelText(`Giocatore ${p + 1} di ${i + 1}`), {
+          target: { value: name },
+        }),
+      ),
+    );
+    fireEvent.change(screen.getByLabelText('Risultato della coppia 1'), {
+      target: { value: 'winner' },
+    });
+    fireEvent.change(screen.getByLabelText('Risultato della coppia 2'), {
+      target: { value: 'runnerUp' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Salva' }));
+
+    await waitFor(() =>
+      expect(sent(fetchMock, 'POST', '/api/circuits/x1/stages')).toEqual({
+        name: 'Tappa 0',
+        date: '2026-06-01',
+        categoryId: 'k2',
+        entries: [
+          { players: ['Rossi', 'Bianchi'], place: 'winner' },
+          { players: ['Verdi'], place: 'runnerUp' },
         ],
       }),
     );

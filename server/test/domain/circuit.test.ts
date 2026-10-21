@@ -2,8 +2,10 @@ import { describe, expect, it } from 'vitest';
 import {
   DEFAULT_CATEGORIES,
   parseCircuit,
+  parsePastStage,
   placements,
   ranking,
+  tournamentEntries,
   type Category,
 } from '../../src/domain/circuit.js';
 import { updateMatch } from '../../src/domain/edit.js';
@@ -80,7 +82,7 @@ describe('ranking', () => {
     const stage = linked(playAll(build({ pairCount: 4, structure: { type: 'knockout' } })));
     const champion = stage.brackets[0].champion!;
     const { rows, unlinked } = ranking(
-      [{ id: 's1', name: 'Stage 1', date: '2026-10-01', categoryId: P1, data: stage }],
+      [{ id: 's1', date: '2026-10-01', categoryId: P1, entries: tournamentEntries(stage) }],
       categories,
       new Map(),
     );
@@ -103,9 +105,9 @@ describe('ranking', () => {
     const finished = linked(playAll(build({ pairCount: 4, structure: { type: 'knockout' } })));
     const running = linked(build({ pairCount: 4, structure: { type: 'knockout' } }));
     const stages = [
-      { id: 's1', name: 'P1', date: '2026-10-01', categoryId: P1, data: finished },
-      { id: 's2', name: 'Major', date: '2026-10-08', categoryId: 'k1', data: finished },
-      { id: 's3', name: 'Running', date: '2026-10-15', categoryId: P1, data: running },
+      { id: 's1', date: '2026-10-01', categoryId: P1, entries: tournamentEntries(finished) },
+      { id: 's2', date: '2026-10-08', categoryId: 'k1', entries: tournamentEntries(finished) },
+      { id: 's3', date: '2026-10-15', categoryId: P1, entries: tournamentEntries(running) },
     ];
     const top = ranking(stages, categories, new Map()).rows[0];
 
@@ -116,7 +118,7 @@ describe('ranking', () => {
     const data = linked(playAll(build({ pairCount: 4, structure: { type: 'knockout' } })));
     const names = new Map(data.pairs.flatMap((p) => p.playerIds!.map((id) => [id!, id!])));
     const { rows } = ranking(
-      [{ id: 's1', name: 'S', date: '2026-10-01', categoryId: P1, data }],
+      [{ id: 's1', date: '2026-10-01', categoryId: P1, entries: tournamentEntries(data) }],
       categories,
       names,
     );
@@ -133,7 +135,7 @@ describe('ranking', () => {
       pairs: data.pairs.map((p) => ({ ...p, players: ['Rossi', 'Bianchi'] })),
     };
     const result = ranking(
-      [{ id: 's1', name: 'S', date: '2026-10-01', categoryId: P1, data: named }],
+      [{ id: 's1', date: '2026-10-01', categoryId: P1, entries: tournamentEntries(named) }],
       categories,
       new Map(),
     );
@@ -186,5 +188,49 @@ describe('parseCircuit', () => {
     const { issues } = parseCircuit({ ...body, categories: [categories[0]] }, categories, [P1]);
 
     expect(issues).toEqual([{ code: 'CATEGORY_IN_USE', params: { name: 'P1' } }]);
+  });
+});
+
+describe('parsePastStage', () => {
+  it('trims names and keeps the results', () => {
+    const { stage, issues } = parsePastStage(
+      {
+        name: ' Tappa 1 ',
+        date: '2026-06-01',
+        categoryId: 'k1',
+        entries: [
+          { players: [' Rossi ', 'Bianchi'], place: 'winner' },
+          { players: ['Verdi'], place: 'groups' },
+        ],
+      },
+      categories,
+    );
+
+    expect(issues).toEqual([]);
+    expect(stage).toEqual({
+      name: 'Tappa 1',
+      date: '2026-06-01',
+      categoryId: 'k1',
+      entries: [
+        { players: ['Rossi', 'Bianchi'], place: 'winner' },
+        { players: ['Verdi'], place: 'groups' },
+      ],
+    });
+  });
+
+  it('lists every problem', () => {
+    const { issues } = parsePastStage(
+      { name: '', date: '2026-02-30', entries: [{ players: ['A', 'B', 'C'], place: 'third' }] },
+      categories,
+    );
+
+    expect(issues.map((i) => i.code)).toEqual([
+      'STAGE_NAME_REQUIRED',
+      'DATE_INVALID',
+      'CATEGORY_UNKNOWN',
+      'STAGE_ENTRIES_REQUIRED',
+      'PLAYERS_INCOMPLETE',
+      'STAGE_PLACE_REQUIRED',
+    ]);
   });
 });

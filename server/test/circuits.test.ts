@@ -193,4 +193,94 @@ describe('players and circuits API', () => {
       expect(res.status).toBe(400);
     });
   });
+
+  describe('past stages', () => {
+    const past = {
+      name: 'Tappa 1',
+      date: '2026-06-01',
+      categoryId: 'k2',
+      entries: [
+        { players: ['Rossi', 'Bianchi'], place: 'winner' },
+        { players: ['Verdi', 'Neri'], place: 'runnerUp' },
+        { players: ['Gialli', 'Blu'], place: 'semifinal' },
+      ],
+    };
+
+    it('adds a past stage that counts in the ranking, then edits and removes it', async () => {
+      const { agent } = await signUp(t, owner);
+      const circuit = (await agent.post('/api/circuits').send({ name: 'Circuito' })).body;
+
+      const added = await agent.post(`/api/circuits/${circuit.id}/stages`).send(past);
+      expect(added.status).toBe(201);
+      expect(added.body.pastStages).toHaveLength(1);
+      expect(await PlayerModel.countDocuments()).toBe(6);
+
+      let detail = await agent.get(`/api/circuits/${circuit.id}`);
+      expect(detail.body.stages).toEqual([
+        {
+          id: 'm1',
+          name: 'Tappa 1',
+          date: '2026-06-01',
+          categoryId: 'k2',
+          summary: null,
+          past: true,
+        },
+      ]);
+      expect(
+        detail.body.ranking
+          .slice(0, 3)
+          .map((r: { name: string; points: number }) => [r.name, r.points]),
+      ).toEqual([
+        ['Bianchi', 1010],
+        ['Rossi', 1010],
+        ['Neri', 610],
+      ]);
+
+      const rossi = (await PlayerModel.findOne({ key: 'rossi' }))!.id;
+      const edited = await agent.put(`/api/circuits/${circuit.id}/stages/m1`).send({
+        ...past,
+        entries: [
+          { ...past.entries[0], place: 'runnerUp' },
+          { ...past.entries[1], place: 'winner' },
+        ],
+      });
+      expect(edited.status).toBe(200);
+      expect(edited.body.pastStages[0].entries[0].playerIds[0]).toBe(rossi);
+      detail = await agent.get(`/api/circuits/${circuit.id}`);
+      expect(detail.body.ranking[0].name).toBe('Neri');
+
+      // Players and the category are in use while the stage exists
+      expect((await agent.delete(`/api/players/${rossi}`)).status).toBe(409);
+      const removeCategory = await agent
+        .patch(`/api/circuits/${circuit.id}`)
+        .send({ categories: circuit.categories.filter((c: { id: string }) => c.id !== 'k2') });
+      expect(removeCategory.status).toBe(400);
+
+      const removed = await agent.delete(`/api/circuits/${circuit.id}/stages/m1`);
+      expect(removed.body.pastStages).toEqual([]);
+      expect((await agent.delete(`/api/players/${rossi}`)).status).toBe(204);
+    });
+
+    it('refuses an invalid past stage, explaining why', async () => {
+      const { agent } = await signUp(t, owner);
+      const circuit = (await agent.post('/api/circuits').send({ name: 'Circuito' })).body;
+
+      const res = await agent.post(`/api/circuits/${circuit.id}/stages`).send({
+        ...past,
+        categoryId: 'k9',
+        entries: [past.entries[0], { players: ['rossi', ''] }],
+      });
+
+      expect(res.status).toBe(400);
+      expect(res.body.issues.map((i: { code: string }) => i.code)).toEqual([
+        'CATEGORY_UNKNOWN',
+        'PLAYERS_INCOMPLETE',
+        'STAGE_PLACE_REQUIRED',
+        'STAGE_PLAYER_TWICE',
+      ]);
+      expect((await agent.put(`/api/circuits/${circuit.id}/stages/m9`).send(past)).status).toBe(
+        404,
+      );
+    });
+  });
 });

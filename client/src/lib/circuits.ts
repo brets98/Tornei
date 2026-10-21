@@ -39,7 +39,19 @@ export interface Stage {
   name: string;
   date: string;
   categoryId: string;
-  summary: Summary;
+  /** Null for a past stage */
+  summary: Summary | null;
+  /** Entered as final results only (`pastStages`), not a tournament */
+  past: boolean;
+}
+
+/** A stage played before it was in the app: each entry's players and final result. */
+export interface PastStage {
+  id: string;
+  name: string;
+  date: string;
+  categoryId: string;
+  entries: { players: string[]; place: Place }[];
 }
 
 export interface RankingRow {
@@ -57,6 +69,7 @@ export interface RankingRow {
 export interface Circuit extends Omit<CircuitListItem, 'stageCount'> {
   updatedAt: string;
   stages: Stage[];
+  pastStages: PastStage[];
   ranking: RankingRow[];
   /** Names in finished stages not linked to a player: they get no points */
   unlinked: { stageId: string; count: number }[];

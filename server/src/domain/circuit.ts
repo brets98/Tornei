@@ -203,13 +203,25 @@ export function pointsFor(place: Place, points: CategoryPoints) {
   return (base ?? 0) + points.participation;
 }
 
-/** A stage as the ranking needs it. */
+/** An entry of a finished stage: its players (linked to the registry or not) and its result. */
+export interface StageEntry {
+  players: string[];
+  playerIds?: (string | null)[];
+  place: Place;
+}
+
+/** A stage as the ranking needs it: `entries` is null while it isn't finished. */
 export interface Stage {
   id: string;
-  name: string;
   date: string;
   categoryId: string;
-  data: TournamentData;
+  entries: StageEntry[] | null;
+}
+
+/** The entries of a tournament with their result (see `placements`); null until finished. */
+export function tournamentEntries(data: TournamentData): StageEntry[] | null {
+  const places = placements(data);
+  return places && data.pairs.map((pair) => ({ ...pair, place: places.get(pair.id)! }));
 }
 
 export interface StageResult {
@@ -246,11 +258,10 @@ export function ranking(
 
   for (const stage of [...stages].sort((a, b) => a.date.localeCompare(b.date))) {
     const category = categories.find((c) => c.id === stage.categoryId);
-    const places = placements(stage.data);
-    if (!category || !places) continue;
+    if (!category || !stage.entries) continue;
     let missing = 0;
-    for (const pair of stage.data.pairs) {
-      const place = places.get(pair.id)!;
+    for (const pair of stage.entries) {
+      const { place } = pair;
       const points = pointsFor(place, category.points);
       pair.players.forEach((name, i) => {
         const playerId = pair.playerIds?.[i];
@@ -290,4 +301,83 @@ export function ranking(
     ),
     unlinked,
   };
+}
+
+/**
+ * A stage played before it was in the app: only each entry's players and final result, no
+ * matches. Kept in its circuit (`pastStages`); ids `m1…`.
+ */
+export interface PastStage {
+  id: string;
+  name: string;
+  /** 'YYYY-MM-DD' */
+  date: string;
+  categoryId: string;
+  entries: StageEntry[];
+}
+
+export const PAST_STAGE_LIMITS = { maxEntries: 128, playerNameLength: 60 } as const;
+
+const PAST_PLACES: readonly Place[] = [...PLACES, 'groups'];
+
+/**
+ * Reads and validates a past stage against its circuit's categories. Entries have 1 or 2
+ * names each, all filled in, every player at most once.
+ */
+export function parsePastStage(
+  input: unknown,
+  categories: Category[],
+): { stage: Omit<PastStage, 'id'>; issues: Issue[] } {
+  const body = (input && typeof input === 'object' ? input : {}) as Record<string, unknown>;
+  const issues: Issue[] = [];
+
+  const name = text(body.name);
+  if (!name) issues.push({ code: 'STAGE_NAME_REQUIRED' });
+  if (name.length > CIRCUIT_LIMITS.nameLength) {
+    issues.push({ code: 'STAGE_NAME_TOO_LONG', params: { max: CIRCUIT_LIMITS.nameLength } });
+  }
+  const date = text(body.date);
+  const parsed = new Date(`${date}T00:00:00Z`);
+  if (
+    !/^\d{4}-\d{2}-\d{2}$/.test(date) ||
+    Number.isNaN(parsed.getTime()) ||
+    !parsed.toISOString().startsWith(date)
+  ) {
+    issues.push({ code: 'DATE_INVALID' });
+  }
+  const categoryId = text(body.categoryId);
+  if (!categories.some((c) => c.id === categoryId)) issues.push({ code: 'CATEGORY_UNKNOWN' });
+
+  const raw = (Array.isArray(body.entries) ? body.entries : []).map((e) =>
+    e && typeof e === 'object' ? (e as Record<string, unknown>) : {},
+  );
+  const entries: StageEntry[] = raw.map((e) => ({
+    players: (Array.isArray(e.players) ? e.players : []).map(text),
+    place: PAST_PLACES.find((p) => p === e.place) ?? ('' as Place),
+  }));
+  if (entries.length < 2) issues.push({ code: 'STAGE_ENTRIES_REQUIRED' });
+  if (entries.length > PAST_STAGE_LIMITS.maxEntries) {
+    issues.push({ code: 'STAGE_ENTRIES_TOO_MANY', params: { max: PAST_STAGE_LIMITS.maxEntries } });
+  }
+  const incomplete = entries.findIndex(
+    (e) => e.players.length < 1 || e.players.length > 2 || e.players.some((p) => !p),
+  );
+  if (incomplete !== -1) {
+    issues.push({ code: 'PLAYERS_INCOMPLETE', params: { n: incomplete + 1 } });
+  }
+  if (entries.some((e) => e.players.some((p) => p.length > PAST_STAGE_LIMITS.playerNameLength))) {
+    issues.push({
+      code: 'PLAYER_NAME_TOO_LONG',
+      params: { max: PAST_STAGE_LIMITS.playerNameLength },
+    });
+  }
+  const noPlace = entries.findIndex((e) => !e.place);
+  if (noPlace !== -1) issues.push({ code: 'STAGE_PLACE_REQUIRED', params: { n: noPlace + 1 } });
+  const names = entries.flatMap((e) => e.players).filter(Boolean);
+  const twice = names.find(
+    (n, i) => names.findIndex((o) => o.toLowerCase() === n.toLowerCase()) !== i,
+  );
+  if (twice) issues.push({ code: 'STAGE_PLAYER_TWICE', params: { name: twice } });
+
+  return { stage: { name, date, categoryId, entries }, issues };
 }

@@ -1,8 +1,9 @@
 import { useCallback, useEffect, useState, type FormEvent } from 'react';
 import { Link, useParams, useSearchParams } from 'react-router';
+import { PastStageForm } from '../components/PastStageForm';
 import { fill, useI18n } from '../i18n/context';
-import { ApiError, apiGet, apiPatch } from '../lib/api';
-import { PLACES, placeAt, type Category, type Circuit } from '../lib/circuits';
+import { ApiError, apiDelete, apiGet, apiPatch } from '../lib/api';
+import { PLACES, placeAt, type Category, type Circuit, type Stage } from '../lib/circuits';
 import { formatDate, issueMessage, type Issue } from '../lib/tournaments';
 
 type State =
@@ -73,7 +74,7 @@ export function CircuitPage() {
         ))}
       </nav>
       {tab === 'ranking' && <RankingView circuit={circuit} />}
-      {tab === 'stages' && <StagesView circuit={circuit} />}
+      {tab === 'stages' && <StagesView circuit={circuit} onChanged={load} />}
       {tab === 'settings' && (
         <CircuitSettings key={circuit.updatedAt} circuit={circuit} onSaved={load} />
       )}
@@ -121,7 +122,11 @@ function RankingView({ circuit }: { circuit: Circuit }) {
                       <ul className="stage-points" aria-label={t.circuits.showDetails}>
                         {row.results.map((r) => (
                           <li key={r.stageId}>
-                            <Link to={`/tournaments/${r.stageId}`}>{stage(r.stageId)?.name}</Link>
+                            {stage(r.stageId)?.past ? (
+                              stage(r.stageId)?.name
+                            ) : (
+                              <Link to={`/tournaments/${r.stageId}`}>{stage(r.stageId)?.name}</Link>
+                            )}
                             {` · ${t.places[r.place]} · ${r.points}`}
                           </li>
                         ))}
@@ -144,42 +149,115 @@ function RankingView({ circuit }: { circuit: Circuit }) {
   );
 }
 
-function StagesView({ circuit }: { circuit: Circuit }) {
+/** The stages, newest first: tournaments, and past stages entered as results only. */
+function StagesView({ circuit, onChanged }: { circuit: Circuit; onChanged: () => void }) {
   const { t } = useI18n();
+  /** The past stage being edited: 'new', its id, or null */
+  const [editing, setEditing] = useState<string | null>(null);
+  const [error, setError] = useState('');
   const category = (id: string) => circuit.categories.find((c) => c.id === id)?.name ?? '';
 
-  if (circuit.stages.length === 0) return <p className="muted">{t.circuits.noStages}</p>;
+  if (editing) {
+    return (
+      <PastStageForm
+        circuit={circuit}
+        stage={circuit.pastStages.find((s) => s.id === editing)}
+        onDone={(saved) => {
+          setEditing(null);
+          if (saved) onChanged();
+        }}
+      />
+    );
+  }
+
+  async function remove(stage: Stage) {
+    if (!window.confirm(fill(t.pastStage.confirmDelete, { name: stage.name }))) return;
+    setError('');
+    try {
+      await apiDelete(`/circuits/${circuit.id}/stages/${stage.id}`);
+      onChanged();
+    } catch {
+      setError(t.circuits.saveError);
+    }
+  }
+
   return (
-    <div className="table-wrap">
-      <table className="tournament-list">
-        <thead>
-          <tr>
-            <th>{t.circuits.stage}</th>
-            <th>{t.circuits.date}</th>
-            <th>{t.circuits.category}</th>
-            <th>{t.circuits.status}</th>
-          </tr>
-        </thead>
-        <tbody>
-          {circuit.stages.map((stage) => (
-            <tr key={stage.id}>
-              <td>
-                <Link to={`/tournaments/${stage.id}`} className="tournament-name">
-                  {stage.name}
-                </Link>
-              </td>
-              <td>{formatDate(stage.date)}</td>
-              <td>{category(stage.categoryId)}</td>
-              <td>
-                <span className={`badge status-${stage.summary.status}`}>
-                  {t.status[stage.summary.status]}
-                </span>
-              </td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
-    </div>
+    <section>
+      <div className="view-toolbar">
+        <p className="muted">{t.pastStage.toolbarHint}</p>
+        <button type="button" className="secondary" onClick={() => setEditing('new')}>
+          {t.pastStage.add}
+        </button>
+      </div>
+      {error && (
+        <p className="error" role="alert">
+          {error}
+        </p>
+      )}
+      {circuit.stages.length === 0 ? (
+        <p className="muted">{t.circuits.noStages}</p>
+      ) : (
+        <div className="table-wrap">
+          <table className="tournament-list">
+            <thead>
+              <tr>
+                <th>{t.circuits.stage}</th>
+                <th>{t.circuits.date}</th>
+                <th>{t.circuits.category}</th>
+                <th>{t.circuits.status}</th>
+                <th />
+              </tr>
+            </thead>
+            <tbody>
+              {circuit.stages.map((stage) => (
+                <tr key={stage.id}>
+                  <td>
+                    {stage.past ? (
+                      <span className="tournament-name">{stage.name}</span>
+                    ) : (
+                      <Link to={`/tournaments/${stage.id}`} className="tournament-name">
+                        {stage.name}
+                      </Link>
+                    )}
+                  </td>
+                  <td>{formatDate(stage.date)}</td>
+                  <td>{category(stage.categoryId)}</td>
+                  <td>
+                    {stage.summary ? (
+                      <span className={`badge status-${stage.summary.status}`}>
+                        {t.status[stage.summary.status]}
+                      </span>
+                    ) : (
+                      <span className="badge status-finished">{t.pastStage.badge}</span>
+                    )}
+                  </td>
+                  <td className="row-actions">
+                    {stage.past && (
+                      <>
+                        <button
+                          type="button"
+                          className="secondary"
+                          onClick={() => setEditing(stage.id)}
+                        >
+                          {t.pastStage.edit}
+                        </button>
+                        <button
+                          type="button"
+                          className="secondary danger"
+                          onClick={() => remove(stage)}
+                        >
+                          {t.pastStage.delete}
+                        </button>
+                      </>
+                    )}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </section>
   );
 }
 

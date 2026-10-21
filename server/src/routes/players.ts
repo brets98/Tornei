@@ -1,6 +1,6 @@
 import { Router, type Request } from 'express';
 import { isValidObjectId, type Types } from 'mongoose';
-import type { Pair } from '../domain/types.js';
+import { CircuitModel } from '../models/circuit.js';
 import { PLAYER_NAME_LENGTH, PlayerModel, playerKey } from '../models/player.js';
 import { TournamentModel } from '../models/tournament.js';
 
@@ -28,8 +28,11 @@ const exists = (name: string) => ({ code: 'PLAYER_EXISTS', params: { name } });
  * Only names without a link are looked up (by name, ignoring case), so a link survives a
  * player's rename. Used for circuit stages: their ranking counts linked players only.
  */
-export async function linkPlayers(ownerId: Types.ObjectId | string, pairs: Pair[]) {
-  const linked: Pair[] = [];
+export async function linkPlayers<T extends { players: string[]; playerIds?: (string | null)[] }>(
+  ownerId: Types.ObjectId | string,
+  pairs: T[],
+) {
+  const linked: T[] = [];
   for (const pair of pairs) {
     const playerIds: (string | null)[] = [];
     for (const [i, name] of pair.players.entries()) {
@@ -103,6 +106,21 @@ playersRouter.patch('/:id', async (req, res) => {
     tournament.markModified('pairs');
     await tournament.save();
   }
+  const circuits = await CircuitModel.find({
+    ownerId: player.ownerId,
+    'pastStages.entries.playerIds': player.id,
+  });
+  for (const circuit of circuits) {
+    for (const stage of circuit.pastStages) {
+      for (const entry of stage.entries) {
+        entry.playerIds?.forEach((id, i) => {
+          if (id === player.id) entry.players[i] = name;
+        });
+      }
+    }
+    circuit.markModified('pastStages');
+    await circuit.save();
+  }
   res.json(player);
 });
 
@@ -113,10 +131,15 @@ playersRouter.delete('/:id', async (req, res) => {
     res.status(404).json({ error: 'Player not found' });
     return;
   }
-  const used = await TournamentModel.countDocuments({
-    ownerId: player.ownerId,
-    'pairs.playerIds': player.id,
-  });
+  const used =
+    (await TournamentModel.countDocuments({
+      ownerId: player.ownerId,
+      'pairs.playerIds': player.id,
+    })) +
+    (await CircuitModel.countDocuments({
+      ownerId: player.ownerId,
+      'pastStages.entries.playerIds': player.id,
+    }));
   if (used > 0) {
     res.status(409).json({
       error: 'Player in use',

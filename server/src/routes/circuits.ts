@@ -1,9 +1,17 @@
-import { Router, type Request } from 'express';
+import { Router, type Request, type Response } from 'express';
 import { isValidObjectId } from 'mongoose';
-import { DEFAULT_CATEGORIES, parseCircuit, ranking, type Stage } from '../domain/circuit.js';
+import {
+  DEFAULT_CATEGORIES,
+  parseCircuit,
+  parsePastStage,
+  ranking,
+  tournamentEntries,
+  type Stage,
+} from '../domain/circuit.js';
 import { CircuitModel } from '../models/circuit.js';
 import { PlayerModel } from '../models/player.js';
 import { TournamentModel } from '../models/tournament.js';
+import { linkPlayers } from './players.js';
 import { toData } from './tournaments.js';
 
 /** The signed-in user's circuits; another user's circuit answers 404. */
@@ -65,33 +73,44 @@ circuitsRouter.get('/:id', async (req, res) => {
     ownerId: circuit.ownerId,
     'circuit.circuitId': circuit._id,
   }).sort({ date: -1, createdAt: -1 });
-  const stages: Stage[] = tournaments.map((t) => ({
-    id: t.id as string,
-    name: t.name,
-    date: t.date,
-    categoryId: t.circuit!.categoryId,
-    data: toData(t.toObject()),
-  }));
+  const { pastStages } = circuit.toObject();
+  const stages = [
+    ...tournaments.map((t) => {
+      const data = toData(t.toObject());
+      return {
+        id: t.id as string,
+        name: t.name,
+        date: t.date,
+        categoryId: t.circuit!.categoryId,
+        summary: data.summary,
+        past: false,
+        entries: tournamentEntries(data),
+      };
+    }),
+    ...pastStages.map((s) => ({
+      id: s.id,
+      name: s.name,
+      date: s.date,
+      categoryId: s.categoryId,
+      summary: null,
+      past: true,
+      entries: s.entries,
+    })),
+  ].sort((a, b) => b.date.localeCompare(a.date));
 
   const playerIds = new Set(
-    stages.flatMap((s) => s.data.pairs.flatMap((p) => p.playerIds ?? [])).filter(Boolean),
+    stages.flatMap((s) => (s.entries ?? []).flatMap((e) => e.playerIds ?? [])).filter(Boolean),
   );
   const players = await PlayerModel.find({
     ownerId: circuit.ownerId,
     _id: { $in: [...playerIds] },
   });
   const names = new Map(players.map((p) => [p.id as string, p.name]));
-  const result = ranking(stages, circuit.categories, names);
+  const result = ranking(stages satisfies Stage[], circuit.categories, names);
 
   res.json({
     ...circuit.toJSON(),
-    stages: stages.map(({ id, name, date, categoryId, data }) => ({
-      id,
-      name,
-      date,
-      categoryId,
-      summary: data.summary,
-    })),
+    stages: stages.map(({ entries: _, ...stage }) => stage),
     ranking: result.rows.map((row) => ({ ...row, name: names.get(row.playerId) ?? '' })),
     unlinked: result.unlinked,
   });
@@ -103,10 +122,13 @@ circuitsRouter.patch('/:id', async (req, res) => {
     res.status(404).json({ error: 'Circuit not found' });
     return;
   }
-  const used: string[] = await TournamentModel.distinct('circuit.categoryId', {
-    'circuit.circuitId': circuit._id,
-  });
   const current = circuit.toObject();
+  const used: string[] = [
+    ...(await TournamentModel.distinct('circuit.categoryId', {
+      'circuit.circuitId': circuit._id,
+    })),
+    ...current.pastStages.map((s) => s.categoryId),
+  ];
   const { circuit: changed, issues } = parseCircuit(
     {
       name: current.name,
@@ -143,4 +165,66 @@ circuitsRouter.delete('/:id', async (req, res) => {
   }
   await circuit.deleteOne();
   res.status(204).end();
+});
+
+/**
+ * Past stages: played before they were in the app, entered as each entry's final result.
+ * Their names are linked to the registry like a stage's. Each change answers the circuit.
+ */
+async function savePastStage(
+  req: Request<{ id: string; stageId?: string }>,
+  res: Response,
+  stageId?: string,
+) {
+  const circuit = await findOwned(req);
+  const index = stageId ? (circuit?.pastStages.findIndex((s) => s.id === stageId) ?? -1) : -1;
+  if (!circuit || (stageId && index === -1)) {
+    res.status(404).json({ error: 'Not found' });
+    return;
+  }
+  const { pastStages, categories } = circuit.toObject();
+  const { stage, issues } = parsePastStage(req.body, categories);
+  if (issues.length > 0) {
+    res.status(400).json({ error: 'Invalid stage', issues });
+    return;
+  }
+  // Names already linked in this stage keep their player
+  const before = stageId ? pastStages[index].entries : [];
+  const known = new Map(
+    before.flatMap((e) => e.players.map((name, i) => [name.toLowerCase(), e.playerIds?.[i]])),
+  );
+  const entries = await linkPlayers(
+    circuit.ownerId,
+    stage.entries.map((e) => ({
+      ...e,
+      playerIds: e.players.map((name) => known.get(name.toLowerCase()) ?? null),
+    })),
+  );
+  const next = { ...stage, entries };
+  if (stageId) {
+    circuit.set(`pastStages.${index}`, { ...next, id: stageId });
+  } else {
+    const ids = pastStages.map((p) => Number(p.id.slice(1)) || 0);
+    circuit.pastStages.push({ ...next, id: `m${Math.max(0, ...ids) + 1}` });
+  }
+  await circuit.save();
+  res.status(stageId ? 200 : 201).json(circuit);
+}
+
+circuitsRouter.post('/:id/stages', (req, res) => savePastStage(req, res));
+
+circuitsRouter.put('/:id/stages/:stageId', (req, res) =>
+  savePastStage(req, res, req.params.stageId),
+);
+
+circuitsRouter.delete('/:id/stages/:stageId', async (req, res) => {
+  const circuit = await findOwned(req);
+  const index = circuit?.pastStages.findIndex((p) => p.id === req.params.stageId) ?? -1;
+  if (!circuit || index === -1) {
+    res.status(404).json({ error: 'Not found' });
+    return;
+  }
+  circuit.pastStages.splice(index, 1);
+  await circuit.save();
+  res.json(circuit);
 });
