@@ -1,8 +1,20 @@
 # Production: docker compose -f docker-compose.prod.yml up -d
+# Sized for a 1 GB server (e.g. Google Cloud's free e2-micro, with swap): Mongo's cache is capped
+# and container logs are rotated so they can't fill the disk.
+
+x-logging: &logging
+  driver: json-file
+  options:
+    max-size: 10m
+    max-file: '3'
+
 services:
   mongo:
     image: mongo:8
     restart: unless-stopped
+    logging: *logging
+    # WiredTiger would otherwise take half the RAM
+    command: ['--wiredTigerCacheSizeGB', '0.25']
     environment:
       MONGO_INITDB_ROOT_USERNAME: ${MONGO_ROOT_USERNAME:?}
       MONGO_INITDB_ROOT_PASSWORD: ${MONGO_ROOT_PASSWORD:?}
@@ -16,6 +28,7 @@ services:
       dockerfile: docker/server.Dockerfile
       target: prod
     restart: unless-stopped
+    logging: *logging
     environment:
       MONGODB_URI: mongodb://${MONGO_ROOT_USERNAME}:${MONGO_ROOT_PASSWORD}@mongo:27017/tornei?authSource=admin
       BETTER_AUTH_URL: https://${DOMAIN}
@@ -38,6 +51,7 @@ services:
   backup:
     image: mongo:8
     restart: unless-stopped
+    logging: *logging
     environment:
       MONGODB_URI: mongodb://${MONGO_ROOT_USERNAME}:${MONGO_ROOT_PASSWORD}@mongo:27017/tornei?authSource=admin
       BACKUP_KEEP_DAYS: ${BACKUP_KEEP_DAYS:-14}
@@ -69,6 +83,7 @@ services:
       dockerfile: docker/web.Dockerfile
       target: prod
     restart: unless-stopped
+    logging: *logging
     environment:
       DOMAIN: ${DOMAIN:?}
     ports:
