@@ -128,12 +128,15 @@ export const it: Messages = {
   structure: {
     groups_knockout: 'Gironi + fase finale',
     knockout: 'Eliminazione diretta',
+    knockout_consolation: 'Sorteggio + consolazione',
     groups: "Girone all'italiana",
   },
   structureHint: {
     groups_knockout: 'Gironi con classifica; le prime di ogni girone vanno ai tabelloni.',
     knockout: 'Un solo tabellone, senza gironi.',
     groups: 'Un unico girone: tutti contro tutti, vince la classifica.',
+    knockout_consolation:
+      'Inserisci gli iscritti uno per uno e il tabellone viene sorteggiato; chi perde la prima partita gioca un tabellone di consolazione.',
   },
   rounds: {
     1: 'Finale',
@@ -174,6 +177,14 @@ export const it: Messages = {
     padelDoubles: 'Il padel si gioca sempre in doppio.',
     date: 'Data',
     entryCount: 'Numero di {entries}',
+    entryList: 'Elenco {entries}',
+    addEntry: 'Aggiungi {entry}',
+    entryLevel: 'Livello {entry} {n}',
+    level: 'Livello {n}',
+    levelsHint:
+      'Livello 1 è il più forte, 4 il più debole. I turni di riposo vanno ai livelli migliori e i più forti si incontrano il più tardi possibile; a parità di livello decide il sorteggio.',
+    removeEntry: 'Rimuovi {entry} {n}',
+    entryListCount: '{count} {entries}',
     structure: 'Formula',
     groupCount: 'Numero di gironi',
     advanceA: 'Passano al tabellone A (per girone)',
@@ -183,6 +194,8 @@ export const it: Messages = {
     groupSize: 'Girone {group}: {count} {entries}',
     bracket: 'Tabellone {id}: {count} {entries}, si parte da {round}',
     byes: '{count} passano direttamente al turno successivo',
+    consolation: 'Consolazione: chi perde la prima partita',
+    matchesUpTo: 'Fino a {count} partite in totale',
     matchesTotal: '{count} partite in totale',
     matchFormat: 'Partite',
     resultExample: 'I risultati si scrivono così: {example}.',
@@ -207,7 +220,6 @@ export const it: Messages = {
       overview: 'Riepilogo',
       groups: 'Gironi',
       entries: 'Iscritti',
-      bracket: 'Tabellone {id}',
       settings: 'Impostazioni',
     },
     overviewTitle: 'Riepilogo torneo',
@@ -228,12 +240,11 @@ export const it: Messages = {
     phase: 'Fase',
     allPhases: 'Tutte le fasi',
     groupsPhase: 'Gironi',
-    bracketPhase: 'Tabellone {id}',
     allCourts: 'Tutti i campi',
     noCourt: 'Senza campo',
     allTimes: 'Tutti gli orari',
     noTime: 'Senza orario',
-    knockoutMatch: 'Tabellone {bracket} · {match}',
+    knockoutMatch: '{bracket} · {match}',
     shown: 'Partite mostrate: {count} su {total}',
     noMatches: 'Nessuna partita con questi filtri.',
     conflicts: 'Conflitti di programmazione',
@@ -314,6 +325,11 @@ export const it: Messages = {
     hint: "Inserisci i giocatori. L'ordine è quello del tabellone: i primi passano direttamente il primo turno.",
     draftHint: 'Finché non c’è un risultato puoi sorteggiare l’ordine a caso.',
     confirmDraw: 'Sorteggiare un nuovo ordine a caso? L’ordine attuale verrà sostituito.',
+    byLevel:
+      'L’ordine è quello del tabellone, sorteggiato per livello (1 è il più forte) e a caso tra i pari livello: i primi passano direttamente il primo turno.',
+    redraw: 'Rifai il sorteggio',
+    levelsDraftHint:
+      'Finché non c’è un risultato puoi cambiare i livelli e rifare il sorteggio: un nuovo livello conta dal sorteggio successivo.',
   },
   bracket: {
     title: 'Tabellone {id}',
@@ -321,8 +337,12 @@ export const it: Messages = {
       'Si riempie con le classifiche dei gironi, appena ogni girone è completo. I vincitori avanzano automaticamente.',
     knockout: 'I vincitori avanzano automaticamente al turno successivo.',
     champion: 'Vincitore',
-    championOf: 'Vincitore tabellone {id}',
+    championOf: 'Vincitore {bracket}',
     winnerOf: 'Vincitore {match}',
+    loserOf: 'Perdente {match}',
+    loserAfterBye: '{pair}, se perde {match}',
+    consolation: 'Consolazione',
+    consolationHint: 'Qui gioca chi perde la prima partita. I vincitori avanzano automaticamente.',
     groupPosition: '{position}° Girone {group}',
     seed: 'Testa di serie {n}',
     bye: 'Riposo',
@@ -332,6 +352,11 @@ export const it: Messages = {
     staleWarning:
       'Partite del tabellone con un risultato che non vale più perché sono cambiate le coppie: {count}. Reinserisci o cancella quei punteggi.',
     clear: 'Cancella punteggio',
+    reset: 'Svuota tabellone',
+    confirmReset:
+      '{bracket}: cancellare i suoi {count} risultati? Coppie, sorteggio e orari restano.',
+    confirmResetAll:
+      '{bracket}: cancellare i suoi {count} risultati, consolazione compresa (si riempie da questo tabellone)? Coppie, sorteggio e orari restano.',
   },
   roundsShort: {
     1: 'Finale',
@@ -377,6 +402,10 @@ export const it: Messages = {
     STRUCTURE_LOCKED: 'Ci sono già risultati: gironi e sorteggio non si possono più modificare.',
     GROUPS_INVALID: 'Assegnazione ai gironi non valida.',
     PLAYERS_INVALID: 'Nomi dei giocatori non validi (al massimo {max} caratteri).',
+    PLAYERS_INCOMPLETE: 'L’iscrizione {n} è incompleta: scrivi il nome di ogni giocatore.',
+    LEVELS_INVALID: 'Ogni livello deve essere da 1 a {max}.',
+    PLAYER_NAME_TOO_LONG: 'I nomi dei giocatori possono avere al massimo {max} caratteri.',
+    PLAYERS_REQUIRED: 'Nel sorteggio ogni giocatore deve avere un nome.',
     SCORE_UNREADABLE:
       'Non riesco a leggere "{text}": scrivi i game di ogni set, ad esempio 6-4 3-6 7-6(5).',
     SCORE_MALFORMED:

@@ -6,7 +6,9 @@ import { decidingSet, setsChoice, type MatchFormat, type SetScore } from './scor
 
 export type Sport = 'padel' | 'tennis';
 export type Format = 'singles' | 'doubles';
-export type StructureType = 'groups_knockout' | 'knockout' | 'groups';
+export type StructureType = 'groups_knockout' | 'knockout' | 'groups' | 'knockout_consolation';
+/** A and B: main brackets; C: the consolation bracket. */
+export type BracketId = 'A' | 'B' | 'C';
 export type TournamentStatus = 'draft' | 'groups' | 'knockout' | 'finished';
 
 export interface Summary {
@@ -32,7 +34,7 @@ export interface Issue {
 
 export interface Preview {
   groupSizes: number[];
-  brackets: { id: 'A' | 'B'; entrants: number; size: number; byes: number }[];
+  brackets: { id: BracketId; entrants: number; size: number; byes: number }[];
   matchesTotal: number;
 }
 
@@ -43,13 +45,15 @@ export type Source =
   | { kind: 'group'; groupId: string; position: number }
   | { kind: 'seed'; index: number }
   | { kind: 'winner'; matchId: string }
+  /** Consolation: whoever loses their first match among those who started in this match */
+  | { kind: 'firstLoser'; matchId: string }
   | { kind: 'bye' };
 
 export interface Match {
   id: string;
   phase: 'group' | 'knockout';
   groupId?: string;
-  bracket?: 'A' | 'B';
+  bracket?: BracketId;
   round?: number;
   index?: number;
   sourceA?: Source;
@@ -97,7 +101,8 @@ export interface Tournament extends TournamentListItem {
   timeSlots: { id: string; time: string }[];
   structure: { type: StructureType; groupCount: number; advanceA: number; advanceB: number };
   matchFormat: MatchFormat;
-  pairs: { id: string; players: string[] }[];
+  /** `level`: consolation draw only, 1 (strongest) to 4 */
+  pairs: { id: string; players: string[]; level?: number }[];
   groups: Group[];
   seeding: string[];
   matches: Match[];
@@ -106,11 +111,14 @@ export interface Tournament extends TournamentListItem {
 }
 
 export interface Bracket {
-  id: 'A' | 'B';
+  id: BracketId;
   /** Slots of the first round: a power of 2 */
   size: number;
   champion: string | null;
 }
+
+/** Levels of the consolation draw (see LEVELS on the server): 1 is the strongest. */
+export const LEVELS = [1, 2, 3, 4];
 
 /** Groups and draw can change until any result is entered (same rule as the server). */
 export function isStructureLocked(tournament: Pick<Tournament, 'matches'>) {
@@ -164,6 +172,16 @@ export function pairCode(tournament: Pick<Tournament, 'groups' | 'seeding'>, pai
   return seed !== -1 ? String(seed + 1) : pairId;
 }
 
+/** The brackets emptied with `id` (same rule as the server): bracket A also empties the consolation. */
+export function bracketsCleared(tournament: Pick<Tournament, 'brackets'>, id: BracketId) {
+  return id === 'A' && tournament.brackets.some((b) => b.id === 'C') ? ['A', 'C'] : [id];
+}
+
+/** 'Tabellone A', or 'Consolazione' for bracket C. */
+export function bracketName(t: Messages, id: BracketId) {
+  return id === 'C' ? t.bracket.consolation : fill(t.bracket.title, { id });
+}
+
 /** Short name of a knockout match: 'QF 2', 'Quarto 2', or just 'Final' for the only one. */
 export function knockoutMatchName(t: Messages, bracket: Bracket, match: Match) {
   const inRound = bracket.size / 2 ** (match.round! + 1);
@@ -190,10 +208,28 @@ export function sideLabel(
     case 'seed':
       return fill(t.bracket.seed, { n: source.index + 1 });
     case 'winner': {
-      const from = tournament.matches.find((m) => m.id === source.matchId);
-      const bracket = tournament.brackets.find((b) => b.id === from?.bracket);
-      return from && bracket
-        ? fill(t.bracket.winnerOf, { match: knockoutMatchName(t, bracket, from) })
+      const from = findKnockoutMatch(tournament, source.matchId);
+      return from ? fill(t.bracket.winnerOf, { match: knockoutMatchName(t, ...from) }) : '—';
+    }
+    case 'firstLoser': {
+      if (match.state === 'bye') return t.bracket.bye;
+      const first = findKnockoutMatch(tournament, source.matchId);
+      if (!first) return '—';
+      if (first[1].state !== 'bye') {
+        return fill(t.bracket.loserOf, { match: knockoutMatchName(t, ...first) });
+      }
+      // After a bye, the pair's first match is the next round's
+      const next = tournament.matches.find(
+        (m) =>
+          m.bracket === first[1].bracket &&
+          m.round === 1 &&
+          m.index === Math.floor(first[1].index! / 2),
+      );
+      return first[1].winner && next
+        ? fill(t.bracket.loserAfterBye, {
+            pair: pairLabel(tournament, first[1].winner),
+            match: knockoutMatchName(t, first[0], next),
+          })
         : '—';
     }
     case 'bye':
@@ -203,12 +239,22 @@ export function sideLabel(
   }
 }
 
-/** Where a match belongs: 'Girone A', or 'Tabellone A · Quarto 2'. */
+/** A knockout match by id, with its bracket. */
+function findKnockoutMatch(
+  tournament: Pick<Tournament, 'matches' | 'brackets'>,
+  matchId: string,
+): [Bracket, Match] | undefined {
+  const match = tournament.matches.find((m) => m.id === matchId);
+  const bracket = tournament.brackets.find((b) => b.id === match?.bracket);
+  return match && bracket ? [bracket, match] : undefined;
+}
+
+/** Where a match belongs: 'Girone A', 'Tabellone A · Quarto 2' or 'Consolazione · Finale'. */
 export function matchPhase(t: Messages, tournament: Pick<Tournament, 'brackets'>, match: Match) {
   if (match.phase === 'group') return fill(t.tournament.group, { group: match.groupId! });
   const bracket = tournament.brackets.find((b) => b.id === match.bracket)!;
   return fill(t.overview.knockoutMatch, {
-    bracket: bracket.id,
+    bracket: bracketName(t, bracket.id),
     match: knockoutMatchName(t, bracket, match),
   });
 }

@@ -426,6 +426,21 @@ button.danger {
   flex: 1 1 9rem;
 }
 
+.entry-rows {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.entry-rows .inline-fields {
+  align-items: center;
+}
+
+.entry-rows .pair-list {
+  padding: 0;
+  border-bottom: 0;
+}
+
 .court-names {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(12rem, 1fr));

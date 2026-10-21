@@ -1,6 +1,6 @@
-import { bracketMatches, placeSeeds } from './bracket.js';
+import { bracketMatches, knockoutMatchId, placeSeeds } from './bracket.js';
 import { findConflicts } from './conflicts.js';
-import { distribute, groupId, roundRobin } from './groups.js';
+import { distribute, groupId, roundRobin, shuffle } from './groups.js';
 import { outcome } from './score.js';
 import { computeStandings, resultState } from './standings.js';
 import type {
@@ -10,6 +10,7 @@ import type {
   Match,
   MatchFormat,
   MatchState,
+  Pair,
   Setup,
   Source,
   Structure,
@@ -46,7 +47,7 @@ function bracketSources(structure: Structure, groupIds: string[], pairCount: num
 
   const brackets: { id: BracketId; seeds: { source: Source; group?: string; tier: number }[] }[] =
     [];
-  if (structure.type === 'knockout') {
+  if (structure.type === 'knockout' || structure.type === 'knockout_consolation') {
     brackets.push({
       id: 'A',
       seeds: Array.from({ length: pairCount }, (_, index) => ({
@@ -82,6 +83,16 @@ export function buildMatches(
       matches: bracketMatches(id, slots),
     };
   });
+  if (data.structure.type === 'knockout_consolation') {
+    // One slot per first-round match of A: losers of matches whose winners meet next meet here
+    const slots = brackets[0].matches
+      .filter((m) => m.round === 0)
+      .map((m): Source => ({ kind: 'firstLoser', matchId: m.id }));
+    brackets.push({
+      bracket: { id: 'C', size: slots.length, champion: null },
+      matches: bracketMatches('C', slots),
+    });
+  }
 
   const matches = [...data.groups.flatMap(groupMatches), ...brackets.flatMap((b) => b.matches)].map(
     (m) => ({
@@ -93,18 +104,35 @@ export function buildMatches(
   return { matches, brackets: brackets.map((b) => b.bracket) };
 }
 
-/** A new tournament from a valid setup (see `parseSetup`). */
-export function buildTournament(setup: Setup): TournamentData {
+/**
+ * The consolation draw: by level (the best get the byes and are kept apart by the bracket
+ * placement), at random among pairs of the same level.
+ */
+export function drawByLevel(pairs: Pair[], random: () => number): string[] {
+  return shuffle(pairs, random)
+    .sort((a, b) => a.level! - b.level!)
+    .map((p) => p.id);
+}
+
+/**
+ * A new tournament from a valid setup (see `parseSetup`), with the consolation draw made by
+ * level (it can be redrawn until the first result: `draw()`).
+ */
+export function buildTournament(setup: Setup, random: () => number = Math.random): TournamentData {
   const { pairCount, structure } = setup;
-  const players = setup.format === 'singles' ? [''] : ['', ''];
-  const pairs = Array.from({ length: pairCount }, (_, i) => ({
+  const empty = setup.format === 'singles' ? [''] : ['', ''];
+  const pairs: Pair[] = Array.from({ length: pairCount }, (_, i) => ({
     id: `p${i + 1}`,
-    players: [...players],
+    players: [...(setup.players?.[i] ?? empty)],
+    ...(setup.levels && { level: setup.levels[i] }),
   }));
-  const groups: Group[] = distribute(
-    pairs.map((p) => p.id),
-    structure.groupCount,
-  ).map((pairIds, i) => ({ id: groupId(i), pairIds, standings: [], complete: false }));
+  const pairIds = pairs.map((p) => p.id);
+  const groups: Group[] = distribute(pairIds, structure.groupCount).map((pairIds, i) => ({
+    id: groupId(i),
+    pairIds,
+    standings: [],
+    complete: false,
+  }));
 
   const data: TournamentData = {
     name: setup.name,
@@ -118,7 +146,12 @@ export function buildTournament(setup: Setup): TournamentData {
     matchFormat: setup.matchFormat,
     pairs,
     groups,
-    seeding: structure.type === 'knockout' ? pairs.map((p) => p.id) : [],
+    seeding:
+      structure.type === 'knockout'
+        ? pairIds
+        : structure.type === 'knockout_consolation'
+          ? drawByLevel(pairs, random)
+          : [],
     matches: [],
     brackets: [],
     summary: { status: 'draft', matchesDone: 0, matchesTotal: 0 },
@@ -126,6 +159,9 @@ export function buildTournament(setup: Setup): TournamentData {
   };
   return refreshTournament({ ...data, ...buildMatches(data) });
 }
+
+/** A consolation side that will never be filled: the other side goes through. */
+const NOBODY = Symbol('nobody');
 
 type Derived = Pick<TournamentData, 'groups' | 'matches' | 'brackets' | 'summary' | 'conflicts'>;
 
@@ -154,7 +190,8 @@ export function refreshTournament<T extends TournamentData>(data: T): T & Derive
   });
   const groupsById = new Map(groups.map((g) => [g.id, g]));
 
-  const resolve = (source: Source | undefined): string | null => {
+  /** The pair on one side, null while not known, NOBODY when the side turned out empty. */
+  const resolve = (source: Source | undefined): string | null | typeof NOBODY => {
     switch (source?.kind) {
       case 'group': {
         const group = groupsById.get(source.groupId);
@@ -164,22 +201,45 @@ export function refreshTournament<T extends TournamentData>(data: T): T & Derive
         return data.seeding[source.index] ?? null;
       case 'winner':
         return matches.get(source.matchId)?.winner ?? null;
+      case 'firstLoser': {
+        const first = matches.get(source.matchId);
+        if (!first) return null;
+        if (first.state !== 'bye') {
+          if (!first.winner) return null;
+          return first.winner === first.pairA ? first.pairB : first.pairA;
+        }
+        // After a bye the first match is the next one: only its loser comes here
+        const next = matches.get(knockoutMatchId(first.bracket!, 1, Math.floor(first.index! / 2)));
+        if (!next?.winner || !first.winner) return null;
+        return next.winner === first.winner ? NOBODY : first.winner;
+      }
       default:
         return null;
     }
   };
 
-  // Rounds in order, so a winner is known before the next round reads it
+  // Rounds in order, so a winner is known before the next round reads it; the consolation
+  // bracket (C) after the main one, whose results fill it
   const knockout = data.matches
     .filter((m) => m.phase === 'knockout')
-    .sort((a, b) => a.round! - b.round! || a.index! - b.index!);
+    .sort(
+      (a, b) => a.bracket!.localeCompare(b.bracket!) || a.round! - b.round! || a.index! - b.index!,
+    );
   for (const m of knockout) {
-    const pairA = resolve(m.sourceA);
-    const pairB = resolve(m.sourceB);
+    const sideA = resolve(m.sourceA);
+    const sideB = resolve(m.sourceB);
+    const pairA = sideA === NOBODY ? null : sideA;
+    const pairB = sideB === NOBODY ? null : sideB;
     const resolved = { ...m, pairA, pairB };
 
     if (m.sourceA?.kind === 'bye' || m.sourceB?.kind === 'bye') {
       matches.set(m.id, { ...resolved, state: 'bye', winner: pairA ?? pairB });
+      continue;
+    }
+    if (sideA === NOBODY || sideB === NOBODY) {
+      // A walkover found out late: a score entered before no longer counts
+      const state = m.sets.length > 0 ? 'stale' : 'bye';
+      matches.set(m.id, { ...resolved, state, winner: state === 'bye' ? (pairA ?? pairB) : null });
       continue;
     }
     let state: MatchState = resultState(m, data.matchFormat);

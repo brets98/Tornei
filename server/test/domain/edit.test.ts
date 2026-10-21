@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   draw,
+  resetBracket,
   resetResults,
   setGroups,
   setPlayers,
@@ -296,5 +297,24 @@ describe('resetResults', () => {
     expect(reset.summary).toMatchObject({ status: 'draft', matchesDone: 0 });
     expect(match(reset, 'A0-0').courtId).toBe('c1');
     expect(match(reset, 'A1-0')).toMatchObject({ pairA: null, pairB: null, state: 'todo' });
+  });
+});
+
+describe('resetBracket', () => {
+  it('clears one bracket, keeping groups, the other bracket and the schedule', () => {
+    let t = build({
+      pairCount: 4,
+      structure: { type: 'groups_knockout', groupCount: 2, advanceA: 1, advanceB: 1 },
+    });
+    for (const m of t.matches.filter((m) => m.phase === 'group')) {
+      t = ok(updateMatch(t, m.id, { sets: sets('6-1 6-1') }));
+    }
+    t = ok(updateMatch(t, 'A0-0', { sets: sets('6-1 6-1') }));
+    t = ok(updateMatch(t, 'B0-0', { sets: sets('6-1 6-1'), courtId: 'c1' }));
+
+    const reset = ok(resetBracket(t, 'B'));
+    expect(match(reset, 'B0-0')).toMatchObject({ sets: [], state: 'todo', courtId: 'c1' });
+    expect(reset.brackets.map((b) => b.champion)).toEqual([match(t, 'A0-0').winner, null]);
+    expect(reset.groups.every((g) => g.complete)).toBe(true);
   });
 });

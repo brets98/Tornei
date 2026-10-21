@@ -60,6 +60,38 @@ describe('tournaments API', () => {
       ]);
       expect(await TournamentModel.countDocuments()).toBe(0);
     });
+
+    it('creates a consolation draw from the list of pairs, then redraws it by level', async () => {
+      const players = Array.from({ length: 6 }, (_, i) => [`Rossi ${i + 1}`, `Bianchi ${i + 1}`]);
+      const { agent, tournament } = await createTournament({
+        structure: { type: 'knockout_consolation' },
+        players,
+      });
+
+      expect(tournament.pairs.map((p: { players: string[] }) => p.players)).toEqual(players);
+      expect(tournament.brackets.map((b: { id: string }) => b.id)).toEqual(['A', 'C']);
+      // Saved and read back with the consolation sources
+      const saved = await agent.get(`/api/tournaments/${tournament.id}`);
+      expect(saved.body.matches.find((m: { id: string }) => m.id === 'C0-0').sourceA).toEqual({
+        kind: 'firstLoser',
+        matchId: 'A0-0',
+      });
+
+      const leveled = await agent
+        .patch(`/api/tournaments/${tournament.id}/pairs/p4`)
+        .send({ level: 1 });
+      expect(leveled.status).toBe(200);
+      expect(leveled.body.pairs[3]).toEqual({ id: 'p4', players: players[3], level: 1 });
+
+      const drawn = await agent.post(`/api/tournaments/${tournament.id}/draw`);
+      expect(drawn.status).toBe(200);
+      expect(drawn.body.seeding[0]).toBe('p4');
+
+      const emptied = await agent.post(`/api/tournaments/${tournament.id}/brackets/C/reset`);
+      expect(emptied.status).toBe(200);
+      const missing = await agent.post(`/api/tournaments/${tournament.id}/brackets/B/reset`);
+      expect(missing.status).toBe(404);
+    });
   });
 
   describe('POST /api/tournaments/preview', () => {

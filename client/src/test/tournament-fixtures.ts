@@ -30,6 +30,8 @@ export const groupMatch = (groupId: string, pairA: string, pairB: string): Match
 /** Tournament actions that only record their calls. */
 export const mockActions = (): TournamentActions => ({
   setPlayers: vi.fn(),
+  setLevel: vi.fn(),
+  resetBracket: vi.fn(),
   updateMatch: vi.fn(),
   setGroups: vi.fn(),
   draw: vi.fn(),

@@ -17,7 +17,7 @@ const embedded = (definition: SchemaDefinition) =>
   new Schema(definition, { _id: false, id: false });
 
 const sourceSchema = embedded({
-  kind: { type: String, enum: ['group', 'seed', 'winner', 'bye'], required: true },
+  kind: { type: String, enum: ['group', 'seed', 'winner', 'firstLoser', 'bye'], required: true },
   groupId: String,
   position: Number,
   index: Number,
@@ -34,7 +34,7 @@ const matchSchema = embedded({
   id: { type: String, required: true },
   phase: { type: String, enum: ['group', 'knockout'], required: true },
   groupId: String,
-  bracket: { type: String, enum: ['A', 'B'] },
+  bracket: { type: String, enum: ['A', 'B', 'C'] },
   round: Number,
   index: Number,
   sourceA: sourceSchema,
@@ -84,7 +84,7 @@ const tournamentSchema = createSchema<Tournament>({
     gamesPerSet: { type: Number, required: true },
     decider: { type: String, enum: DECIDERS, required: true },
   }),
-  pairs: [embedded({ id: { type: String, required: true }, players: [String] })],
+  pairs: [embedded({ id: { type: String, required: true }, players: [String], level: Number })],
   groups: [
     embedded({
       id: { type: String, required: true },
@@ -97,7 +97,7 @@ const tournamentSchema = createSchema<Tournament>({
   matches: [matchSchema],
   brackets: [
     embedded({
-      id: { type: String, enum: ['A', 'B'], required: true },
+      id: { type: String, enum: ['A', 'B', 'C'], required: true },
       size: Number,
       champion: { type: String, default: null },
     }),

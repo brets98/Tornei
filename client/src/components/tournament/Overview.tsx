@@ -3,6 +3,7 @@ import { fill, useI18n } from '../../i18n/context';
 import type { Messages } from '../../i18n/en';
 import { formatResult } from '../../lib/score';
 import {
+  bracketName,
   entriesLabel,
   matchFormatName,
   matchPhase,
@@ -181,7 +182,7 @@ function MatchList({
           {tournament.groups.length > 0 && <option value="groups">{t.overview.groupsPhase}</option>}
           {tournament.brackets.map((b) => (
             <option key={b.id} value={b.id}>
-              {fill(t.overview.bracketPhase, { id: b.id })}
+              {bracketName(t, b.id)}
             </option>
           ))}
         </select>

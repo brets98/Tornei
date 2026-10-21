@@ -1,6 +1,8 @@
 import { fill, useI18n } from '../../i18n/context';
 import { sideGames } from '../../lib/score';
 import {
+  bracketName,
+  bracketsCleared,
   knockoutMatchName,
   pairLabel,
   roundName,
@@ -30,14 +32,41 @@ export function BracketView({ tournament, bracket, actions }: Props) {
 
   const champion = bracket.champion
     ? pairLabel(tournament, bracket.champion)
-    : fill(t.bracket.championOf, { id: bracket.id });
+    : fill(t.bracket.championOf, { bracket: bracketName(t, bracket.id) });
+  const hint =
+    bracket.id === 'C'
+      ? t.bracket.consolationHint
+      : tournament.groups.length > 0
+        ? t.bracket.fromGroups
+        : t.bracket.knockout;
+
+  const cleared = bracketsCleared(tournament, bracket.id);
+  const results = tournament.matches.filter(
+    (m) => m.bracket && cleared.includes(m.bracket) && m.sets.length > 0,
+  ).length;
+
+  function resetBracket() {
+    const message = fill(cleared.length > 1 ? t.bracket.confirmResetAll : t.bracket.confirmReset, {
+      bracket: bracketName(t, bracket.id),
+      count: results,
+    });
+    if (window.confirm(message)) actions!.resetBracket(bracket.id);
+  }
 
   return (
     <section>
       <div className="view-title">
-        <h2>{fill(t.bracket.title, { id: bracket.id })}</h2>
-        <p>{tournament.groups.length > 0 ? t.bracket.fromGroups : t.bracket.knockout}</p>
+        <h2>{bracketName(t, bracket.id)}</h2>
+        <p>{hint}</p>
       </div>
+      {actions && results > 0 && (
+        <div className="view-toolbar">
+          <span />
+          <button type="button" className="secondary" onClick={resetBracket}>
+            {t.bracket.reset}
+          </button>
+        </div>
+      )}
       <div className="panel bracket-wrap">
         <div
           className="bracket"
