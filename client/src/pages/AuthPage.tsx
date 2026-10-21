@@ -1,17 +1,30 @@
-import { useState, type FormEvent } from 'react';
-import { Link } from 'react-router';
+import { useEffect, useState, type FormEvent } from 'react';
+import { Link, useSearchParams } from 'react-router';
 import { LanguageSwitch } from '../components/LanguageSwitch';
 import { useI18n } from '../i18n/context';
+import { apiGet } from '../lib/api';
 import { authClient } from '../lib/auth-client';
 
 type Mode = 'sign-in' | 'sign-up' | 'forgot';
 
 export function AuthPage() {
   const { t } = useI18n();
+  const [searchParams] = useSearchParams();
   const [mode, setMode] = useState<Mode>('sign-in');
-  const [error, setError] = useState('');
+  // Registration is offered only once the server says it is open
+  const [signUpOpen, setSignUpOpen] = useState(false);
+  const [error, setError] = useState(() =>
+    // Back from Google with an account that does not exist yet
+    searchParams.get('error') === 'signup_disabled' ? t.auth.signUpClosed : '',
+  );
   const [message, setMessage] = useState('');
   const [busy, setBusy] = useState(false);
+
+  useEffect(() => {
+    apiGet<{ signUp?: boolean }>('/health')
+      .then((health) => setSignUpOpen(health.signUp === true))
+      .catch(() => setSignUpOpen(false));
+  }, []);
 
   function switchTo(next: Mode) {
     setMode(next);
@@ -61,7 +74,11 @@ export function AuthPage() {
 
   async function signInWithGoogle() {
     setError('');
-    const { error } = await authClient.signIn.social({ provider: 'google', callbackURL: '/' });
+    const { error } = await authClient.signIn.social({
+      provider: 'google',
+      callbackURL: '/',
+      errorCallbackURL: '/sign-in',
+    });
     if (error) {
       setError(t.auth.googleUnavailable);
     }
@@ -135,7 +152,7 @@ export function AuthPage() {
             {t.auth.haveAccount}
           </button>
         )}
-        {mode !== 'sign-up' && (
+        {mode !== 'sign-up' && signUpOpen && (
           <button type="button" className="link" onClick={() => switchTo('sign-up')}>
             {t.auth.createAccount}
           </button>

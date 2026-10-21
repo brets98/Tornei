@@ -43,6 +43,7 @@ export const it: Messages = {
     checkInbox: 'Controlla la posta: ti abbiamo inviato un link per verificare la tua email.',
     resetSent: 'Se esiste un account con questa email, ti abbiamo inviato un link.',
     googleUnavailable: "L'accesso con Google non è disponibile in questo momento.",
+    signUpClosed: 'Le registrazioni sono chiuse: possono accedere solo gli account esistenti.',
   },
   password: {
     title: 'Cambia password',

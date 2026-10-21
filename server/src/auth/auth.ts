@@ -34,6 +34,7 @@ export function createAuth({ db, config, mailer }: AuthDeps) {
 
     emailAndPassword: {
       enabled: true,
+      disableSignUp: !config.signUp,
       requireEmailVerification: true,
       minPasswordLength: 10,
       revokeSessionsOnPasswordReset: true,
@@ -69,6 +70,7 @@ export function createAuth({ db, config, mailer }: AuthDeps) {
             clientId: config.google.clientId,
             clientSecret: config.google.clientSecret,
             prompt: 'select_account',
+            disableSignUp: !config.signUp,
             mapProfileToUser: (profile) => ({
               name: profile.given_name || profile.name,
               surname: profile.family_name ?? '',
@@ -76,6 +78,9 @@ export function createAuth({ db, config, mailer }: AuthDeps) {
           },
         }
       : {},
+
+    // Rate limiting and sessions use the client IP from X-Forwarded-For (the default),
+    // which Caddy sets to the address of the connecting client.
 
     account: {
       encryptOAuthTokens: true,

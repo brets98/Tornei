@@ -20,6 +20,7 @@ services:
       BETTER_AUTH_URL: http://localhost:5173
       # Development-only fallback; production requires a real secret in .env
       BETTER_AUTH_SECRET: ${BETTER_AUTH_SECRET:-dev-only-secret-not-for-production-0123456789}
+      SIGNUP_ENABLED: ${SIGNUP_ENABLED:-true}
       SMTP_HOST: mailpit
       SMTP_PORT: 1025
       MAIL_FROM: Tornei <no-reply@tornei.local>

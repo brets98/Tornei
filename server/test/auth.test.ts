@@ -1,6 +1,7 @@
 import mongoose from 'mongoose';
 import request from 'supertest';
 import { beforeEach, describe, expect, it } from 'vitest';
+import { ensureAuthIndexes } from '../src/auth/indexes.js';
 import { UserModel } from '../src/models/user.js';
 import { BASE_URL, createTestApp, PASSWORD, signUp, type TestApp } from './app.js';
 import { useTestDatabase } from './db.js';
@@ -105,5 +106,54 @@ describe('authentication', () => {
     const agent = request.agent(t.app);
     expect((await signInRequest(agent)).status).toBe(401);
     expect((await signInRequest(agent, 'a-brand-new-password')).status).toBe(200);
+  });
+});
+
+describe('registration closed', () => {
+  useTestDatabase();
+
+  it('refuses new sign-ups and says so on the health check', async () => {
+    const t = createTestApp({ signUp: false });
+
+    const res = await request(t.app)
+      .post('/api/auth/sign-up/email')
+      .set('Origin', BASE_URL)
+      .send({ ...mario, password: PASSWORD });
+
+    expect(res.status).toBe(400);
+    expect(await UserModel.countDocuments()).toBe(0);
+    expect((await request(t.app).get('/api/health')).body.signUp).toBe(false);
+  });
+
+  it('still lets existing users sign in', async () => {
+    await signUp(createTestApp(), mario);
+    const closed = createTestApp({ signUp: false });
+
+    const res = await request
+      .agent(closed.app)
+      .post('/api/auth/sign-in/email')
+      .set('Origin', BASE_URL)
+      .send({ email: mario.email, password: PASSWORD });
+
+    expect(res.status).toBe(200);
+  });
+});
+
+describe('auth indexes', () => {
+  useTestDatabase();
+
+  it('deletes expired sessions and verification tokens', async () => {
+    const db = mongoose.connection.db!;
+    await ensureAuthIndexes(db);
+    await ensureAuthIndexes(db); // idempotent on restart
+
+    for (const name of ['sessions', 'verifications']) {
+      const indexes = await db.collection(name).indexes();
+      expect(indexes).toContainEqual(
+        expect.objectContaining({ key: { expiresAt: 1 }, expireAfterSeconds: 0 }),
+      );
+    }
+    const sessions = await db.collection('sessions').indexes();
+    expect(sessions).toContainEqual(expect.objectContaining({ key: { token: 1 }, unique: true }));
   });
 });
