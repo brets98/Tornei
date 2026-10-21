@@ -9,11 +9,11 @@ import { UserModel } from '../src/models/user.js';
 export const BASE_URL = 'http://localhost:3000';
 
 /** Builds the app against the test database, capturing emails instead of sending them. */
-export function createTestApp() {
+export function createTestApp({ signUp = true }: { signUp?: boolean } = {}) {
   const mails: Mail[] = [];
   const auth = createAuth({
     db: mongoose.connection.db!,
-    config: { secret: 'test-secret-that-is-at-least-32-characters', baseUrl: BASE_URL },
+    config: { secret: 'test-secret-that-is-at-least-32-characters', baseUrl: BASE_URL, signUp },
     mailer: async (mail) => {
       mails.push(mail);
     },

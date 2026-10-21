@@ -19,7 +19,7 @@ export function createApp({ auth }: { auth: Auth }) {
   app.use(express.json({ limit: '1mb' }));
 
   // Public routes: keep this list short (see CLAUDE.md, "API access")
-  app.use('/api/health', healthRouter);
+  app.use('/api/health', healthRouter({ signUp: !auth.options.emailAndPassword.disableSignUp }));
   app.use('/api/results', publicResultsRouter);
 
   // Everything below requires a signed-in user

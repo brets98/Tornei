@@ -18,6 +18,8 @@ export interface Config {
     /** Public URL of the app, e.g. https://tornei.example.com */
     baseUrl: string;
     google?: { clientId: string; clientSecret: string };
+    /** Whether new users can register (email sign-up or a first Google login) */
+    signUp: boolean;
   };
   smtp: {
     host: string;
@@ -43,6 +45,7 @@ export function loadConfig(): Config {
         googleClientId && googleClientSecret
           ? { clientId: googleClientId, clientSecret: googleClientSecret }
           : undefined,
+      signUp: process.env.SIGNUP_ENABLED === 'true',
     },
     smtp: {
       host: required('SMTP_HOST'),

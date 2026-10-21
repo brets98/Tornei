@@ -42,6 +42,14 @@ function pushResult() {
   );
 }
 
+/** The health check tells the sign-in page whether registration is open. */
+function registration(open: boolean) {
+  vi.stubGlobal(
+    'fetch',
+    vi.fn(() => Promise.resolve(Response.json({ status: 'ok', signUp: open }))),
+  );
+}
+
 function fill(label: string, value: string) {
   fireEvent.change(screen.getByLabelText(label), { target: { value } });
 }
@@ -83,10 +91,11 @@ describe('App', () => {
 
     it('signs up with name and surname, then asks to verify the email', async () => {
       signedOut();
+      registration(true);
       mocked.signUp.email.mockResolvedValue({ data: {}, error: null } as never);
       renderAt('/sign-in');
 
-      fireEvent.click(screen.getByRole('button', { name: 'Create an account' }));
+      fireEvent.click(await screen.findByRole('button', { name: 'Create an account' }));
       fill('Name', 'Mario');
       fill('Surname', 'Rossi');
       fill('Email', 'mario@example.com');
@@ -97,6 +106,26 @@ describe('App', () => {
       expect(mocked.signUp.email).toHaveBeenCalledWith(
         expect.objectContaining({ name: 'Mario', surname: 'Rossi', email: 'mario@example.com' }),
       );
+    });
+
+    it('does not offer registration while it is closed', async () => {
+      signedOut();
+      registration(false);
+      renderAt('/sign-in');
+
+      expect(
+        await screen.findByRole('button', { name: 'Forgot your password?' }),
+      ).toBeInTheDocument();
+      await act(() => Promise.resolve());
+      expect(screen.queryByRole('button', { name: 'Create an account' })).not.toBeInTheDocument();
+    });
+
+    it('explains a Google sign-in refused because registration is closed', () => {
+      signedOut();
+      registration(false);
+      renderAt('/sign-in?error=signup_disabled');
+
+      expect(screen.getByText(/Registration is closed/)).toBeInTheDocument();
     });
 
     it('tells unverified users to check their email', async () => {

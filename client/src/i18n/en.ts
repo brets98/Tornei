@@ -44,6 +44,7 @@ export const en = {
     checkInbox: 'Check your inbox: we sent you a link to verify your email.',
     resetSent: 'If an account exists for this email, we sent you a reset link.',
     googleUnavailable: 'Google sign-in is not available right now.',
+    signUpClosed: 'Registration is closed: only existing accounts can sign in.',
   },
   password: {
     title: 'Change password',

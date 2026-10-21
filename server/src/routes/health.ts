@@ -1,9 +1,14 @@
 import { Router } from 'express';
 import mongoose from 'mongoose';
 
-export const healthRouter = Router();
+/** `signUp`: whether registration is open, so the sign-in page can offer it. */
+export function healthRouter({ signUp }: { signUp: boolean }) {
+  const router = Router();
 
-healthRouter.get('/', (_req, res) => {
-  const db = mongoose.connection.readyState === mongoose.ConnectionStates.connected;
-  res.json({ status: 'ok', db: db ? 'connected' : 'disconnected' });
-});
+  router.get('/', (_req, res) => {
+    const db = mongoose.connection.readyState === mongoose.ConnectionStates.connected;
+    res.json({ status: 'ok', db: db ? 'connected' : 'disconnected', signUp });
+  });
+
+  return router;
+}
