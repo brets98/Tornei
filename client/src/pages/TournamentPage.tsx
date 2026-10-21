@@ -5,6 +5,8 @@ import { BracketView } from '../components/tournament/BracketView';
 import { EntriesView } from '../components/tournament/EntriesView';
 import { GroupsView } from '../components/tournament/GroupsView';
 import { Overview } from '../components/tournament/Overview';
+import { PlayersDatalist } from '../components/PlayersDatalist';
+import { CircuitLink } from '../components/CircuitLink';
 import { SettingsView } from '../components/tournament/SettingsView';
 import { fill, useI18n } from '../i18n/context';
 import { ApiError, apiGet, apiPatch, apiPost, apiPut } from '../lib/api';
@@ -157,7 +159,14 @@ export function TournamentPage() {
         </h1>
         <div className="muted">
           {formatDate(tournament.date)} · <Link to={`/live/${tournament.id}`}>{t.live.open}</Link>
+          {tournament.circuit && (
+            <>
+              {' · '}
+              <CircuitLink link={tournament.circuit} />
+            </>
+          )}
         </div>
+        {tournament.circuit && <PlayersDatalist version={tournament.updatedAt} />}
       </header>
       <nav className="tabs" aria-label={tournament.name}>
         {tabs.map((name) => (

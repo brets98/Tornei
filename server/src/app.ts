@@ -3,7 +3,9 @@ import express from 'express';
 import type { Auth } from './auth/auth.js';
 import { requireAuth } from './auth/middleware.js';
 import { errorHandler } from './middleware/errors.js';
+import { circuitsRouter } from './routes/circuits.js';
 import { healthRouter } from './routes/health.js';
+import { playersRouter } from './routes/players.js';
 import { publicResultsRouter, resultsRouter } from './routes/results.js';
 import { tournamentsRouter } from './routes/tournaments.js';
 import { usersRouter } from './routes/users.js';
@@ -27,6 +29,8 @@ export function createApp({ auth }: { auth: Auth }) {
   app.use('/api/users', usersRouter);
   app.use('/api/results', resultsRouter);
   app.use('/api/tournaments', tournamentsRouter);
+  app.use('/api/players', playersRouter);
+  app.use('/api/circuits', circuitsRouter);
 
   app.use(errorHandler);
 

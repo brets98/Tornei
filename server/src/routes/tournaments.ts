@@ -16,11 +16,13 @@ import { buildMatches, buildTournament, refreshTournament } from '../domain/tour
 import type { TournamentData } from '../domain/types.js';
 import type { Tournament } from '../models/tournament.js';
 import { TournamentModel } from '../models/tournament.js';
+import { findStageLink } from './circuits.js';
+import { linkPlayers } from './players.js';
 
 /** Only the owner can see or change a tournament; anyone else gets 404, as if it didn't exist. */
 export const tournamentsRouter = Router();
 
-const LIST_FIELDS = 'name subtitle sport format date summary createdAt updatedAt';
+const LIST_FIELDS = 'name subtitle sport format date circuit summary createdAt updatedAt';
 
 async function findOwned(req: Request<{ id: string }>) {
   const { id } = req.params;
@@ -46,21 +48,33 @@ const DATA_FIELDS = [
   'conflicts',
 ] as const satisfies readonly (keyof TournamentData)[];
 
-function toData(tournament: Tournament): TournamentData {
+export function toData(tournament: Tournament): TournamentData {
   return Object.fromEntries(
     DATA_FIELDS.map((key) => [key, tournament[key]]),
   ) as unknown as TournamentData;
 }
 
+type TournamentDoc = NonNullable<Awaited<ReturnType<typeof findOwned>>>;
+
+/** Circuit stages: every name linked to the owner's player registry (see `linkPlayers`). */
+async function linkStage(tournament: TournamentDoc) {
+  if (!tournament.circuit) return;
+  tournament.set('pairs', await linkPlayers(tournament.ownerId, tournament.toObject().pairs));
+}
+
+const invalidLink = { error: 'Invalid circuit', issues: [{ code: 'CIRCUIT_INVALID' }] };
+
 /**
  * Loads the user's tournament, applies `edit` to it and saves the result (with its derived
  * state). 404 if the tournament (or the pair/match) doesn't exist, 400 with `issues` if the
- * edit isn't allowed, 409 if someone saved the tournament in the meantime.
+ * edit isn't allowed, 409 if someone saved the tournament in the meantime. `before` runs on
+ * the edited document just before it is saved.
  */
 async function applyEdit(
   req: Request<{ id: string }>,
   res: Response,
   edit: (data: TournamentData) => EditResult,
+  before?: (tournament: TournamentDoc) => Promise<void>,
 ) {
   const tournament = await findOwned(req);
   if (!tournament) {
@@ -77,6 +91,7 @@ async function applyEdit(
     return;
   }
   tournament.set(result.data);
+  await before?.(tournament);
   await tournament.save();
   res.json(tournament);
 }
@@ -112,16 +127,25 @@ tournamentsRouter.post('/preview', (req, res) => {
   });
 });
 
+/** `circuit` (optional): `{ circuitId, categoryId }` makes it a stage of one of the user's circuits. */
 tournamentsRouter.post('/', async (req, res) => {
   const { setup, issues } = parseSetup(req.body);
   if (issues.length > 0) {
     res.status(400).json({ error: 'Invalid setup', issues });
     return;
   }
-  const tournament = await TournamentModel.create({
+  const circuit = await findStageLink(req.user!.id, req.body?.circuit ?? null);
+  if (circuit === undefined) {
+    res.status(400).json(invalidLink);
+    return;
+  }
+  const tournament = new TournamentModel({
     ...buildTournament(setup),
     ownerId: req.user!.id,
+    circuit,
   });
+  await linkStage(tournament);
+  await tournament.save();
   res.status(201).json(tournament);
 });
 
@@ -185,9 +209,25 @@ tournamentsRouter.get('/:id/export', async (req, res) => {
   res.json(exportTournament(toData(tournament.toObject())));
 });
 
-tournamentsRouter.patch('/:id/settings', (req, res) =>
-  applyEdit(req, res, (data) => updateSettings(data, req.body)),
-);
+/** Also `circuit`: `{ circuitId, categoryId }` makes it a stage of that circuit, null unlinks it. */
+tournamentsRouter.patch('/:id/settings', async (req, res) => {
+  const changesCircuit = Object.hasOwn(req.body ?? {}, 'circuit');
+  const circuit = changesCircuit ? await findStageLink(req.user!.id, req.body.circuit) : null;
+  if (circuit === undefined) {
+    res.status(400).json(invalidLink);
+    return;
+  }
+  await applyEdit(
+    req,
+    res,
+    (data) => updateSettings(data, req.body),
+    async (tournament) => {
+      if (!changesCircuit) return;
+      tournament.circuit = circuit;
+      await linkStage(tournament);
+    },
+  );
+});
 
 tournamentsRouter.post('/:id/reset', (req, res) =>
   applyEdit(req, res, (data) => resetResults(data)),
@@ -198,7 +238,7 @@ tournamentsRouter.post('/:id/brackets/:bracketId/reset', (req, res) =>
 );
 
 tournamentsRouter.patch('/:id/pairs/:pairId', (req, res) =>
-  applyEdit(req, res, (data) => updatePair(data, req.params.pairId, req.body ?? {})),
+  applyEdit(req, res, (data) => updatePair(data, req.params.pairId, req.body ?? {}), linkStage),
 );
 
 tournamentsRouter.put('/:id/groups', (req, res) =>

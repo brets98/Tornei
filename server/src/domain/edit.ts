@@ -40,8 +40,10 @@ export function setPlayers(data: TournamentData, pairId: string, players: unknow
     return fail('PLAYERS_REQUIRED');
   }
 
+  // New names: the server links them to the registry again (circuit stages)
+  const trimmed = names.map((n: string) => n.trim());
   const pairs = data.pairs.map((p) =>
-    p.id === pairId ? { ...p, players: names.map((n: string) => n.trim()) } : p,
+    p.id === pairId ? { id: p.id, players: trimmed, ...(p.level && { level: p.level }) } : p,
   );
   return { data: refreshTournament({ ...data, pairs }) };
 }

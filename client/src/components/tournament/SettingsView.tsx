@@ -1,10 +1,12 @@
 import { useState, type FormEvent } from 'react';
 import { fill, useI18n } from '../../i18n/context';
 import { apiGet } from '../../lib/api';
+import type { StageLink } from '../../lib/circuits';
 import { buildMatchFormat, setsChoice, type Decider, type SetsChoice } from '../../lib/score';
 import { isStructureLocked, type Tournament } from '../../lib/tournaments';
 import type { SettingsChanges, TournamentActions } from './actions';
 import { MatchFormatFields } from './MatchFormatFields';
+import { StageLinkFields } from '../StageLinkFields';
 
 interface Form {
   name: string;
@@ -14,6 +16,7 @@ interface Form {
   timeSlots: { id?: string; time: string }[];
   sets: SetsChoice;
   decider: Decider;
+  circuit: StageLink | null;
 }
 
 const formOf = (tournament: Tournament): Form => ({
@@ -24,6 +27,7 @@ const formOf = (tournament: Tournament): Form => ({
   timeSlots: tournament.timeSlots.map(({ id, time }) => ({ id, time })),
   sets: setsChoice(tournament.matchFormat),
   decider: tournament.matchFormat.decider,
+  circuit: tournament.circuit ?? null,
 });
 
 /** A file name from the tournament name: 'Torneo di primavera' → 'torneo-di-primavera.json'. */
@@ -87,6 +91,7 @@ export function SettingsView({
       courts: form.courts,
       timeSlots: form.timeSlots,
       matchFormat: buildMatchFormat(form.sets, form.decider),
+      circuit: form.circuit,
     };
     actions.updateSettings(changes);
   }
@@ -222,6 +227,9 @@ export function SettingsView({
           disabled={locked}
           onChange={update}
         />
+
+        <h3>{t.stageLink.title}</h3>
+        <StageLinkFields value={form.circuit} onChange={(circuit) => update({ circuit })} />
 
         <div className="actions">
           <button type="submit" disabled={!dirty}>
