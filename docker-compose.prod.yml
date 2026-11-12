@@ -71,6 +71,10 @@ services:
     logging: *logging
     environment:
       DOMAIN: ${DOMAIN:?}
+      # KiteWind, proxied to its web container on the host (docker/Caddyfile)
+      KITEWIND_DOMAIN: ${KITEWIND_DOMAIN:-kitewind.duckdns.org}
+    extra_hosts:
+      - 'host.docker.internal:host-gateway'
     ports:
       - '80:80'
       - '443:443'
