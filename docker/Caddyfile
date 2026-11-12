@@ -11,3 +11,11 @@
 		file_server
 	}
 }
+
+# KiteWind (github.com/brets98/wind-finder) runs on the same VM in its own compose project.
+# This Caddy is the only one on ports 80/443: it gets KiteWind's certificate too and forwards
+# its domain to KiteWind's web container, published on the host's docker0 address.
+{$KITEWIND_DOMAIN:kitewind.localhost} {
+	encode zstd gzip
+	reverse_proxy host.docker.internal:8081
+}
