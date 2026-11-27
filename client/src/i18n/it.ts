@@ -108,6 +108,7 @@ export const it: Messages = {
     bestOf5: 'Al meglio dei 5 set',
     oneSet: 'Set unico a 6 (tie-break sul 6-6)',
     proSet: 'Pro set a 9 (tie-break sull’8-8)',
+    shortSet: 'Set unico a 6 (tie-break sul 5-5)',
     decider: 'Set decisivo (il {nth})',
     deciders: {
       set: 'Un set normale, tie-break a 7 sul 6-6',
@@ -565,6 +566,8 @@ export const it: Messages = {
       'Il risultato non si legge: scrivi i game di ogni set, ad esempio 6-4 3-6 7-6(5).',
     SCORE_SET_TIED: 'Il set {set} non può finire in parità.',
     SCORE_SET_INVALID: 'Il set {set} non è un punteggio valido per un set a {games} game.',
+    SCORE_SHORT_SET_INVALID:
+      'Il set {set} non è valido per un set unico a 6 con tie-break sul 5-5: da 6-0 a 6-4, oppure 6-5 dopo il tie-break.',
     SCORE_TIEBREAK_NOT_PLAYED:
       'Il set {set} non è finito al tie-break: togli i punti tra parentesi.',
     SCORE_TIEBREAK_INVALID:

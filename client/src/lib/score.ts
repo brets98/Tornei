@@ -16,19 +16,23 @@ export interface MatchFormat {
   bestOf: number;
   gamesPerSet: number;
   decider: Decider;
+  /** One set to 6 only: the tie-break at 5-5 (the set ends 6-4 or 6-5), not 6-6 */
+  tiebreakAt?: 5;
 }
 
 export type Decider = 'set' | 'tiebreak10' | 'superTiebreak';
 export const DECIDERS: Decider[] = ['set', 'tiebreak10', 'superTiebreak'];
 
 /** How many sets, as chosen in the wizard. */
-export type SetsChoice = 'bestOf3' | 'bestOf5' | 'oneSet' | 'proSet';
-export const SETS_CHOICES: SetsChoice[] = ['bestOf3', 'bestOf5', 'oneSet', 'proSet'];
+export type SetsChoice = 'bestOf3' | 'bestOf5' | 'oneSet' | 'shortSet' | 'proSet';
+export const SETS_CHOICES: SetsChoice[] = ['bestOf3', 'bestOf5', 'oneSet', 'shortSet', 'proSet'];
 
 export function buildMatchFormat(sets: SetsChoice, decider: Decider): MatchFormat {
   switch (sets) {
     case 'oneSet':
       return { bestOf: 1, gamesPerSet: 6, decider: 'set' };
+    case 'shortSet':
+      return { bestOf: 1, gamesPerSet: 6, decider: 'set', tiebreakAt: 5 };
     case 'proSet':
       return { bestOf: 1, gamesPerSet: 9, decider: 'set' };
     default:
@@ -37,7 +41,10 @@ export function buildMatchFormat(sets: SetsChoice, decider: Decider): MatchForma
 }
 
 export function setsChoice(format: MatchFormat): SetsChoice {
-  if (format.bestOf === 1) return format.gamesPerSet === 9 ? 'proSet' : 'oneSet';
+  if (format.bestOf === 1) {
+    if (format.gamesPerSet === 9) return 'proSet';
+    return format.tiebreakAt === 5 ? 'shortSet' : 'oneSet';
+  }
   return format.bestOf === 5 ? 'bestOf5' : 'bestOf3';
 }
 
@@ -46,7 +53,10 @@ export const decidingSet = (format: MatchFormat) => (format.bestOf === 5 ? 'fift
 
 /** An example result for the format, to show how to type one. */
 export function exampleResult(format: MatchFormat): string {
-  if (format.bestOf === 1) return format.gamesPerSet === 9 ? '9-7' : '6-4';
+  if (format.bestOf === 1) {
+    if (format.gamesPerSet === 9) return '9-7';
+    return format.tiebreakAt === 5 ? '6-5(4)' : '6-4';
+  }
   const decider = { set: '7-6(5)', tiebreak10: '7-6(8)', superTiebreak: '10-8' }[format.decider];
   return [...(format.bestOf === 5 ? ['6-4', '3-6', '6-3', '4-6'] : ['6-4', '3-6']), decider].join(
     ' ',

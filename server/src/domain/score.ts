@@ -15,6 +15,8 @@ export const MATCH_FORMATS = {
   oneSet: { bestOf: 1, gamesPerSet: 6, decider: 'set' },
   /** One set to 9, tie-break at 8-8 */
   proSet: { bestOf: 1, gamesPerSet: 9, decider: 'set' },
+  /** One set to 6, tie-break at 5-5: 6-4 or 6-5 after the tie-break */
+  shortSet: { bestOf: 1, gamesPerSet: 6, decider: 'set', tiebreakAt: 5 },
 } as const satisfies Record<string, MatchFormat>;
 
 export const DEFAULT_MATCH_FORMAT: MatchFormat = MATCH_FORMATS.bestOf3;
@@ -22,12 +24,16 @@ export const DEFAULT_MATCH_FORMAT: MatchFormat = MATCH_FORMATS.bestOf3;
 export const DECIDERS = ['set', 'tiebreak10', 'superTiebreak'] as const;
 
 /**
- * One set to 6 or a pro set to 9; or best of 3 or 5 sets to 6, whose deciding set can have its
+ * One set to 6 (tie-break at 6-6, or at 5-5 with `tiebreakAt: 5`) or a pro set to 9; or best of
+ * 3 or 5 sets to 6, whose deciding set can have its
  * tie-break played to 10 or be replaced by a super tie-break to 10. Best of 5 is tennis only.
  */
 export function isValidMatchFormat(format: unknown): format is MatchFormat {
   const f = format as Partial<MatchFormat> | null;
   if (!f || typeof f !== 'object') return false;
+  if (f.tiebreakAt !== undefined && f.tiebreakAt !== null) {
+    return f.tiebreakAt === 5 && f.bestOf === 1 && f.gamesPerSet === 6 && f.decider === 'set';
+  }
   if (f.bestOf === 1) return (f.gamesPerSet === 6 || f.gamesPerSet === 9) && f.decider === 'set';
   return (
     (f.bestOf === 3 || f.bestOf === 5) &&
@@ -46,7 +52,12 @@ export function formatOf(
 
 export function sameFormat(a?: MatchFormat | null, b?: MatchFormat | null): boolean {
   if (!a || !b) return !a && !b;
-  return a.bestOf === b.bestOf && a.gamesPerSet === b.gamesPerSet && a.decider === b.decider;
+  return (
+    a.bestOf === b.bestOf &&
+    a.gamesPerSet === b.gamesPerSet &&
+    a.decider === b.decider &&
+    (a.tiebreakAt ?? null) === (b.tiebreakAt ?? null)
+  );
 }
 
 /** Highest number accepted for games or points, to catch typing mistakes. */
@@ -62,9 +73,9 @@ export function tiebreakPoints(format: MatchFormat, index: number) {
     : TIEBREAK_POINTS;
 }
 
-/** Games at which a set goes to a tie-break: 6-6 (to 6), 4-4 (to 4), 8-8 (pro set to 9). */
-function tiebreakAt(gamesPerSet: number) {
-  return gamesPerSet === 9 ? 8 : gamesPerSet;
+/** Games at which a set goes to a tie-break: 6-6 (to 6), 8-8 (pro set to 9), or 5-5 if said. */
+function tiebreakAt(format: MatchFormat) {
+  return format.tiebreakAt ?? (format.gamesPerSet === 9 ? 8 : format.gamesPerSet);
 }
 
 /** Won "to `target`, by 2": 7-5, 10-8, or any longer win by exactly 2 (9-7, 12-10). */
@@ -91,13 +102,16 @@ function checkSet(set: SetScore, format: MatchFormat, index: number): string | n
   }
 
   const games = format.gamesPerSet;
-  const at = tiebreakAt(games);
+  const at = tiebreakAt(format);
   const isTiebreakSet = winner === at + 1 && loser === at;
   const isPlainSet =
     (winner === games && loser <= games - 2) ||
-    // 7-5: from 5-5 a set to 6 goes on to 7 (not in a pro set, where 8-8 is the tie-break)
-    (games !== 9 && winner === games + 1 && loser === games - 1);
-  if (!isTiebreakSet && !isPlainSet) return 'SCORE_SET_INVALID';
+    // 7-5: from 5-5 a set to 6 goes on to 7 (not in a pro set, where 8-8 is the tie-break, nor
+    // when the tie-break comes at 5-5)
+    (at === games && winner === games + 1 && loser === games - 1);
+  if (!isTiebreakSet && !isPlainSet) {
+    return format.tiebreakAt ? 'SCORE_SHORT_SET_INVALID' : 'SCORE_SET_INVALID';
+  }
 
   if (set.tiebreak) {
     if (!isTiebreakSet) return 'SCORE_TIEBREAK_NOT_PLAYED';

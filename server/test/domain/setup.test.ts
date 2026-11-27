@@ -115,6 +115,19 @@ describe('parseSetup', () => {
     }
   });
 
+  it('keeps the tie-break at 5-5 of one set to 6', () => {
+    const shortSet = { bestOf: 1, gamesPerSet: 6, decider: 'set', tiebreakAt: 5 };
+    expect(parseSetup({ ...validSetup, matchFormat: shortSet }).setup.matchFormat).toEqual(
+      shortSet,
+    );
+    expect(
+      parseSetup({ ...validSetup, groupMatchFormat: shortSet }).setup.groupMatchFormat,
+    ).toEqual(shortSet);
+    expect(codes({ ...validSetup, matchFormat: { ...shortSet, bestOf: 3 } })).toEqual([
+      'MATCH_FORMAT_INVALID',
+    ]);
+  });
+
   it('plays best of 5 sets in tennis only', () => {
     const bestOf5 = { bestOf: 5, gamesPerSet: 6, decider: 'tiebreak10' };
     const tennis = { ...validSetup, sport: 'tennis', format: 'singles', matchFormat: bestOf5 };

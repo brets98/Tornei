@@ -73,6 +73,7 @@ const matchFormatSchema = embedded({
   bestOf: { type: Number, required: true },
   gamesPerSet: { type: Number, required: true },
   decider: { type: String, enum: DECIDERS, required: true },
+  tiebreakAt: Number,
 });
 
 const tournamentSchema = createSchema<Tournament>({

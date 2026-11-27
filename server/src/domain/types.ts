@@ -31,6 +31,11 @@ export interface MatchFormat {
   bestOf: number;
   gamesPerSet: number;
   decider: 'set' | 'tiebreak10' | 'superTiebreak';
+  /**
+   * One set to 6 only: the tie-break comes at 5-5 instead of 6-6, so the set ends 6-0…6-4 or
+   * 6-5 after the tie-break (no 7-5, no 7-6). Absent: the usual 6-6 (8-8 in a pro set).
+   */
+  tiebreakAt?: 5;
 }
 
 /** One set from side A's point of view. A super tie-break stores its points as `a`/`b`. */
