@@ -22,6 +22,7 @@ export const en = {
     label: 'Main',
     tournaments: 'Tournaments',
     live: 'Live view',
+    organizers: 'Organizers',
     results: 'Results',
     users: 'Users',
     changePassword: 'Change password',
@@ -282,6 +283,14 @@ export const en = {
     refreshError: 'Could not update: showing the last data, trying again in 30 seconds.',
     complete: 'complete',
     open: 'Live view',
+  },
+  organizers: {
+    title: 'Organizers',
+    pick: 'Choose a tournament to see its matches by court and time. The page updates by itself every 30 seconds.',
+    noCourt: 'No court',
+    noneScheduled: 'No match has a time yet: set courts and times in the overview.',
+    unscheduled: 'Without a time',
+    clash: 'Clash',
   },
   images: {
     title: 'Images',
