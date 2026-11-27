@@ -1,7 +1,9 @@
 import express, { Router, type Request, type Response } from 'express';
 import { isValidObjectId, type Types } from 'mongoose';
 import {
+  addPair,
   draw,
+  removePair,
   resetBracket,
   resetResults,
   setGroups,
@@ -247,6 +249,16 @@ tournamentsRouter.post('/:id/brackets/:bracketId/reset', (req, res) =>
 
 tournamentsRouter.patch('/:id/pairs/:pairId', (req, res) =>
   applyEdit(req, res, (data) => updatePair(data, req.params.pairId, req.body ?? {}), linkStage),
+);
+
+/** A new pair (no names) at the end of a group (body `groupId`), until the knockout starts. */
+tournamentsRouter.post('/:id/pairs', (req, res) =>
+  applyEdit(req, res, (data) => addPair(data, req.body?.groupId), linkStage),
+);
+
+/** Removes a pair and its group matches, until the knockout starts. */
+tournamentsRouter.delete('/:id/pairs/:pairId', (req, res) =>
+  applyEdit(req, res, (data) => removePair(data, req.params.pairId)),
 );
 
 tournamentsRouter.put('/:id/groups', (req, res) =>
