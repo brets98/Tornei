@@ -281,6 +281,44 @@ describe('updateSettings', () => {
       undefined,
     );
   });
+
+  it('changes the group match format only until the first result', () => {
+    const proSet = { bestOf: 1, gamesPerSet: 9, decider: 'set' };
+    const t = ok(updateSettings(build(), { groupMatchFormat: proSet }));
+    expect(t.groupMatchFormat).toEqual(proSet);
+    expect(ok(updateSettings(t, { name: 'X' })).groupMatchFormat).toEqual(proSet);
+    expect(ok(updateSettings(t, { groupMatchFormat: null })).groupMatchFormat).toBeNull();
+    const started = ok(updateMatch(t, 'p1-p2', { sets: sets('9-7') }));
+    expect(codes(updateSettings(started, { groupMatchFormat: null }))).toEqual([
+      'MATCH_FORMAT_LOCKED',
+    ]);
+  });
+});
+
+describe('group match format', () => {
+  const proSet = { bestOf: 1, gamesPerSet: 9, decider: 'set' };
+
+  it('checks group results against it and knockout results against the match format', () => {
+    let t = build({
+      pairCount: 4,
+      structure: { type: 'groups_knockout', groupCount: 2, advanceA: 1 },
+      groupMatchFormat: proSet,
+    });
+    expect(codes(updateMatch(t, 'p1-p2', { sets: sets('6-4 6-4') }))).toEqual([
+      expect.stringMatching(/^SCORE_/),
+    ]);
+    t = ok(updateMatch(t, 'p1-p2', { sets: sets('9-8(5)') }));
+    t = ok(updateMatch(t, 'p3-p4', { sets: sets('4-9') }));
+    const final = t.matches.find((m) => m.phase === 'knockout')!;
+    expect(final.pairA).toBe('p1');
+    expect(final.pairB).toBe('p4');
+    expect(codes(updateMatch(t, final.id, { sets: sets('9-4') }))).toEqual([
+      expect.stringMatching(/^SCORE_/),
+    ]);
+    t = ok(updateMatch(t, final.id, { sets: sets('6-4 6-4') }));
+    expect(t.brackets[0].champion).toBe('p1');
+    expect(t.groups[0].standings[0]).toMatchObject({ pairId: 'p1', gamesFor: 9, gamesAgainst: 8 });
+  });
 });
 
 describe('resetResults', () => {

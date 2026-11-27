@@ -155,6 +155,40 @@ describe('NewTournamentPage', () => {
       structure: { type: 'groups_knockout', groupCount: 4, advanceA: 2, advanceB: 1 },
       // Padel: a super tie-break instead of the third set, unless chosen otherwise
       matchFormat: { bestOf: 3, gamesPerSet: 6, decider: 'superTiebreak' },
+      groupMatchFormat: null,
+    });
+  });
+
+  it('can play the group matches with their own format', async () => {
+    const fetchMock = stubApi({
+      'POST /api/tournaments/preview': previewFor as never,
+      'POST /api/tournaments': () => json({ id: 't1' }, 201),
+    });
+    renderPage();
+    type('Nome', 'Torneo di primavera');
+    await previewChecked();
+    next();
+    await screen.findByText('Girone A: 3 coppie');
+    expect(screen.queryByText('Partite dei gironi')).not.toBeInTheDocument();
+    fireEvent.click(screen.getByLabelText('Nei gironi si gioca con un formato diverso'));
+    expect(screen.getByText('Partite dei gironi')).toBeInTheDocument();
+    expect(screen.getByText('Partite a eliminazione diretta')).toBeInTheDocument();
+    // Two sets of radio buttons: the groups start from a pro set to 9
+    const proSets = screen.getAllByLabelText('Pro set a 9 (tie-break sull’8-8)');
+    expect(proSets.map((radio) => (radio as HTMLInputElement).checked)).toEqual([true, false]);
+    next();
+    type('Nome campo 1', 'Bigi');
+    next();
+    expect(
+      screen.getByText('Partite dei gironi: Pro set a 9 (tie-break sull’8-8)'),
+    ).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Crea torneo' }));
+
+    await screen.findByText('Pagina del torneo');
+    const [, init] = fetchMock.mock.calls.filter(([url]) => url === '/api/tournaments').at(-1)!;
+    expect(JSON.parse(init!.body as string)).toMatchObject({
+      matchFormat: { bestOf: 3, gamesPerSet: 6, decider: 'superTiebreak' },
+      groupMatchFormat: { bestOf: 1, gamesPerSet: 9, decider: 'set' },
     });
   });
 

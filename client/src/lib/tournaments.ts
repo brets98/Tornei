@@ -104,6 +104,8 @@ export interface Tournament extends TournamentListItem {
   timeSlots: { id: string; time: string }[];
   structure: { type: StructureType; groupCount: number; advanceA: number; advanceB: number };
   matchFormat: MatchFormat;
+  /** Groups + knockout only: how group matches are played, null = like `matchFormat` */
+  groupMatchFormat: MatchFormat | null;
   /**
    * `level`: consolation draw only, 1 (strongest) to 4; `playerIds`: circuit stages, the
    * registry player of each name
@@ -149,6 +151,25 @@ export function matchFormatName(t: Messages, format: MatchFormat): string {
     sets: t.matchFormats[sets],
     nth: t.matchFormats.nth[decidingSet(format)],
   });
+}
+
+/** The match format, one line per phase when the groups play their own. */
+export function matchFormatLines(
+  t: Messages,
+  format: MatchFormat,
+  groupFormat: MatchFormat | null | undefined,
+): string[] {
+  if (!groupFormat) return [matchFormatName(t, format)];
+  return [
+    fill(t.matchFormats.phase, {
+      phase: t.matchFormats.groupMatches,
+      format: matchFormatName(t, groupFormat),
+    }),
+    fill(t.matchFormats.phase, {
+      phase: t.matchFormats.knockoutMatches,
+      format: matchFormatName(t, format),
+    }),
+  ];
 }
 
 /** Name of a knockout round from how many matches it has: 1 → 'Finale', 2 → 'Semifinali', … */

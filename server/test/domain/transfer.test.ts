@@ -43,7 +43,7 @@ describe('export and import', () => {
 
   it('leaves the derived state out of the file', () => {
     const file = exportTournament(played());
-    expect(file).toMatchObject({ format: 'tornei.tournament', version: 1 });
+    expect(file).toMatchObject({ format: 'tornei.tournament', version: 2 });
     expect(file.tournament).not.toHaveProperty('summary');
     expect(file.tournament.matches[0]).not.toHaveProperty('state');
   });
@@ -59,6 +59,20 @@ describe('export and import', () => {
     expect(t.matches.find((m) => m.id === 'A1-0')!.state).toBe('stale');
 
     expect(roundTrip(t).data).toEqual(t);
+  });
+
+  it('keeps the group match format, and reads version 1 files without it', () => {
+    const proSet = { bestOf: 1, gamesPerSet: 9, decider: 'set' };
+    let t = buildTournament(parseSetup({ ...validSetup, groupMatchFormat: proSet }).setup);
+    t = updateMatch(t, 'p1-p2', { sets: sets('9-5') }).data!;
+    expect(roundTrip(t).data).toEqual(t);
+
+    const old = exportTournament(played());
+    const { groupMatchFormat, ...tournament } = old.tournament;
+    expect(groupMatchFormat).toBeNull();
+    const result = importTournament(JSON.parse(JSON.stringify({ ...old, version: 1, tournament })));
+    expect(result.issues).toBeUndefined();
+    expect(result.data!.groupMatchFormat).toBeNull();
   });
 
   it('refuses files that are not tournaments, or from an unknown version', () => {

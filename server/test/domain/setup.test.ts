@@ -124,6 +124,22 @@ describe('parseSetup', () => {
     ]);
   });
 
+  it('can play group matches with their own format, with groups and a knockout only', () => {
+    const proSet = { bestOf: 1, gamesPerSet: 9, decider: 'set' };
+    expect(parseSetup(validSetup).setup.groupMatchFormat).toBeNull();
+    expect(parseSetup({ ...validSetup, groupMatchFormat: proSet }).setup.groupMatchFormat).toEqual(
+      proSet,
+    );
+    const single = { ...validSetup, structure: { type: 'groups' }, groupMatchFormat: proSet };
+    expect(parseSetup(single).setup.groupMatchFormat).toBeNull();
+    const wrong = { bestOf: 2, gamesPerSet: 6, decider: 'set' };
+    expect(codes({ ...validSetup, groupMatchFormat: wrong })).toEqual(['MATCH_FORMAT_INVALID']);
+    const bestOf5 = { bestOf: 5, gamesPerSet: 6, decider: 'set' };
+    expect(codes({ ...validSetup, matchFormat: bestOf5, groupMatchFormat: bestOf5 })).toEqual([
+      'MATCH_FORMAT_PADEL_FIVE_SETS',
+    ]);
+  });
+
   it('ignores group fields that do not apply to the structure', () => {
     const knockout = parseSetup({ ...validSetup, structure: { type: 'knockout', groupCount: 9 } });
     const groups = parseSetup({ ...validSetup, structure: { type: 'groups', advanceA: 3 } });

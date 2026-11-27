@@ -144,6 +144,7 @@ describe('TournamentPage', () => {
           courts: [{ id: 'c2', name: 'Centrale' }, { name: 'Campo 2' }],
           timeSlots: [{ time: '18:30' }, { id: 't1', time: '19:00' }, { id: 't2', time: '19:30' }],
           matchFormat: { bestOf: 3, gamesPerSet: 6, decider: 'set' },
+          groupMatchFormat: null,
           circuit: null,
         }),
       );

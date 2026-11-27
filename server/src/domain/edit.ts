@@ -1,5 +1,5 @@
 import { shuffle } from './groups.js';
-import { checkSets, cleanSets } from './score.js';
+import { checkSets, cleanSets, formatOf, sameFormat } from './score.js';
 import { checkGroups, LEVELS, LIMITS, normalizeTime, parseSetup, type Issue } from './setup.js';
 import { buildMatches, drawByLevel, refreshTournament } from './tournament.js';
 import type { SetScore, TournamentData } from './types.js';
@@ -182,7 +182,8 @@ const list = (value: unknown) =>
   );
 
 /**
- * Name, subtitle, date, courts, time slots and match format; only the fields present change.
+ * Name, subtitle, date, courts, time slots and match formats (knockout, groups); only the
+ * fields present change.
  * Courts and slots are lists of `{ id, name }` / `{ id, time }`: an existing id keeps its
  * matches, no id adds one, and a court or slot left out is removed from its matches. The
  * match format can change only while no result has been entered.
@@ -203,14 +204,14 @@ export function updateSettings(data: TournamentData, changes: unknown): EditResu
     courts: courtsIn.map((c) => c.name),
     timeSlots: slotsIn.map((s) => s.time),
     matchFormat: has('matchFormat') ? body.matchFormat : data.matchFormat,
+    groupMatchFormat: has('groupMatchFormat') ? body.groupMatchFormat : data.groupMatchFormat,
   });
   if (issues.length > 0) return { issues };
 
   const format = setup.matchFormat;
+  const groupFormat = setup.groupMatchFormat;
   const formatChanged =
-    format.bestOf !== data.matchFormat.bestOf ||
-    format.gamesPerSet !== data.matchFormat.gamesPerSet ||
-    format.decider !== data.matchFormat.decider;
+    !sameFormat(format, data.matchFormat) || !sameFormat(groupFormat, data.groupMatchFormat);
   if (formatChanged && hasResults(data)) return fail('MATCH_FORMAT_LOCKED');
 
   const known = (ids: string[], items: Record<string, unknown>[]) => {
@@ -268,6 +269,7 @@ export function updateSettings(data: TournamentData, changes: unknown): EditResu
       courts,
       timeSlots,
       matchFormat: format,
+      groupMatchFormat: groupFormat,
       matches,
     }),
   };
@@ -292,7 +294,7 @@ export function updateMatch(data: TournamentData, matchId: string, changes: unkn
 
   const updated = { ...match };
   if (has('sets')) {
-    const issue = checkSets(body.sets, data.matchFormat);
+    const issue = checkSets(body.sets, formatOf(data, match));
     if (issue) return { issues: [issue] };
     if (match.state === 'bye') return fail('MATCH_BYE');
     const sets = cleanSets(body.sets as SetScore[]);

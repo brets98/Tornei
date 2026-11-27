@@ -118,6 +118,11 @@ export const en = {
       superTiebreak: '{sets}, super tie-break to 10 instead of the {nth} set',
     },
     nth: { third: 'third', fifth: 'fifth' },
+    separateGroups: 'Play the group matches with a different format',
+    groupMatches: 'Group matches',
+    knockoutMatches: 'Knockout matches',
+    /** One phase's format, in the overview and the wizard summary */
+    phase: '{phase}: {format}',
   },
   entries: {
     singles: { one: 'player', many: 'players', One: 'Player', Many: 'Players' },

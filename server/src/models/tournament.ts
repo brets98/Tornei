@@ -62,6 +62,12 @@ const standingSchema = embedded({
   gamesAgainst: Number,
 });
 
+const matchFormatSchema = embedded({
+  bestOf: { type: Number, required: true },
+  gamesPerSet: { type: Number, required: true },
+  decider: { type: String, enum: DECIDERS, required: true },
+});
+
 const tournamentSchema = createSchema<Tournament>({
   ownerId: { type: Schema.Types.ObjectId, ref: 'User', required: true },
   circuit: {
@@ -88,11 +94,8 @@ const tournamentSchema = createSchema<Tournament>({
     advanceA: Number,
     advanceB: Number,
   }),
-  matchFormat: embedded({
-    bestOf: { type: Number, required: true },
-    gamesPerSet: { type: Number, required: true },
-    decider: { type: String, enum: DECIDERS, required: true },
-  }),
+  matchFormat: matchFormatSchema,
+  groupMatchFormat: { type: matchFormatSchema, default: null },
   pairs: [
     embedded({
       id: { type: String, required: true },

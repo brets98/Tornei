@@ -1,4 +1,5 @@
 import { fill, useI18n } from '../../i18n/context';
+import { formatOf } from '../../lib/score';
 import { pairLabel, type Match, type Tournament } from '../../lib/tournaments';
 import type { TournamentActions } from './actions';
 import { CourtSelect, ResultInput, TimeSelect } from './MatchFields';
@@ -29,7 +30,7 @@ export function MatchRow({ tournament, match, actions }: Props) {
       <td>
         <ResultInput
           value={match.sets}
-          format={tournament.matchFormat}
+          format={formatOf(tournament, match)}
           label={fill(t.groups.resultOf, { match: label })}
           onSave={(sets) => save({ sets })}
           onUnreadable={actions.reportUnreadable}

@@ -39,6 +39,7 @@ const DATA_FIELDS = [
   'timeSlots',
   'structure',
   'matchFormat',
+  'groupMatchFormat',
   'pairs',
   'groups',
   'seeding',

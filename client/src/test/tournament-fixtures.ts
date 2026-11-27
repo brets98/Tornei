@@ -82,6 +82,7 @@ export const tournament: Tournament = {
   ],
   structure: { type: 'groups_knockout', groupCount: 2, advanceA: 1, advanceB: 0 },
   matchFormat: { bestOf: 3, gamesPerSet: 6, decider: 'set' },
+  groupMatchFormat: null,
   pairs: [
     { id: 'p1', players: ['Rossi', 'Bianchi'] },
     { id: 'p2', players: ['', ''] },

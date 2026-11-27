@@ -5,14 +5,17 @@ import { fill, useI18n } from '../i18n/context';
 import { ApiError, apiPost } from '../lib/api';
 import { PlayersDatalist } from '../components/PlayersDatalist';
 import { StageLinkFields } from '../components/StageLinkFields';
-import { MatchFormatFields } from '../components/tournament/MatchFormatFields';
+import {
+  MatchFormatsFields,
+  type GroupFormatChoice,
+} from '../components/tournament/MatchFormatFields';
 import { PLAYERS_LIST_ID, type StageLink } from '../lib/circuits';
-import { buildMatchFormat, type Decider, type SetsChoice } from '../lib/score';
+import { buildMatchFormat, DEFAULT_GROUP_SETS, type Decider, type SetsChoice } from '../lib/score';
 import {
   entriesLabel,
   issueMessage,
   LEVELS,
-  matchFormatName,
+  matchFormatLines,
   roundName,
   type Format,
   type Issue,
@@ -22,7 +25,7 @@ import {
   type Tournament,
 } from '../lib/tournaments';
 
-interface Form {
+interface Form extends GroupFormatChoice {
   name: string;
   subtitle: string;
   sport: Sport;
@@ -115,6 +118,9 @@ const initialForm = (t: Messages, circuitId: string | null): Form => ({
   entryRows: Array.from({ length: INITIAL_ENTRY_ROWS }, emptyEntryRow),
   structureType: 'groups_knockout',
   ...DEFAULT_MATCH_FORMAT.padel,
+  groupFormat: false,
+  groupSets: DEFAULT_GROUP_SETS,
+  groupDecider: DEFAULT_MATCH_FORMAT.padel.decider,
   groupCount: '4',
   advanceA: '2',
   withB: true,
@@ -124,6 +130,13 @@ const initialForm = (t: Messages, circuitId: string | null): Form => ({
   // 'New stage' from a circuit: its first category, chosen once the circuits are loaded
   circuit: circuitId ? { circuitId, categoryId: '' } : null,
 });
+
+/** The group phase's own format, when chosen (groups + knockout only); null otherwise. */
+function groupFormatOf(form: Form) {
+  return form.structureType === 'groups_knockout' && form.groupFormat
+    ? buildMatchFormat(form.groupSets, form.groupDecider)
+    : null;
+}
 
 /** What the API expects (see parseSetup on the server). Empty numbers become null: invalid. */
 function toSetup(form: Form) {
@@ -150,6 +163,7 @@ function toSetup(form: Form) {
       advanceB: form.withB ? number(form.advanceB) : 0,
     },
     matchFormat: buildMatchFormat(form.sets, form.decider),
+    groupMatchFormat: groupFormatOf(form),
     circuit: form.circuit,
   };
 }
@@ -300,7 +314,11 @@ function InfoStep({ form, update }: StepProps) {
               onChange={() =>
                 update({
                   sport,
-                  ...(sport !== form.sport && DEFAULT_MATCH_FORMAT[sport]),
+                  ...(sport !== form.sport && {
+                    ...DEFAULT_MATCH_FORMAT[sport],
+                    groupSets: DEFAULT_GROUP_SETS,
+                    groupDecider: DEFAULT_MATCH_FORMAT[sport].decider,
+                  }),
                   ...(sport === 'padel' && { format: 'doubles' }),
                 })
               }
@@ -419,10 +437,12 @@ function StructureStep({
           />
         </label>
       )}
-      <MatchFormatFields
+      <MatchFormatsFields
         sport={form.sport}
         sets={form.sets}
         decider={form.decider}
+        withGroups={withGroups}
+        group={form}
         onChange={update}
       />
       {preview && <PreviewBox preview={preview} entries={entries} />}
@@ -702,7 +722,13 @@ function SummaryStep({
         <dt>{t.wizard.structure}</dt>
         <dd>{t.structure[form.structureType]}</dd>
         <dt>{t.wizard.matchFormat}</dt>
-        <dd>{matchFormatName(t, buildMatchFormat(form.sets, form.decider))}</dd>
+        <dd>
+          {matchFormatLines(t, buildMatchFormat(form.sets, form.decider), groupFormatOf(form)).map(
+            (line) => (
+              <div key={line}>{line}</div>
+            ),
+          )}
+        </dd>
         <dt>{t.wizard.courts}</dt>
         <dd>{form.courts.join(', ')}</dd>
         <dt>{t.wizard.timeSlots}</dt>
