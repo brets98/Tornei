@@ -200,18 +200,47 @@ describe('TournamentPage', () => {
       expect(sent(fetchMock, 'PATCH', '/api/tournaments/t1/settings')).toBeUndefined();
     });
 
-    it('locks the match format and resets the results after confirmation', async () => {
+    it('keeps the format of the groups once played, the knockout one until its results', async () => {
       const fetchMock = stubApi({
         'GET /api/tournaments/t1': () => json(afterScore),
+        'PATCH /api/tournaments/t1/settings': () => json(afterScore),
+      });
+      renderPage(settingsTab);
+
+      // The groups show the format they were played with, apart and locked
+      await screen.findByText(/I gironi hanno già dei risultati/);
+      expect(screen.getByLabelText('Nei gironi si gioca con un formato diverso')).toBeDisabled();
+      const [groups, knockout] = screen.getAllByLabelText('Al meglio dei 3 set');
+      expect(groups).toBeDisabled();
+      expect(knockout).toBeEnabled();
+      fireEvent.click(screen.getAllByLabelText(/super tie-break a 10 al posto del set/)[1]);
+      fireEvent.click(screen.getByRole('button', { name: 'Salva modifiche' }));
+
+      await waitFor(() =>
+        expect(sent(fetchMock, 'PATCH', '/api/tournaments/t1/settings')).toMatchObject({
+          matchFormat: { bestOf: 3, gamesPerSet: 6, decider: 'superTiebreak' },
+          groupMatchFormat: { bestOf: 3, gamesPerSet: 6, decider: 'set' },
+        }),
+      );
+    });
+
+    it('locks the match format and resets the results after confirmation', async () => {
+      // Without groups + knockout, one format for every match: the first result locks it
+      const knockoutScored: Tournament = {
+        ...afterScore,
+        structure: { type: 'knockout', groupCount: 0, advanceA: 0, advanceB: 0 },
+      };
+      const fetchMock = stubApi({
+        'GET /api/tournaments/t1': () => json(knockoutScored),
         'POST /api/tournaments/t1/reset': () => json(tournament),
       });
       vi.spyOn(window, 'confirm').mockReturnValue(true);
       renderPage(settingsTab);
 
-      expect(await screen.findByLabelText('Al meglio dei 3 set')).toBeDisabled();
-      expect(
-        screen.getByText(/il formato delle partite non si può più cambiare/),
-      ).toBeInTheDocument();
+      await screen.findByText(/il formato delle partite non si può più cambiare/);
+      for (const radio of screen.getAllByLabelText('Al meglio dei 3 set')) {
+        expect(radio).toBeDisabled();
+      }
       fireEvent.click(screen.getByRole('button', { name: 'Azzera risultati' }));
 
       expect(window.confirm).toHaveBeenCalledWith(

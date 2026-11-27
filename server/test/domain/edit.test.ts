@@ -267,12 +267,13 @@ describe('updateSettings', () => {
     ).toEqual(['SLOT_UNKNOWN']);
   });
 
-  it('changes the match format only until the first result', () => {
+  it('changes the match format only until the first result of the matches using it', () => {
     const superTiebreak = { bestOf: 3, gamesPerSet: 6, decider: 'superTiebreak' };
     expect(ok(updateSettings(build(), { matchFormat: superTiebreak })).matchFormat).toEqual(
       superTiebreak,
     );
-    const started = ok(updateMatch(build(), 'p1-p2', { sets: sets('6-4 6-4') }));
+    const knockout = build({ pairCount: 4, structure: { type: 'knockout' } });
+    const started = ok(updateMatch(knockout, 'A0-0', { sets: sets('6-4 6-4') }));
     expect(codes(updateSettings(started, { matchFormat: superTiebreak }))).toEqual([
       'MATCH_FORMAT_LOCKED',
     ]);
@@ -280,6 +281,34 @@ describe('updateSettings', () => {
     expect(updateSettings(started, { matchFormat: started.matchFormat, name: 'X' }).issues).toBe(
       undefined,
     );
+  });
+
+  it('changes the knockout format after the group phase, until its first result', () => {
+    const superTiebreak = { bestOf: 3, gamesPerSet: 6, decider: 'superTiebreak' };
+    let t = build({
+      pairCount: 4,
+      structure: { type: 'groups_knockout', groupCount: 2, advanceA: 1 },
+    });
+    t = ok(updateMatch(t, 'p1-p2', { sets: sets('6-4 6-4') }));
+    t = ok(updateMatch(t, 'p3-p4', { sets: sets('4-6 4-6') }));
+
+    // The groups keep the format they were played with
+    const changed = ok(updateSettings(t, { matchFormat: superTiebreak }));
+    expect(changed.matchFormat).toEqual(superTiebreak);
+    expect(changed.groupMatchFormat).toEqual(t.matchFormat);
+    expect(changed.matches.filter((m) => m.phase === 'group').map((m) => m.state)).toEqual([
+      'done',
+      'done',
+    ]);
+    // Not the group format, now that the groups have results
+    expect(codes(updateSettings(changed, { groupMatchFormat: superTiebreak }))).toEqual([
+      'MATCH_FORMAT_LOCKED',
+    ]);
+
+    const final = ok(updateMatch(changed, 'A0-0', { sets: sets('6-4 3-6 10-8') }));
+    expect(codes(updateSettings(final, { matchFormat: t.matchFormat }))).toEqual([
+      'MATCH_FORMAT_LOCKED',
+    ]);
   });
 
   it('changes the group match format only until the first result', () => {

@@ -286,6 +286,8 @@ export const it: Messages = {
     removeCourt: 'Rimuovi {name}',
     timeSlots: 'Orari',
     formatLocked: 'Ci sono già dei risultati: il formato delle partite non si può più cambiare.',
+    groupFormatLocked:
+      'I gironi hanno già dei risultati: il loro formato resta, quello dell’eliminazione diretta si può cambiare fino al primo risultato del tabellone.',
     save: 'Salva modifiche',
     discard: 'Annulla modifiche',
     inUse: '{name} (partite programmate: {count})',

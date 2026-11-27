@@ -183,8 +183,9 @@ const list = (value: unknown) =>
  * Name, subtitle, date, courts, time slots and match formats (knockout, groups); only the
  * fields present change.
  * Courts and slots are lists of `{ id, name }` / `{ id, time }`: an existing id keeps its
- * matches, no id adds one, and a court or slot left out is removed from its matches. The
- * match format can change only while no result has been entered.
+ * matches, no id adds one, and a court or slot left out is removed from its matches. A match
+ * format can change only while the matches that use it have no result: the knockout one stays
+ * open after the group phase (the groups keep theirs, also when it was the same).
  */
 export function updateSettings(data: TournamentData, changes: unknown): EditResult {
   const body = (changes && typeof changes === 'object' ? changes : {}) as Record<string, unknown>;
@@ -207,10 +208,24 @@ export function updateSettings(data: TournamentData, changes: unknown): EditResu
   if (issues.length > 0) return { issues };
 
   const format = setup.matchFormat;
-  const groupFormat = setup.groupMatchFormat;
-  const formatChanged =
-    !sameFormat(format, data.matchFormat) || !sameFormat(groupFormat, data.groupMatchFormat);
-  if (formatChanged && hasResults(data)) return fail('MATCH_FORMAT_LOCKED');
+  // Groups played with the knockout's format keep it when only the knockout's one changes
+  const groupsPlayed = data.matches.some((m) => m.phase === 'group' && m.sets.length > 0);
+  const groupFormat =
+    setup.groupMatchFormat ??
+    (setup.structure.type === 'groups_knockout' &&
+    groupsPlayed &&
+    !sameFormat(format, data.matchFormat)
+      ? data.matchFormat
+      : null);
+  // A phase's format is locked by its first result: every scored match keeps its format
+  const changed = { matchFormat: format, groupMatchFormat: groupFormat };
+  if (
+    data.matches.some(
+      (m) => m.sets.length > 0 && !sameFormat(formatOf(data, m), formatOf(changed, m)),
+    )
+  ) {
+    return fail('MATCH_FORMAT_LOCKED');
+  }
 
   const known = (ids: string[], items: Record<string, unknown>[]) => {
     const given = items.map((item) => item.id).filter((id) => id !== undefined && id !== null);

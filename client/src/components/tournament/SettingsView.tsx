@@ -9,7 +9,7 @@ import {
   type Decider,
   type SetsChoice,
 } from '../../lib/score';
-import { isStructureLocked, type Tournament } from '../../lib/tournaments';
+import { isStructureLocked, type Match, type Tournament } from '../../lib/tournaments';
 import type { SettingsChanges, TournamentActions } from './actions';
 import { MatchFormatsFields, type GroupFormatChoice } from './MatchFormatFields';
 import { StageLinkFields } from '../StageLinkFields';
@@ -25,6 +25,26 @@ interface Form extends GroupFormatChoice {
   circuit: StageLink | null;
 }
 
+const played = (tournament: Tournament, phase: Match['phase']) =>
+  tournament.matches.some((m) => m.phase === phase && m.sets.length > 0);
+
+/**
+ * The group phase's own format. Once the groups have results they show the format they were
+ * played with apart, so the knockout's one can still change.
+ */
+function groupFormatOf(tournament: Tournament): GroupFormatChoice {
+  const format =
+    tournament.groupMatchFormat ??
+    (tournament.structure.type === 'groups_knockout' && played(tournament, 'group')
+      ? tournament.matchFormat
+      : null);
+  return {
+    groupFormat: Boolean(format),
+    groupSets: format ? setsChoice(format) : DEFAULT_GROUP_SETS,
+    groupDecider: (format ?? tournament.matchFormat).decider,
+  };
+}
+
 const formOf = (tournament: Tournament): Form => ({
   name: tournament.name,
   subtitle: tournament.subtitle,
@@ -33,11 +53,7 @@ const formOf = (tournament: Tournament): Form => ({
   timeSlots: tournament.timeSlots.map(({ id, time }) => ({ id, time })),
   sets: setsChoice(tournament.matchFormat),
   decider: tournament.matchFormat.decider,
-  groupFormat: Boolean(tournament.groupMatchFormat),
-  groupSets: tournament.groupMatchFormat
-    ? setsChoice(tournament.groupMatchFormat)
-    : DEFAULT_GROUP_SETS,
-  groupDecider: (tournament.groupMatchFormat ?? tournament.matchFormat).decider,
+  ...groupFormatOf(tournament),
   circuit: tournament.circuit ?? null,
 });
 
@@ -69,8 +85,12 @@ export function SettingsView({
   const [exportError, setExportError] = useState('');
   const update = (changes: Partial<Form>) => setForm((f) => ({ ...f, ...changes }));
   const dirty = JSON.stringify(form) !== JSON.stringify(formOf(tournament));
-  const locked = isStructureLocked(tournament);
   const withGroups = tournament.structure.type === 'groups_knockout';
+  const groupLocked = withGroups && played(tournament, 'group');
+  // Without groups + knockout, one format for every match
+  const knockoutLocked = withGroups
+    ? played(tournament, 'knockout')
+    : isStructureLocked(tournament);
   const results = tournament.matches.filter((m) => m.sets.length > 0).length;
 
   function save(event: FormEvent) {
@@ -233,14 +253,16 @@ export function SettingsView({
         </div>
 
         <h3>{t.wizard.matchFormat}</h3>
-        {locked && <p className="muted">{t.settings.formatLocked}</p>}
+        {knockoutLocked && <p className="muted">{t.settings.formatLocked}</p>}
+        {groupLocked && !knockoutLocked && <p className="muted">{t.settings.groupFormatLocked}</p>}
         <MatchFormatsFields
           sport={tournament.sport}
           sets={form.sets}
           decider={form.decider}
           withGroups={withGroups}
           group={form}
-          disabled={locked}
+          groupLocked={groupLocked}
+          knockoutLocked={knockoutLocked}
           onChange={update}
         />
 
