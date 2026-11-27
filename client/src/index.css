@@ -1706,3 +1706,26 @@ label.button.disabled {
 .slide-dots li.active {
   background: var(--gold);
 }
+
+/* General view in full screen: the header's title and controls, on top of the board */
+.live-fullscreen-head {
+  padding-bottom: 0.5rem;
+}
+
+.live-fullscreen-head h1 {
+  margin: 0;
+  font-size: 1.85rem;
+  line-height: 1.1;
+}
+
+.live-fullscreen-head .tournament-logo {
+  height: 3.5rem;
+  max-width: 10rem;
+}
+
+.live-fullscreen-head h1 span {
+  display: block;
+  margin-top: 0.2rem;
+  font-size: 1rem;
+  color: var(--navy);
+}

@@ -63,6 +63,9 @@ describe('GeneralLivePage', () => {
 
     expect(await screen.findByLabelText('Girone A')).toBeInTheDocument();
     expect(screen.getByText('1 di 2')).toBeInTheDocument();
+    // The tournament shown is the title, as in the live view of one tournament
+    expect(screen.getByRole('heading', { level: 1 })).toHaveTextContent('Torneo di primavera');
+    expect(screen.queryByRole('heading', { name: 'Generale' })).not.toBeInTheDocument();
     // A draft is not under way: never loaded
     expect(fetchMock.mock.calls.some(([url]) => url === '/api/tournaments/t3')).toBe(false);
 

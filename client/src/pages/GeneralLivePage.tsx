@@ -73,23 +73,70 @@ export function GeneralLivePage() {
     : '';
   const phase = (s: Slide) => (s.bracket ? bracketName(t, s.bracket) : t.groups.title);
 
+  const title = slide && (
+    <div className="tournament-title">
+      <TournamentLogo tournament={slide.tournament} />
+      <h1>
+        {slide.tournament.name}
+        {slide.tournament.subtitle && <span>{slide.tournament.subtitle}</span>}
+      </h1>
+    </div>
+  );
+  // Rotation controls, update dot and refresh, on the right of the header (and of the full
+  // screen bar, which hides the header)
+  const status = (
+    <div className="live-status">
+      {count > 1 && (
+        <div className="slide-controls" role="group" aria-label={t.live.rotation}>
+          <button
+            type="button"
+            className="secondary icon-button"
+            aria-label={t.live.previous}
+            title={t.live.previous}
+            onClick={() => move(-1)}
+          >
+            ‹
+          </button>
+          <span className="muted">{fill(t.live.position, { n: position + 1, total: count })}</span>
+          <button
+            type="button"
+            className="secondary icon-button"
+            aria-label={playing ? t.live.pause : t.live.play}
+            title={playing ? t.live.pause : t.live.play}
+            onClick={() => setPlaying((p) => !p)}
+          >
+            {playing ? '❚❚' : '▶'}
+          </button>
+          <button
+            type="button"
+            className="secondary icon-button"
+            aria-label={t.live.next}
+            title={t.live.next}
+            onClick={() => move(1)}
+          >
+            ›
+          </button>
+        </div>
+      )}
+      {loaded && <Freshness at={loaded.at} label={updated} />}
+      <button
+        type="button"
+        className="secondary icon-button"
+        aria-label={t.live.refresh}
+        title={t.live.refresh}
+        onClick={() => setReloads((n) => n + 1)}
+      >
+        ↻
+      </button>
+    </div>
+  );
+
   return (
     <article className="page live-page">
       <header className="tournament-head">
         <div className="live-head-row">
-          <h1>{t.live.general}</h1>
-          <div className="live-status">
-            {loaded && <Freshness at={loaded.at} label={updated} />}
-            <button
-              type="button"
-              className="secondary icon-button"
-              aria-label={t.live.refresh}
-              title={t.live.refresh}
-              onClick={() => setReloads((n) => n + 1)}
-            >
-              ↻
-            </button>
-          </div>
+          {title ?? <span />}
+          {!fullscreen && status}
         </div>
         {loaded?.failed && (
           <p className="error" role="alert">
@@ -102,49 +149,14 @@ export function GeneralLivePage() {
       {loaded && count === 0 && <p className="muted">{t.live.noneActive}</p>}
       {slide && (
         <div ref={ref} className={`live-board${fullscreen ? ' fullscreen' : ''}`}>
-          <div className="live-toolbar">
-            <div className="live-title">
-              <b className="tournament-title">
-                <TournamentLogo tournament={slide.tournament} />
-                {slide.tournament.name}
-              </b>
-              <span className="badge">{phase(slide)}</span>
-              {fullscreen && <Freshness at={loaded!.at} label={updated} />}
+          {fullscreen && (
+            <div className="live-head-row live-fullscreen-head">
+              {title}
+              {status}
             </div>
-            {count > 1 && (
-              <div className="slide-controls" role="group" aria-label={t.live.rotation}>
-                <button
-                  type="button"
-                  className="secondary icon-button"
-                  aria-label={t.live.previous}
-                  title={t.live.previous}
-                  onClick={() => move(-1)}
-                >
-                  ‹
-                </button>
-                <span className="muted">
-                  {fill(t.live.position, { n: position + 1, total: count })}
-                </span>
-                <button
-                  type="button"
-                  className="secondary icon-button"
-                  aria-label={playing ? t.live.pause : t.live.play}
-                  title={playing ? t.live.pause : t.live.play}
-                  onClick={() => setPlaying((p) => !p)}
-                >
-                  {playing ? '❚❚' : '▶'}
-                </button>
-                <button
-                  type="button"
-                  className="secondary icon-button"
-                  aria-label={t.live.next}
-                  title={t.live.next}
-                  onClick={() => move(1)}
-                >
-                  ›
-                </button>
-              </div>
-            )}
+          )}
+          <div className="live-toolbar">
+            <span className="badge">{phase(slide)}</span>
             <button type="button" className="secondary fullscreen-toggle" onClick={toggle}>
               {fullscreen ? t.live.exitFullscreen : t.live.fullscreen}
             </button>
