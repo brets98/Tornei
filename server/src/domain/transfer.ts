@@ -6,12 +6,12 @@ import type { SetScore, TournamentData } from './types.js';
 
 /** Identifies an exported tournament file; bump the version when the format changes. */
 export const EXPORT_FORMAT = 'tornei.tournament';
-export const EXPORT_VERSION = 4;
+export const EXPORT_VERSION = 5;
 /**
- * Versions still read: 1 has no `groupMatchFormat`, 1–2 no `restToB`/`crossRanking`, and
- * 1–3 always number pairs p1…pN.
+ * Versions still read: 1 has no `groupMatchFormat`, 1–2 no `restToB`/`crossRanking`, 1–3
+ * always number pairs p1…pN, and 1–4 have no set with the tie-break at 5-5 (`tiebreakAt`).
  */
-const READ_VERSIONS: unknown[] = [1, 2, 3, 4];
+const READ_VERSIONS: unknown[] = [1, 2, 3, 4, 5];
 
 /**
  * What a tournament file holds: the setup, pairs, groups or seeding, and each match's result

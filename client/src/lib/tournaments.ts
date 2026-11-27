@@ -159,7 +159,9 @@ export function entriesLabel(t: Messages, format: Format) {
 /** 'Al meglio dei 5 set, tie-break a 10 sul 6-6 nel quinto set' */
 export function matchFormatName(t: Messages, format: MatchFormat): string {
   const sets = setsChoice(format);
-  if (sets === 'oneSet' || sets === 'proSet') return t.matchFormats[sets];
+  if (sets === 'oneSet' || sets === 'shortSet' || sets === 'proSet') {
+    return t.matchFormats[sets];
+  }
   return fill(t.matchFormats.names[format.decider], {
     sets: t.matchFormats[sets],
     nth: t.matchFormats.nth[decidingSet(format)],

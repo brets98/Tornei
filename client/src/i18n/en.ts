@@ -109,6 +109,7 @@ export const en = {
     bestOf5: 'Best of 5 sets',
     oneSet: 'One set to 6 (tie-break at 6-6)',
     proSet: 'Pro set to 9 (tie-break at 8-8)',
+    shortSet: 'One set to 6 (tie-break at 5-5)',
     decider: 'Deciding set (the {nth})',
     deciders: {
       set: 'A normal set, tie-break to 7 at 6-6',
@@ -566,6 +567,8 @@ export const en = {
     SCORE_MALFORMED: 'The result cannot be read: write the games of each set, e.g. 6-4 3-6 7-6(5).',
     SCORE_SET_TIED: 'Set {set} cannot end in a tie.',
     SCORE_SET_INVALID: 'Set {set} is not a valid score for a set to {games} games.',
+    SCORE_SHORT_SET_INVALID:
+      "Set {set} isn't valid for one set to 6 with the tie-break at 5-5: 6-0 to 6-4, or 6-5 after the tie-break.",
     SCORE_TIEBREAK_NOT_PLAYED:
       'Set {set} was not decided by a tie-break: remove the points in brackets.',
     SCORE_TIEBREAK_INVALID:

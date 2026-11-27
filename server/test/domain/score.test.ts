@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { checkSets, MATCH_FORMATS, outcome } from '../../src/domain/score.js';
+import { checkSets, isValidMatchFormat, MATCH_FORMATS, outcome } from '../../src/domain/score.js';
 import type { MatchFormat } from '../../src/domain/types.js';
 import { sets } from '../fixtures.js';
 
@@ -63,6 +63,30 @@ describe('checkSets', () => {
     expect(code('6-4 3-6 6-3', bestOf3SuperTiebreak)).toBe('SCORE_SUPER_TIEBREAK_INVALID');
     // Only the deciding set is a super tie-break
     expect(code('10-8 6-3', bestOf3SuperTiebreak)).toBe('SCORE_SET_INVALID');
+  });
+
+  it('plays one set to 6 with the tie-break at 5-5', () => {
+    const { shortSet } = MATCH_FORMATS;
+    for (const ok of ['6-0', '6-4', '4-6', '6-5', '5-6', '6-5(5)', '5-6(8)']) {
+      expect(code(ok, shortSet)).toBeNull();
+    }
+    for (const wrong of ['7-5', '7-6', '7-6(5)', '6-6', '5-4', '8-6']) {
+      expect(code(wrong, shortSet)).toBe(
+        wrong === '6-6' ? 'SCORE_SET_TIED' : 'SCORE_SHORT_SET_INVALID',
+      );
+    }
+    expect(code('6-3(5)', shortSet)).toBe('SCORE_TIEBREAK_NOT_PLAYED');
+    expect(code('6-4 6-2', shortSet)).toBe('SCORE_TOO_MANY_SETS');
+    // A set to 6 as usual still goes on to 7-5
+    expect(code('7-5', MATCH_FORMATS.oneSet)).toBeNull();
+    expect(outcome(sets('6-5(3)'), shortSet)).toMatchObject({ winner: 'A', gamesA: 6, gamesB: 5 });
+  });
+
+  it('accepts the tie-break at 5-5 only for one set to 6', () => {
+    expect(isValidMatchFormat(MATCH_FORMATS.shortSet)).toBe(true);
+    expect(isValidMatchFormat({ ...MATCH_FORMATS.bestOf3, tiebreakAt: 5 })).toBe(false);
+    expect(isValidMatchFormat({ ...MATCH_FORMATS.proSet, tiebreakAt: 5 })).toBe(false);
+    expect(isValidMatchFormat({ ...MATCH_FORMATS.oneSet, tiebreakAt: 4 })).toBe(false);
   });
 
   it('plays best of 5, also with the fifth set tie-break to 10 at 6-6', () => {

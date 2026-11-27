@@ -189,7 +189,12 @@ function parseMatchFormat(
     add('MATCH_FORMAT_PADEL_FIVE_SETS');
     return null;
   }
-  return { bestOf: value.bestOf, gamesPerSet: value.gamesPerSet, decider: value.decider };
+  return {
+    bestOf: value.bestOf,
+    gamesPerSet: value.gamesPerSet,
+    decider: value.decider,
+    ...(value.tiebreakAt === 5 && { tiebreakAt: 5 as const }),
+  };
 }
 
 /**

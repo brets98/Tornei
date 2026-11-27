@@ -1,5 +1,12 @@
 import { describe, expect, it } from 'vitest';
-import { buildMatchFormat, exampleResult, formatResult, parseResult, sideGames } from './score';
+import {
+  buildMatchFormat,
+  exampleResult,
+  formatResult,
+  parseResult,
+  setsChoice,
+  sideGames,
+} from './score';
 
 describe('parseResult', () => {
   it('reads sets, side A first', () => {
@@ -82,5 +89,19 @@ describe('sideGames', () => {
       { games: 2, won: false, tiebreak: undefined },
       { games: 6, won: false, tiebreak: 5 },
     ]);
+  });
+});
+
+describe('one set to 6 with the tie-break at 5-5', () => {
+  it('is its own choice, shown with a 6-5 example', () => {
+    const format = buildMatchFormat('shortSet', 'superTiebreak');
+    expect(format).toEqual({ bestOf: 1, gamesPerSet: 6, decider: 'set', tiebreakAt: 5 });
+    expect(setsChoice(format)).toBe('shortSet');
+    expect(setsChoice(buildMatchFormat('oneSet', 'set'))).toBe('oneSet');
+    expect(exampleResult(format)).toBe('6-5(4)');
+    // '6-5(4)': the tie-break won 7-4 by whoever won the set
+    expect(parseResult('6-5(4)', format)).toEqual({
+      sets: [{ a: 6, b: 5, tiebreak: { a: 7, b: 4 } }],
+    });
   });
 });
