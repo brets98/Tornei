@@ -1,7 +1,7 @@
 import { bracketMatches, knockoutMatchId, placeSeeds } from './bracket.js';
 import { findConflicts } from './conflicts.js';
 import { distribute, groupId, roundRobin, shuffle } from './groups.js';
-import { outcome } from './score.js';
+import { formatOf, outcome } from './score.js';
 import { computeStandings, resultState } from './standings.js';
 import type {
   Bracket,
@@ -144,6 +144,7 @@ export function buildTournament(setup: Setup, random: () => number = Math.random
     timeSlots: setup.timeSlots.map((time, i) => ({ id: `t${i + 1}`, time })),
     structure,
     matchFormat: setup.matchFormat,
+    groupMatchFormat: setup.groupMatchFormat,
     pairs,
     groups,
     seeding:
@@ -176,15 +177,15 @@ export function refreshTournament<T extends TournamentData>(data: T): T & Derive
 
   const matches = new Map<string, Match>();
   for (const m of data.matches.filter((m) => m.phase === 'group')) {
-    const state = resultState(m, data.matchFormat);
-    matches.set(m.id, { ...m, state, winner: winnerOf(m, state, data.matchFormat) });
+    const state = resultState(m, formatOf(data, m));
+    matches.set(m.id, { ...m, state, winner: winnerOf(m, state, formatOf(data, m)) });
   }
 
   const groups = data.groups.map((g) => {
     const played = groupMatchesOf(g.id).map((m) => matches.get(m.id)!);
     return {
       ...g,
-      standings: computeStandings(g.pairIds, played, data.matchFormat),
+      standings: computeStandings(g.pairIds, played, data.groupMatchFormat ?? data.matchFormat),
       complete: played.length > 0 && played.every((m) => m.state === 'done'),
     };
   });

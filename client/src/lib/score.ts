@@ -124,3 +124,14 @@ export function sideGames(sets: SetScore[], side: 'a' | 'b') {
     tiebreak: set.tiebreak && set[side] < set[other] ? set.tiebreak[side] : undefined,
   }));
 }
+
+/** How a match is played: group matches can have their own format (see the server's formatOf). */
+export function formatOf(
+  tournament: { matchFormat: MatchFormat; groupMatchFormat?: MatchFormat | null },
+  match: { phase: 'group' | 'knockout' },
+): MatchFormat {
+  return (match.phase === 'group' && tournament.groupMatchFormat) || tournament.matchFormat;
+}
+
+/** What group matches usually play when they differ from the knockout ones: a pro set to 9. */
+export const DEFAULT_GROUP_SETS: SetsChoice = 'proSet';

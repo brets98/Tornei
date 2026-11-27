@@ -5,7 +5,7 @@ import { formatResult } from '../../lib/score';
 import {
   bracketName,
   entriesLabel,
-  matchFormatName,
+  matchFormatLines,
   matchPhase,
   pairCode,
   pairLabel,
@@ -99,7 +99,9 @@ export function Overview({
           <h3>{t.tournament.timeSlots}</h3>
           <p>{tournament.timeSlots.map((s) => s.time).join(' · ')}</p>
           <h3>{t.wizard.matchFormat}</h3>
-          <p>{matchFormatName(t, tournament.matchFormat)}</p>
+          {matchFormatLines(t, tournament.matchFormat, tournament.groupMatchFormat).map((line) => (
+            <p key={line}>{line}</p>
+          ))}
         </div>
       </div>
     </section>

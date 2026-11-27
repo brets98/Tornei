@@ -2,13 +2,19 @@ import { useState, type FormEvent } from 'react';
 import { fill, useI18n } from '../../i18n/context';
 import { apiGet } from '../../lib/api';
 import type { StageLink } from '../../lib/circuits';
-import { buildMatchFormat, setsChoice, type Decider, type SetsChoice } from '../../lib/score';
+import {
+  buildMatchFormat,
+  DEFAULT_GROUP_SETS,
+  setsChoice,
+  type Decider,
+  type SetsChoice,
+} from '../../lib/score';
 import { isStructureLocked, type Tournament } from '../../lib/tournaments';
 import type { SettingsChanges, TournamentActions } from './actions';
-import { MatchFormatFields } from './MatchFormatFields';
+import { MatchFormatsFields, type GroupFormatChoice } from './MatchFormatFields';
 import { StageLinkFields } from '../StageLinkFields';
 
-interface Form {
+interface Form extends GroupFormatChoice {
   name: string;
   subtitle: string;
   date: string;
@@ -27,6 +33,11 @@ const formOf = (tournament: Tournament): Form => ({
   timeSlots: tournament.timeSlots.map(({ id, time }) => ({ id, time })),
   sets: setsChoice(tournament.matchFormat),
   decider: tournament.matchFormat.decider,
+  groupFormat: Boolean(tournament.groupMatchFormat),
+  groupSets: tournament.groupMatchFormat
+    ? setsChoice(tournament.groupMatchFormat)
+    : DEFAULT_GROUP_SETS,
+  groupDecider: (tournament.groupMatchFormat ?? tournament.matchFormat).decider,
   circuit: tournament.circuit ?? null,
 });
 
@@ -59,6 +70,7 @@ export function SettingsView({
   const update = (changes: Partial<Form>) => setForm((f) => ({ ...f, ...changes }));
   const dirty = JSON.stringify(form) !== JSON.stringify(formOf(tournament));
   const locked = isStructureLocked(tournament);
+  const withGroups = tournament.structure.type === 'groups_knockout';
   const results = tournament.matches.filter((m) => m.sets.length > 0).length;
 
   function save(event: FormEvent) {
@@ -91,6 +103,8 @@ export function SettingsView({
       courts: form.courts,
       timeSlots: form.timeSlots,
       matchFormat: buildMatchFormat(form.sets, form.decider),
+      groupMatchFormat:
+        withGroups && form.groupFormat ? buildMatchFormat(form.groupSets, form.groupDecider) : null,
       circuit: form.circuit,
     };
     actions.updateSettings(changes);
@@ -220,10 +234,12 @@ export function SettingsView({
 
         <h3>{t.wizard.matchFormat}</h3>
         {locked && <p className="muted">{t.settings.formatLocked}</p>}
-        <MatchFormatFields
+        <MatchFormatsFields
           sport={tournament.sport}
           sets={form.sets}
           decider={form.decider}
+          withGroups={withGroups}
+          group={form}
           disabled={locked}
           onChange={update}
         />

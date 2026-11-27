@@ -11,6 +11,8 @@ export interface SettingsChanges {
   courts: { id?: string; name: string }[];
   timeSlots: { id?: string; time: string }[];
   matchFormat: MatchFormat;
+  /** Group matches, when played differently; null = like `matchFormat` */
+  groupMatchFormat: MatchFormat | null;
   /** A stage of this circuit, or null */
   circuit: StageLink | null;
 }

@@ -4,7 +4,9 @@ import {
   SPORTS,
   STRUCTURE_TYPES,
   type Format,
+  type MatchFormat,
   type Setup,
+  type Sport,
   type StructureType,
 } from './types.js';
 
@@ -145,12 +147,12 @@ export function parseSetup(input: unknown): { setup: Setup; issues: Issue[] } {
   }
 
   // Not sent: the usual best of 3 sets
-  const matchFormat = body.matchFormat ?? DEFAULT_MATCH_FORMAT;
-  const validFormat = isValidMatchFormat(matchFormat);
-  if (!validFormat) issues.push({ code: 'MATCH_FORMAT_INVALID' });
-  if (validFormat && sport === 'padel' && matchFormat.bestOf > 3) {
-    issues.push({ code: 'MATCH_FORMAT_PADEL_FIVE_SETS' });
-  }
+  const matchFormat = parseMatchFormat(body.matchFormat ?? DEFAULT_MATCH_FORMAT, sport, issues);
+  // Group matches are played like the knockout ones unless said otherwise
+  const groupMatchFormat =
+    type === 'groups_knockout' && body.groupMatchFormat != null
+      ? parseMatchFormat(body.groupMatchFormat, sport, issues)
+      : null;
 
   return {
     setup: {
@@ -164,16 +166,31 @@ export function parseSetup(input: unknown): { setup: Setup; issues: Issue[] } {
       timeSlots: timeSlots.filter((t): t is string => t !== null).sort(),
       structure,
       ...(consolation && { players, levels }),
-      matchFormat: validFormat
-        ? {
-            bestOf: matchFormat.bestOf,
-            gamesPerSet: matchFormat.gamesPerSet,
-            decider: matchFormat.decider,
-          }
-        : DEFAULT_MATCH_FORMAT,
+      matchFormat: matchFormat ?? DEFAULT_MATCH_FORMAT,
+      groupMatchFormat,
     },
     issues,
   };
+}
+
+/** A valid match format with only its fields; null, with the issue added once, otherwise. */
+function parseMatchFormat(
+  value: unknown,
+  sport: Sport | undefined,
+  issues: Issue[],
+): MatchFormat | null {
+  const add = (code: string) => {
+    if (!issues.some((i) => i.code === code)) issues.push({ code });
+  };
+  if (!isValidMatchFormat(value)) {
+    add('MATCH_FORMAT_INVALID');
+    return null;
+  }
+  if (sport === 'padel' && value.bestOf > 3) {
+    add('MATCH_FORMAT_PADEL_FIVE_SETS');
+    return null;
+  }
+  return { bestOf: value.bestOf, gamesPerSet: value.gamesPerSet, decider: value.decider };
 }
 
 /**

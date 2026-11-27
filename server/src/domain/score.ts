@@ -1,5 +1,5 @@
 import type { Issue } from './setup.js';
-import type { MatchFormat, SetScore } from './types.js';
+import type { Match, MatchFormat, SetScore, TournamentData } from './types.js';
 
 /** Common match formats, for tests and scripts. Any valid combination can be chosen. */
 export const MATCH_FORMATS = {
@@ -34,6 +34,19 @@ export function isValidMatchFormat(format: unknown): format is MatchFormat {
     f.gamesPerSet === 6 &&
     (DECIDERS as readonly unknown[]).includes(f.decider)
   );
+}
+
+/** How a match is played: group matches can have their own format. */
+export function formatOf(
+  data: Pick<TournamentData, 'matchFormat' | 'groupMatchFormat'>,
+  match: Pick<Match, 'phase'>,
+): MatchFormat {
+  return (match.phase === 'group' && data.groupMatchFormat) || data.matchFormat;
+}
+
+export function sameFormat(a?: MatchFormat | null, b?: MatchFormat | null): boolean {
+  if (!a || !b) return !a && !b;
+  return a.bestOf === b.bestOf && a.gamesPerSet === b.gamesPerSet && a.decider === b.decider;
 }
 
 /** Highest number accepted for games or points, to catch typing mistakes. */

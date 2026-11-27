@@ -183,6 +183,8 @@ export interface Setup {
   timeSlots: string[];
   structure: Structure;
   matchFormat: MatchFormat;
+  /** `groups_knockout` only: how group matches are played, when not like `matchFormat` */
+  groupMatchFormat: MatchFormat | null;
   /** Players of each pair, in entry order; required for `knockout_consolation` only */
   players?: string[][];
   /** `knockout_consolation`: each pair's level, 1 (best) to `LEVELS` */
@@ -199,7 +201,10 @@ export interface TournamentData {
   courts: Court[];
   timeSlots: TimeSlot[];
   structure: Structure;
+  /** How matches are played (only the knockout ones when groups have their own format) */
   matchFormat: MatchFormat;
+  /** `groups_knockout` only: how group matches are played; null = like `matchFormat` */
+  groupMatchFormat: MatchFormat | null;
   pairs: Pair[];
   groups: Group[];
   /** Knockout only: pair ids in seed order */

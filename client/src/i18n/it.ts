@@ -116,6 +116,10 @@ export const it: Messages = {
       superTiebreak: '{sets}, super tie-break a 10 al posto del {nth} set',
     },
     nth: { third: 'terzo', fifth: 'quinto' },
+    separateGroups: 'Nei gironi si gioca con un formato diverso',
+    groupMatches: 'Partite dei gironi',
+    knockoutMatches: 'Partite a eliminazione diretta',
+    phase: '{phase}: {format}',
   },
   entries: {
     singles: { one: 'giocatore', many: 'giocatori', One: 'Giocatore', Many: 'Giocatori' },

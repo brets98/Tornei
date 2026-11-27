@@ -361,6 +361,28 @@ describe('tournaments API', () => {
       expect(bad.body.issues).toEqual([{ code: 'SLOTS_REQUIRED' }]);
     });
 
+    it('saves a match format for the group phase, and tournaments from before have none', async () => {
+      const proSet = { bestOf: 1, gamesPerSet: 9, decider: 'set' };
+      const { agent, tournament } = await createTournament({ groupMatchFormat: proSet });
+      expect(tournament.groupMatchFormat).toEqual(proSet);
+      const scored = await agent
+        .patch(url(tournament.id, '/matches/p1-p2'))
+        .send({ sets: sets('9-6') });
+      expect(scored.status).toBe(200);
+
+      const unset = await agent
+        .patch(url(tournament.id, '/settings'))
+        .send({ groupMatchFormat: null });
+      expect(unset.body.issues).toEqual([{ code: 'MATCH_FORMAT_LOCKED' }]);
+
+      // Saved before the field existed
+      await TournamentModel.collection.updateOne(
+        { _id: new Types.ObjectId(tournament.id) },
+        { $unset: { groupMatchFormat: 1 } },
+      );
+      expect((await agent.get(url(tournament.id))).body.groupMatchFormat).toBeNull();
+    });
+
     it('resets the results', async () => {
       const { agent, tournament } = await createTournament();
       await agent.patch(url(tournament.id, '/matches/p1-p2')).send({ sets: sets('6-1 6-1') });

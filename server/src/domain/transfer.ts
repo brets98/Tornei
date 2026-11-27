@@ -1,12 +1,14 @@
 import { setGroups, setPlayers, type EditResult } from './edit.js';
-import { checkSets, cleanSets } from './score.js';
+import { checkSets, cleanSets, formatOf } from './score.js';
 import { LEVELS, normalizeTime, parseSetup } from './setup.js';
 import { buildTournament, refreshTournament } from './tournament.js';
 import type { SetScore, TournamentData } from './types.js';
 
 /** Identifies an exported tournament file; bump the version when the format changes. */
 export const EXPORT_FORMAT = 'tornei.tournament';
-export const EXPORT_VERSION = 1;
+export const EXPORT_VERSION = 2;
+/** Versions still read: 1 is version 2 without `groupMatchFormat`. */
+const READ_VERSIONS: unknown[] = [1, 2];
 
 /**
  * What a tournament file holds: the setup, pairs, groups or seeding, and each match's result
@@ -25,6 +27,7 @@ export function exportTournament(data: TournamentData) {
       date: data.date,
       structure: data.structure,
       matchFormat: data.matchFormat,
+      groupMatchFormat: data.groupMatchFormat ?? null,
       courts: data.courts.map(({ id, name }) => ({ id, name })),
       timeSlots: data.timeSlots.map(({ id, time }) => ({ id, time })),
       pairs: data.pairs.map(({ id, players, level }) => ({ id, players, ...(level && { level }) })),
@@ -60,7 +63,7 @@ const unique = (values: unknown[]) => new Set(values).size === values.length;
 export function importTournament(file: unknown): EditResult {
   const root = object(file);
   if (root.format !== EXPORT_FORMAT) return invalid();
-  if (root.version !== EXPORT_VERSION) {
+  if (!READ_VERSIONS.includes(root.version)) {
     return { issues: [{ code: 'IMPORT_VERSION', params: { version: String(root.version) } }] };
   }
   const t = object(root.tournament);
@@ -119,7 +122,7 @@ export function importTournament(file: unknown): EditResult {
     const match = byId.get(m.id as string);
     if (!match) return invalid();
     const sets = m.sets ?? [];
-    const issue = checkSets(sets, data.matchFormat);
+    const issue = checkSets(sets, formatOf(data, match));
     if (issue) return { issues: [issue] };
     if (match.state === 'bye' && Array.isArray(sets) && sets.length > 0) return invalid();
     const courtId = m.courtId ?? null;
