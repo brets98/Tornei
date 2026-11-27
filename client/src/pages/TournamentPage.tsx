@@ -7,9 +7,10 @@ import { GroupsView } from '../components/tournament/GroupsView';
 import { Overview } from '../components/tournament/Overview';
 import { PlayersDatalist } from '../components/PlayersDatalist';
 import { CircuitLink } from '../components/CircuitLink';
+import { ImagesPanel, TournamentLogo } from '../components/tournament/Images';
 import { SettingsView } from '../components/tournament/SettingsView';
 import { fill, useI18n } from '../i18n/context';
-import { ApiError, apiGet, apiPatch, apiPost, apiPut } from '../lib/api';
+import { ApiError, apiDeleteFor, apiGet, apiPatch, apiPost, apiPut, apiPutFile } from '../lib/api';
 import {
   bracketName,
   formatDate,
@@ -114,6 +115,12 @@ export function TournamentPage() {
       draw: () => save(() => apiPost(`${path}/draw`)),
       updateSettings: (changes) => save(() => apiPatch(`${path}/settings`, changes)),
       resetResults: () => save(() => apiPost(`${path}/reset`)),
+      setImage: (kind, file) =>
+        save(() =>
+          file
+            ? apiPutFile(`${path}/images/${kind}`, file)
+            : apiDeleteFor(`${path}/images/${kind}`),
+        ),
       resetBracket: (bracketId) => save(() => apiPost(`${path}/brackets/${bracketId}/reset`)),
       reportUnreadable: (text) =>
         setSaveState({
@@ -153,10 +160,13 @@ export function TournamentPage() {
         <div className="eyebrow">
           {fill(t.tournament.eyebrow, { sport: t.sport[tournament.sport] })}
         </div>
-        <h1>
-          {tournament.name}
-          {tournament.subtitle && <span>{tournament.subtitle}</span>}
-        </h1>
+        <div className="tournament-title">
+          <TournamentLogo tournament={tournament} />
+          <h1>
+            {tournament.name}
+            {tournament.subtitle && <span>{tournament.subtitle}</span>}
+          </h1>
+        </div>
         <div className="muted">
           {formatDate(tournament.date)} · <Link to={`/live/${tournament.id}`}>{t.live.open}</Link>
           {tournament.circuit && (
@@ -193,7 +203,9 @@ export function TournamentPage() {
       {tab === 'entries' && <EntriesView tournament={tournament} actions={actions} />}
       {bracket && <BracketView tournament={tournament} bracket={bracket} actions={actions} />}
       {tab === 'settings' && (
-        <SettingsView key={tournament.updatedAt} tournament={tournament} actions={actions} />
+        <SettingsView key={tournament.updatedAt} tournament={tournament} actions={actions}>
+          <ImagesPanel tournament={tournament} actions={actions} />
+        </SettingsView>
       )}
     </article>
   );

@@ -1,4 +1,4 @@
-import { useState, type FormEvent } from 'react';
+import { useState, type FormEvent, type ReactNode } from 'react';
 import { fill, useI18n } from '../../i18n/context';
 import { apiGet } from '../../lib/api';
 import type { StageLink } from '../../lib/circuits';
@@ -75,9 +75,12 @@ function fileName(name: string) {
 export function SettingsView({
   tournament,
   actions,
+  children,
 }: {
   tournament: Tournament;
   actions: TournamentActions;
+  /** More panels, shown between the settings form and the data panel (the images) */
+  children?: ReactNode;
 }) {
   const { t } = useI18n();
   const [form, setForm] = useState<Form>(() => formOf(tournament));
@@ -283,6 +286,8 @@ export function SettingsView({
           </button>
         </div>
       </form>
+
+      {children}
 
       <div className="panel settings">
         <h3>{t.settings.data}</h3>

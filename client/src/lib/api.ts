@@ -47,3 +47,17 @@ export function apiPut<T>(path: string, body: unknown): Promise<T> {
 export function apiDelete(path: string): Promise<void> {
   return request<void>(path, { method: 'DELETE' });
 }
+
+/** Sends a file (e.g. an image) as the request body; answers the parsed response. */
+export function apiPutFile<T>(path: string, file: Blob): Promise<T> {
+  return request<T>(path, {
+    method: 'PUT',
+    headers: { 'Content-Type': file.type || 'application/octet-stream' },
+    body: file,
+  });
+}
+
+/** DELETE that answers the parsed response body. */
+export function apiDeleteFor<T>(path: string): Promise<T> {
+  return request<T>(path, { method: 'DELETE' });
+}

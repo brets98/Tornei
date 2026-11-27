@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { Link, useParams, useSearchParams } from 'react-router';
 import { BracketView } from '../components/tournament/BracketView';
 import { GroupsBoard } from '../components/tournament/GroupsBoard';
+import { TournamentLogo } from '../components/tournament/Images';
 import { fill, useI18n } from '../i18n/context';
 import { ApiError, apiGet } from '../lib/api';
 import {
@@ -64,7 +65,10 @@ function Board({ tournament, updated }: { tournament: Tournament; updated: strin
       <div className="live-toolbar">
         {fullscreen && (
           <div className="live-title">
-            <b>{tournament.name}</b>
+            <b className="tournament-title">
+              <TournamentLogo tournament={tournament} />
+              {tournament.name}
+            </b>
             <span className="muted">{updated}</span>
           </div>
         )}
@@ -195,10 +199,13 @@ export function LivePage() {
             <div className="eyebrow">
               {fill(t.tournament.eyebrow, { sport: t.sport[shown.tournament.sport] })}
             </div>
-            <h2>
-              {shown.tournament.name}
-              {shown.tournament.subtitle && <span>{shown.tournament.subtitle}</span>}
-            </h2>
+            <div className="tournament-title">
+              <TournamentLogo tournament={shown.tournament} />
+              <h2>
+                {shown.tournament.name}
+                {shown.tournament.subtitle && <span>{shown.tournament.subtitle}</span>}
+              </h2>
+            </div>
             <div className="live-status">
               <span className="muted" role="status">
                 {updated}

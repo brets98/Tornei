@@ -114,6 +114,8 @@ export interface Tournament extends TournamentListItem {
     /** Brackets seeded by ranking pairs of the same position across groups */
     crossRanking?: boolean;
   };
+  /** Uploaded images (ids for `imageUrl()`): a logo beside the name, a background for groups and brackets */
+  images?: { logo: string | null; background: string | null };
   matchFormat: MatchFormat;
   /** Groups + knockout only: how group matches are played, null = like `matchFormat` */
   groupMatchFormat: MatchFormat | null;

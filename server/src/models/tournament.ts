@@ -12,6 +12,8 @@ export interface Tournament extends TournamentData {
   ownerId: Types.ObjectId;
   /** A stage of one of the owner's circuits, in one of its categories; null otherwise */
   circuit: { circuitId: Types.ObjectId; categoryId: string } | null;
+  /** Uploaded images (`images` collection): a logo beside the name, a background for groups and brackets */
+  images: { logo: Types.ObjectId | null; background: Types.ObjectId | null };
 }
 
 /** Embedded objects: their own string `id`, no MongoDB `_id`. */
@@ -81,6 +83,10 @@ const tournamentSchema = createSchema<Tournament>({
       categoryId: { type: String, required: true },
     }),
     default: null,
+  },
+  images: {
+    logo: { type: Schema.Types.ObjectId, ref: 'Image', default: null },
+    background: { type: Schema.Types.ObjectId, ref: 'Image', default: null },
   },
   name: { type: String, required: true, trim: true },
   subtitle: { type: String, default: '', trim: true },
