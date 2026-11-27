@@ -990,6 +990,13 @@ table.standings tr.leader {
   }
 }
 
+/* Live view on a large screen (also full screen): three groups per row */
+@media (min-width: 1500px) {
+  .live-board .groups-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
 /* Knockout brackets: rounds in columns like the prototype, scrolling sideways on small screens */
 .warning {
   background: var(--highlight);
