@@ -3,6 +3,7 @@ import type { Messages } from './en';
 /** Italian UI strings: same shape as `en.ts`. */
 export const it: Messages = {
   language: { label: 'Lingua', it: 'Italiano', en: 'English' },
+  theme: { label: 'Tema', system: 'Tema del dispositivo', light: 'Chiaro', dark: 'Scuro' },
   common: {
     loading: 'Caricamento…',
     loadError: 'Impossibile caricare i dati.',

@@ -1,5 +1,6 @@
 import { Link } from 'react-router';
 import { LanguageSwitch } from '../components/LanguageSwitch';
+import { ThemeSwitch } from '../components/ThemeSwitch';
 import { LatestResult } from '../components/LatestResult';
 import { useI18n } from '../i18n/context';
 
@@ -12,6 +13,7 @@ export function PublicLandingPage() {
         <span className="brand">Tornei</span>
         <div className="header-actions">
           <LanguageSwitch />
+          <ThemeSwitch />
           <Link to="/sign-in" className="button">
             {t.auth.signIn}
           </Link>

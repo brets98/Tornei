@@ -4,6 +4,15 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Tornei</title>
+    <script>
+      // The theme chosen in this browser (src/lib/theme.ts), before the page draws
+      try {
+        const theme = localStorage.getItem('tornei.theme');
+        if (theme === 'light' || theme === 'dark') document.documentElement.dataset.theme = theme;
+      } catch {
+        // Storage blocked: follow the device
+      }
+    </script>
   </head>
   <body>
     <div id="root"></div>

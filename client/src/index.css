@@ -8,6 +8,14 @@
   --hover: #9ca3af33;
 }
 
+:root[data-theme='light'] {
+  color-scheme: light;
+}
+
+:root[data-theme='dark'] {
+  color-scheme: dark;
+}
+
 body {
   margin: 0;
 }
@@ -263,8 +271,9 @@ td {
   --highlight: #fff8e8;
 }
 
+/* Dark: as the device says unless light was chosen, or dark chosen (ThemeSwitch) */
 @media (prefers-color-scheme: dark) {
-  :root {
+  :root:not([data-theme='light']) {
     --navy: #8fb0e8;
     --gold: #e0b75a;
     --panel: #1b2230;
@@ -272,6 +281,15 @@ td {
     --muted-text: #9aa4b5;
     --highlight: #3a3220;
   }
+}
+
+:root[data-theme='dark'] {
+  --navy: #8fb0e8;
+  --gold: #e0b75a;
+  --panel: #1b2230;
+  --panel-border: #33405a;
+  --muted-text: #9aa4b5;
+  --highlight: #3a3220;
 }
 
 .page.wide {
@@ -1356,11 +1374,17 @@ label.button.disabled {
 }
 
 @media (prefers-color-scheme: dark) {
-  .watermarked::before {
+  :root:not([data-theme='light']) .watermarked::before {
     filter: grayscale(1) invert(1);
     mix-blend-mode: screen;
     opacity: 0.2;
   }
+}
+
+:root[data-theme='dark'] .watermarked::before {
+  filter: grayscale(1) invert(1);
+  mix-blend-mode: screen;
+  opacity: 0.2;
 }
 
 .image-fields {
