@@ -74,6 +74,7 @@ export function Layout({ user }: Props) {
           <NavLink to="/circuits">{t.menu.circuits}</NavLink>
           <NavLink to="/players">{t.menu.players}</NavLink>
           <NavLink to="/live">{t.menu.live}</NavLink>
+          <NavLink to="/organizers">{t.menu.organizers}</NavLink>
           {isAdmin && <NavLink to="/results">{t.menu.results}</NavLink>}
           {isAdmin && <NavLink to="/users">{t.menu.users}</NavLink>}
           <NavLink to="/account/password">{t.menu.changePassword}</NavLink>

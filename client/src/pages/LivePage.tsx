@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { Link, useParams, useSearchParams } from 'react-router';
 import { BracketView } from '../components/tournament/BracketView';
 import { GroupsBoard } from '../components/tournament/GroupsBoard';
+import { ScheduleBoard } from '../components/tournament/ScheduleBoard';
 import { TournamentLogo } from '../components/tournament/Images';
 import { fill, useI18n } from '../i18n/context';
 import { ApiError, apiGet } from '../lib/api';
@@ -16,12 +17,18 @@ import { useFullscreen } from '../lib/useFullscreen';
 /** How often the shown tournament is loaded again. */
 export const REFRESH_MS = 30 * 1000;
 
-/** One tournament to choose: name, sport, date, status and progress; opens its live view. */
-function TournamentCard({ item }: { item: TournamentListItem }) {
+/**
+ * `live`: groups and brackets, to follow a tournament; `organizers`: the matches by court and
+ * time, for whoever runs it. Both read-only and reloaded every 30 seconds.
+ */
+export type LiveMode = 'live' | 'organizers';
+
+/** One tournament to choose: name, sport, date, status and progress; opens it in this mode. */
+function TournamentCard({ item, mode }: { item: TournamentListItem; mode: LiveMode }) {
   const { t } = useI18n();
   const { matchesDone, matchesTotal, status } = item.summary;
   return (
-    <Link className="tournament-card" to={`/live/${item.id}`}>
+    <Link className="tournament-card" to={`/${mode}/${item.id}`}>
       <span className="eyebrow">{`${t.sport[item.sport]} · ${formatDate(item.date)}`}</span>
       <b>{item.name}</b>
       {item.subtitle && <span className="muted">{item.subtitle}</span>}
@@ -44,14 +51,28 @@ type View = 'groups' | 'brackets';
  * `?view=`; `bracket-A` from older links means the brackets). Until one is chosen it follows
  * the tournament: the groups while they are played, then the brackets.
  */
-function Board({ tournament, at, updated }: { tournament: Tournament; at: Date; updated: string }) {
+function Board({
+  tournament,
+  at,
+  updated,
+  mode,
+}: {
+  tournament: Tournament;
+  at: Date;
+  updated: string;
+  mode: LiveMode;
+}) {
   const { t } = useI18n();
   const [searchParams, setSearchParams] = useSearchParams();
   const { ref, fullscreen, toggle } = useFullscreen<HTMLDivElement>();
-  const views: View[] = [
-    ...(tournament.groups.length > 0 ? ['groups' as const] : []),
-    ...(tournament.brackets.length > 0 ? ['brackets' as const] : []),
-  ];
+  // Organizers see one view, the schedule: no switch
+  const views: View[] =
+    mode === 'organizers'
+      ? []
+      : [
+          ...(tournament.groups.length > 0 ? ['groups' as const] : []),
+          ...(tournament.brackets.length > 0 ? ['brackets' as const] : []),
+        ];
   const param = searchParams.get('view');
   const requested = param?.startsWith('bracket-') ? 'brackets' : (param as View | null);
   const inKnockout = ['knockout', 'finished'].includes(tournament.summary.status);
@@ -94,6 +115,7 @@ function Board({ tournament, at, updated }: { tournament: Tournament; at: Date; 
           {fullscreen ? t.live.exitFullscreen : t.live.fullscreen}
         </button>
       </div>
+      {mode === 'organizers' && <ScheduleBoard tournament={tournament} />}
       {view === 'groups' && (
         <section>
           <div className="view-title">
@@ -152,7 +174,7 @@ function Freshness({ at, label }: { at: Date; label: string }) {
  * Groups and brackets of one tournament, read-only, reloaded every 30 seconds: to follow a
  * tournament, e.g. on a screen at the club.
  */
-export function LivePage() {
+export function LivePage({ mode = 'live' }: { mode?: LiveMode }) {
   const { id } = useParams();
   const { t, locale } = useI18n();
   const [list, setList] = useState<TournamentListItem[] | null>(null);
@@ -212,7 +234,7 @@ export function LivePage() {
       {/* A tournament speaks for itself: its name is the title, the cards page has this one */}
       {!id && (
         <div className="page-head">
-          <h1>{t.live.title}</h1>
+          <h1>{mode === 'live' ? t.live.title : t.organizers.title}</h1>
         </div>
       )}
 
@@ -220,11 +242,11 @@ export function LivePage() {
       {!id && list?.length === 0 && <p className="muted">{t.list.empty}</p>}
       {!id && list && list.length > 0 && (
         <>
-          <p className="muted">{t.live.pick}</p>
+          <p className="muted">{mode === 'live' ? t.live.pick : t.organizers.pick}</p>
           <ul className="tournament-cards">
             {list.map((item) => (
               <li key={item.id}>
-                <TournamentCard item={item} />
+                <TournamentCard item={item} mode={mode} />
               </li>
             ))}
           </ul>
@@ -262,7 +284,7 @@ export function LivePage() {
               </p>
             )}
           </header>
-          <Board tournament={shown.tournament} at={shown.at} updated={updated} />
+          <Board tournament={shown.tournament} at={shown.at} updated={updated} mode={mode} />
         </>
       )}
     </article>

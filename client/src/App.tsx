@@ -51,6 +51,8 @@ export function App() {
         <Route path="players" element={<PlayersPage />} />
         <Route path="live" element={<LivePage />} />
         <Route path="live/:id" element={<LivePage />} />
+        <Route path="organizers" element={<LivePage key="organizers" mode="organizers" />} />
+        <Route path="organizers/:id" element={<LivePage key="organizers" mode="organizers" />} />
         <Route path="results" element={<ResultsPage isAdmin={isAdmin} />} />
         <Route path="users" element={<UsersPage />} />
         <Route path="account/password" element={<ChangePasswordPage email={user.email} />} />

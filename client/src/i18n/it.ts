@@ -21,6 +21,7 @@ export const it: Messages = {
     label: 'Menu principale',
     tournaments: 'Tornei',
     live: 'Vista live',
+    organizers: 'Organizzatori',
     results: 'Risultati',
     users: 'Utenti',
     changePassword: 'Cambia password',
@@ -279,6 +280,14 @@ export const it: Messages = {
     refreshError: 'Aggiornamento non riuscito: mostro gli ultimi dati, riprovo tra 30 secondi.',
     complete: 'concluso',
     open: 'Vista live',
+  },
+  organizers: {
+    title: 'Organizzatori',
+    pick: 'Scegli un torneo per vedere le partite per campo e orario. La pagina si aggiorna da sola ogni 30 secondi.',
+    noCourt: 'Senza campo',
+    noneScheduled: 'Nessuna partita ha ancora un orario: imposta campi e orari nel riepilogo.',
+    unscheduled: 'Senza orario',
+    clash: 'Sovrapposizione',
   },
   images: {
     title: 'Immagini',

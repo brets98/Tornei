@@ -1567,3 +1567,84 @@ label.button.disabled {
   max-height: 100%;
   object-fit: contain;
 }
+
+/* Organizers: the matches by court (columns) and time (rows) */
+.schedule-wrap {
+  overflow-x: auto;
+  padding: 0;
+}
+
+.schedule-grid {
+  table-layout: fixed;
+  min-width: 40rem;
+}
+
+.schedule-grid th,
+.schedule-grid td {
+  white-space: normal;
+  vertical-align: top;
+  border: 1px solid var(--panel-border);
+  padding: 0.4rem;
+}
+
+.schedule-grid thead th {
+  text-align: center;
+  color: var(--navy);
+  font-size: 0.95rem;
+}
+
+.schedule-grid .schedule-time {
+  width: 4.5rem;
+  text-align: center;
+  font-weight: 700;
+  color: var(--navy);
+}
+
+.schedule-match {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  padding: 0.4rem 0.5rem;
+  border-left: 4px solid var(--navy);
+  border-radius: 0.375rem;
+  background: var(--panel);
+}
+
+.schedule-match + .schedule-match {
+  margin-top: 0.4rem;
+}
+
+.schedule-match.state-done {
+  border-left-color: var(--ok);
+  opacity: 0.8;
+}
+
+.schedule-match.state-stale,
+.schedule-match.clash {
+  border-left-color: var(--error);
+}
+
+.schedule-phase {
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--muted-text);
+}
+
+.schedule-result {
+  font-variant-numeric: tabular-nums;
+}
+
+.schedule-clash {
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: var(--error);
+}
+
+.schedule-unscheduled ul {
+  list-style: none;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(16rem, 1fr));
+  gap: 0.5rem;
+}
