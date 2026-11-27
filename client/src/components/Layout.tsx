@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { NavLink, Outlet, useNavigate } from 'react-router';
 import { useI18n } from '../i18n/context';
 import { authClient } from '../lib/auth-client';
@@ -8,10 +9,32 @@ interface Props {
   user: { name: string; surname: string; email: string; role?: string | null };
 }
 
+/** Whether the menu was hidden in this browser (`tornei.menu`). */
+const MENU_KEY = 'tornei.menu';
+
+function menuHiddenBefore() {
+  try {
+    return localStorage.getItem(MENU_KEY) === 'hidden';
+  } catch {
+    return false;
+  }
+}
+
 export function Layout({ user }: Props) {
   const { t } = useI18n();
   const navigate = useNavigate();
   const isAdmin = user.role === 'admin';
+  const [menuHidden, setMenuHidden] = useState(menuHiddenBefore);
+
+  function toggleMenu(hidden: boolean) {
+    setMenuHidden(hidden);
+    try {
+      if (hidden) localStorage.setItem(MENU_KEY, 'hidden');
+      else localStorage.removeItem(MENU_KEY);
+    } catch {
+      // Not saved: the choice lasts until the page is reloaded
+    }
+  }
 
   async function signOut() {
     await authClient.signOut();
@@ -19,9 +42,31 @@ export function Layout({ user }: Props) {
   }
 
   return (
-    <div className="layout">
+    <div className={`layout${menuHidden ? ' menu-hidden' : ''}`}>
+      {menuHidden && (
+        <button
+          type="button"
+          className="secondary menu-toggle menu-show"
+          aria-label={t.menu.show}
+          title={t.menu.show}
+          onClick={() => toggleMenu(false)}
+        >
+          ☰
+        </button>
+      )}
       <aside className="sidebar">
-        <div className="brand">Tornei</div>
+        <div className="sidebar-head">
+          <div className="brand">Tornei</div>
+          <button
+            type="button"
+            className="secondary menu-toggle"
+            aria-label={t.menu.hide}
+            title={t.menu.hide}
+            onClick={() => toggleMenu(true)}
+          >
+            «
+          </button>
+        </div>
         <nav aria-label={t.menu.label}>
           <NavLink to="/" end>
             {t.menu.tournaments}

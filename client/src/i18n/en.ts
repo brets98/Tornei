@@ -26,6 +26,8 @@ export const en = {
     users: 'Users',
     changePassword: 'Change password',
     signOut: 'Sign out',
+    hide: 'Hide menu',
+    show: 'Show menu',
   },
   auth: {
     signIn: 'Sign in',
@@ -272,7 +274,8 @@ export const en = {
     all: '← All tournaments',
     pick: 'Choose a tournament to follow its groups and brackets. The page updates by itself every 30 seconds.',
     updated: 'Updated at {time} · updates every 30 seconds',
-    switch: 'Groups or bracket',
+    switch: 'Groups or brackets',
+    brackets: 'Brackets',
     fullscreen: 'Full screen',
     exitFullscreen: 'Exit full screen',
     refresh: 'Update now',

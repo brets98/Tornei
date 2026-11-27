@@ -70,8 +70,10 @@ describe('LivePage', () => {
     expect(screen.queryAllByRole('combobox')).toHaveLength(0);
     expect(screen.queryByRole('link', { name: /Open d’autunno/ })).not.toBeInTheDocument();
 
-    fireEvent.click(screen.getByRole('link', { name: '← Tutti i tornei' }));
-    expect(await screen.findByRole('link', { name: /Open d’autunno/ })).toBeInTheDocument();
+    // Only the tournament: no page title, sport line or link back (the menu leads to the cards)
+    expect(screen.queryByRole('link', { name: /Tutti i tornei/ })).not.toBeInTheDocument();
+    expect(screen.queryByText(/Torneo Padel/i)).not.toBeInTheDocument();
+    expect(screen.getByRole('heading', { level: 1 })).toHaveTextContent('Torneo di primavera');
   });
 
   it('says when there are no tournaments to choose', async () => {
@@ -94,9 +96,11 @@ describe('LivePage', () => {
 
     await screen.findByLabelText('Girone A');
     expect(screen.queryByText('6-3 6-4')).not.toBeInTheDocument();
-    expect(screen.getByRole('status')).toHaveTextContent(
-      /Aggiornato alle .* · si aggiorna ogni 30 secondi/,
-    );
+    // A green dot, the time in its label
+    const dot = screen.getByRole('status', {
+      name: /Aggiornato alle .* · si aggiorna ogni 30 secondi/,
+    });
+    expect(dot).toHaveAttribute('data-level', 'fresh');
 
     answer = scored;
     await act(() => vi.advanceTimersByTimeAsync(REFRESH_MS - 1000));
@@ -125,6 +129,15 @@ describe('LivePage', () => {
 
     expect(await screen.findByRole('alert')).toHaveTextContent('Aggiornamento non riuscito');
     expect(screen.getByText('6-3 6-4')).toBeInTheDocument();
+
+    // The dot ages while updates keep failing: yellow after 2 minutes, orange after 5, red after 10
+    const level = () => screen.getByRole('status').getAttribute('data-level');
+    await act(() => vi.advanceTimersByTimeAsync(2 * 60_000));
+    expect(level()).toBe('aging');
+    await act(() => vi.advanceTimersByTimeAsync(3 * 60_000));
+    expect(level()).toBe('stale');
+    await act(() => vi.advanceTimersByTimeAsync(5 * 60_000));
+    expect(level()).toBe('old');
   });
 
   it('shows the brackets read-only, with court and time', async () => {
@@ -216,6 +229,39 @@ describe('LivePage', () => {
     expect(screen.getByLabelText('Girone A')).toBeInTheDocument();
   });
 
+  it('shows every bracket on one page', async () => {
+    const final = withBracket.matches.find((m) => m.id === 'A0-0')!;
+    const twoBrackets: Tournament = {
+      ...withBracket,
+      summary: { ...withBracket.summary, status: 'knockout' },
+      brackets: [...withBracket.brackets, { id: 'B', size: 2, champion: null }],
+      matches: [
+        ...withBracket.matches,
+        {
+          ...final,
+          id: 'B0-0',
+          bracket: 'B',
+          sourceA: { kind: 'group', groupId: 'A', position: 2 },
+          sourceB: { kind: 'group', groupId: 'B', position: 2 },
+        },
+      ],
+    };
+    stubApi({
+      'GET /api/tournaments': () => json([listItem]),
+      'GET /api/tournaments/t1': () => json(twoBrackets),
+    });
+    renderPage('/live/t1?view=bracket-B');
+
+    expect(await screen.findByRole('heading', { name: 'Tabellone A' })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Tabellone B' })).toBeInTheDocument();
+    expect(screen.getByText('1° Girone A')).toBeInTheDocument();
+    expect(screen.getByText('2° Girone A')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Tabelloni' })).toHaveAttribute(
+      'aria-current',
+      'page',
+    );
+  });
+
   it('opens on the bracket once the knockout phase has started', async () => {
     const knockout = { ...withBracket, summary: { ...withBracket.summary, status: 'knockout' } };
     stubApi({
@@ -225,7 +271,7 @@ describe('LivePage', () => {
     renderPage('/live/t1');
 
     expect(await screen.findByText('1° Girone A')).toBeInTheDocument();
-    const switcher = screen.getByRole('navigation', { name: 'Gironi o tabellone' });
+    const switcher = screen.getByRole('navigation', { name: 'Gironi o tabelloni' });
     expect(within(switcher).getByRole('button', { name: 'Tabellone A' })).toHaveAttribute(
       'aria-current',
       'page',
@@ -251,7 +297,9 @@ describe('LivePage', () => {
       expect(board).toHaveClass('fullscreen');
       // The tournament name and the update time stay visible, and the switch still works
       expect(within(board as HTMLElement).getByText('Torneo di primavera')).toBeInTheDocument();
-      expect(within(board as HTMLElement).getByText(/Aggiornato alle/)).toBeInTheDocument();
+      expect(
+        within(board as HTMLElement).getByRole('status', { name: /Aggiornato alle/ }),
+      ).toBeInTheDocument();
       expect(screen.getByText('1° Girone A')).toBeInTheDocument();
       fireEvent.click(screen.getByRole('button', { name: 'Gironi' }));
       expect(within(board as HTMLElement).getByLabelText('Girone A')).toBeInTheDocument();
