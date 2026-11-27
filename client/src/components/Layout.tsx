@@ -2,6 +2,7 @@ import { NavLink, Outlet, useNavigate } from 'react-router';
 import { useI18n } from '../i18n/context';
 import { authClient } from '../lib/auth-client';
 import { LanguageSwitch } from './LanguageSwitch';
+import { ThemeSwitch } from './ThemeSwitch';
 
 interface Props {
   user: { name: string; surname: string; email: string; role?: string | null };
@@ -36,6 +37,7 @@ export function Layout({ user }: Props) {
           <span className="user-name">{`${user.name} ${user.surname}`.trim()}</span>
           <span className="user-email">{user.email}</span>
           <LanguageSwitch />
+          <ThemeSwitch />
           <button type="button" className="secondary" onClick={signOut}>
             {t.menu.signOut}
           </button>

@@ -4,6 +4,7 @@
  */
 export const en = {
   language: { label: 'Language', it: 'Italiano', en: 'English' },
+  theme: { label: 'Theme', system: 'Device theme', light: 'Light', dark: 'Dark' },
   common: {
     loading: 'Loading…',
     loadError: 'Could not load the data.',

@@ -1,6 +1,7 @@
 import { useEffect, useState, type FormEvent } from 'react';
 import { Link, useSearchParams } from 'react-router';
 import { LanguageSwitch } from '../components/LanguageSwitch';
+import { ThemeSwitch } from '../components/ThemeSwitch';
 import { useI18n } from '../i18n/context';
 import { apiGet } from '../lib/api';
 import { authClient } from '../lib/auth-client';
@@ -89,6 +90,7 @@ export function AuthPage() {
       <div className="page-head">
         <h1>Tornei</h1>
         <LanguageSwitch />
+        <ThemeSwitch />
       </div>
       <h2>
         {mode === 'sign-in'

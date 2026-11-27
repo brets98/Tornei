@@ -1,6 +1,7 @@
 import { useState, type FormEvent } from 'react';
 import { Link } from 'react-router';
 import { LanguageSwitch } from '../components/LanguageSwitch';
+import { ThemeSwitch } from '../components/ThemeSwitch';
 import { useI18n } from '../i18n/context';
 import { authClient } from '../lib/auth-client';
 
@@ -26,6 +27,7 @@ export function ResetPasswordPage() {
       <div className="page-head">
         <h1>Tornei</h1>
         <LanguageSwitch />
+        <ThemeSwitch />
       </div>
       <h2>{t.password.chooseNew}</h2>
       {!token ? (
