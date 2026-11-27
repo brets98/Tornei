@@ -93,7 +93,8 @@ export function MatchFormatsFields({
   decider,
   withGroups,
   group,
-  disabled,
+  groupLocked,
+  knockoutLocked,
   onChange,
 }: {
   sport: Sport;
@@ -102,7 +103,10 @@ export function MatchFormatsFields({
   /** Groups + knockout: the group phase can have its own format */
   withGroups: boolean;
   group: GroupFormatChoice;
-  disabled?: boolean;
+  /** The group matches have results: their format (and whether it is apart) can't change */
+  groupLocked?: boolean;
+  /** The other matches (the knockout, or every match without a group format) have results */
+  knockoutLocked?: boolean;
   onChange: (
     changes: Partial<GroupFormatChoice> & { sets?: SetsChoice; decider?: Decider },
   ) => void;
@@ -116,7 +120,7 @@ export function MatchFormatsFields({
           <input
             type="checkbox"
             checked={group.groupFormat}
-            disabled={disabled}
+            disabled={groupLocked}
             onChange={(e) => onChange({ groupFormat: e.target.checked })}
           />
           {t.matchFormats.separateGroups}
@@ -127,7 +131,7 @@ export function MatchFormatsFields({
           sport={sport}
           sets={group.groupSets}
           decider={group.groupDecider}
-          disabled={disabled}
+          disabled={groupLocked}
           name="group"
           title={t.matchFormats.groupMatches}
           onChange={(changes) =>
@@ -142,7 +146,7 @@ export function MatchFormatsFields({
         sport={sport}
         sets={sets}
         decider={decider}
-        disabled={disabled}
+        disabled={knockoutLocked || (!separate && groupLocked)}
         title={separate ? t.matchFormats.knockoutMatches : undefined}
         onChange={onChange}
       />

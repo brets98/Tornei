@@ -289,6 +289,8 @@ export const en = {
     removeCourt: 'Remove {name}',
     timeSlots: 'Times',
     formatLocked: 'Results have been entered: the match format can no longer change.',
+    groupFormatLocked:
+      'The groups have results: their format stays, the knockout format can still change until its first result.',
     save: 'Save changes',
     discard: 'Discard changes',
     inUse: '{name} (scheduled matches: {count})',
