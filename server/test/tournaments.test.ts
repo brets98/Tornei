@@ -383,6 +383,21 @@ describe('tournaments API', () => {
       expect((await agent.get(url(tournament.id))).body.groupMatchFormat).toBeNull();
     });
 
+    it('adds a pair to a group and removes one, until the knockout starts', async () => {
+      const { agent, tournament } = await createTournament();
+      const added = await agent.post(url(tournament.id, '/pairs')).send({ groupId: 'B' });
+      expect(added.status).toBe(200);
+      expect(added.body.groups[1].pairIds).toContain('p13');
+
+      const removed = await agent.delete(url(tournament.id, '/pairs/p13'));
+      expect(removed.status).toBe(200);
+      expect(removed.body.pairs).toHaveLength(12);
+      expect((await agent.delete(url(tournament.id, '/pairs/p99'))).status).toBe(404);
+      expect((await agent.post(url(tournament.id, '/pairs')).send({ groupId: 'Z' })).status).toBe(
+        404,
+      );
+    });
+
     it('resets the results', async () => {
       const { agent, tournament } = await createTournament();
       await agent.patch(url(tournament.id, '/matches/p1-p2')).send({ sets: sets('6-1 6-1') });

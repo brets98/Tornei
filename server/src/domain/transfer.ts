@@ -6,9 +6,12 @@ import type { SetScore, TournamentData } from './types.js';
 
 /** Identifies an exported tournament file; bump the version when the format changes. */
 export const EXPORT_FORMAT = 'tornei.tournament';
-export const EXPORT_VERSION = 3;
-/** Versions still read: 1 has no `groupMatchFormat`, 1 and 2 no `restToB`/`crossRanking`. */
-const READ_VERSIONS: unknown[] = [1, 2, 3];
+export const EXPORT_VERSION = 4;
+/**
+ * Versions still read: 1 has no `groupMatchFormat`, 1–2 no `restToB`/`crossRanking`, and
+ * 1–3 always number pairs p1…pN.
+ */
+const READ_VERSIONS: unknown[] = [1, 2, 3, 4];
 
 /**
  * What a tournament file holds: the setup, pairs, groups or seeding, and each match's result
@@ -89,11 +92,17 @@ export function importTournament(file: unknown): EditResult {
   const slotIds = slots.map((s) => s.id);
   if (!courtIds.every(isId('c')) || !unique(courtIds)) return invalid();
   if (!slotIds.every(isId('t')) || !unique(slotIds)) return invalid();
-  // Pairs never change after creation: always p1…pN
-  if (pairs.some((p, i) => p.id !== `p${i + 1}`)) return invalid();
+  // Pair ids are kept too: p1…pN, with gaps where pairs were removed from groups
+  const pairIds = pairs.map((p) => p.id);
+  if (!pairIds.every(isId('p')) || !unique(pairIds)) return invalid();
 
+  const built = buildTournament(setup);
+  const rename = new Map(built.pairs.map((p, i) => [p.id, pairIds[i] as string]));
   let data: TournamentData = {
-    ...buildTournament(setup),
+    ...built,
+    pairs: built.pairs.map((p) => ({ ...p, id: rename.get(p.id)! })),
+    groups: built.groups.map((g) => ({ ...g, pairIds: g.pairIds.map((id) => rename.get(id)!) })),
+    seeding: built.seeding.map((id) => rename.get(id)!),
     courts: courts.map((c, i) => ({ id: c.id as string, name: setup.courts[i] })),
     timeSlots: slots
       .map((s) => ({ id: s.id as string, time: normalizeTime(String(s.time))! }))
@@ -117,7 +126,6 @@ export function importTournament(file: unknown): EditResult {
   }
 
   const byId = new Map(data.matches.map((m) => [m.id, m]));
-  const pairIds = data.pairs.map((p) => p.id);
   for (const m of matches) {
     const match = byId.get(m.id as string);
     if (!match) return invalid();

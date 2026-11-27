@@ -1,5 +1,12 @@
 import { fill, useI18n } from '../../i18n/context';
-import { isStructureLocked, pairCode, type Group, type Tournament } from '../../lib/tournaments';
+import {
+  entriesLabel,
+  isStructureLocked,
+  pairCode,
+  pairLabel,
+  type Group,
+  type Tournament,
+} from '../../lib/tournaments';
 import type { TournamentActions } from './actions';
 import { MatchRow } from './MatchRow';
 import { PlayerInputs } from './PlayerInputs';
@@ -57,6 +64,20 @@ function GroupCard({
   const { t } = useI18n();
   const matches = tournament.matches.filter((m) => m.groupId === group.id);
   const canMove = !locked && tournament.groups.length > 1;
+  // Entries can be added and removed until the knockout has a result
+  const canEdit = !tournament.matches.some((m) => m.phase === 'knockout' && m.sets.length > 0);
+  const entry = entriesLabel(t, tournament.format).one;
+
+  function remove(pairId: string) {
+    const results = matches.filter(
+      (m) => (m.pairA === pairId || m.pairB === pairId) && m.sets.length > 0,
+    ).length;
+    const pair = pairLabel(tournament, pairId);
+    const message = results
+      ? fill(t.groups.confirmRemoveResults, { pair, count: results })
+      : fill(t.groups.confirmRemove, { pair });
+    if (window.confirm(message)) actions.removePair(pairId);
+  }
 
   /** Moves a pair to the end of another group. */
   function move(pairId: string, toGroup: string) {
@@ -100,8 +121,29 @@ function GroupCard({
                 ))}
               </select>
             )}
+            {canEdit && (
+              <button
+                type="button"
+                className="icon-button remove-entry"
+                aria-label={fill(t.groups.removeEntry, { pair: pairLabel(tournament, pairId) })}
+                title={fill(t.groups.removeEntry, { pair: pairLabel(tournament, pairId) })}
+                onClick={() => remove(pairId)}
+              >
+                ×
+              </button>
+            )}
           </div>
         ))}
+        {canEdit && (
+          <button
+            type="button"
+            className="secondary add-entry"
+            aria-label={fill(t.groups.addEntryTo, { entry, group: group.id })}
+            onClick={() => actions.addPair(group.id)}
+          >
+            + {fill(t.groups.addEntry, { entry })}
+          </button>
+        )}
       </div>
       <div className="group-body">
         <h4>{t.groups.matches}</h4>

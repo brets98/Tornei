@@ -34,6 +34,8 @@ export const mockActions = (): TournamentActions => ({
   resetBracket: vi.fn(),
   updateMatch: vi.fn(),
   setGroups: vi.fn(),
+  addPair: vi.fn(),
+  removePair: vi.fn(),
   draw: vi.fn(),
   updateSettings: vi.fn(),
   resetResults: vi.fn(),

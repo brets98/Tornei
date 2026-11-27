@@ -23,6 +23,93 @@ function restructure(data: TournamentData, changes: Partial<TournamentData>): Ed
   return { data: refreshTournament({ ...next, ...buildMatches(next) }) };
 }
 
+/** The knockout has a result: pairs can no longer be added or removed. */
+const knockoutStarted = (data: TournamentData) =>
+  data.matches.some((m) => m.phase === 'knockout' && m.sets.length > 0);
+
+const swapSides = (sets: SetScore[]): SetScore[] =>
+  sets.map(({ a, b, tiebreak }) => ({
+    a: b,
+    b: a,
+    ...(tiebreak && { tiebreak: { a: tiebreak.b, b: tiebreak.a } }),
+  }));
+
+/**
+ * New groups with the group results kept: matches are regenerated (brackets included, which
+ * have no result yet), and each group match between the same two pairs keeps its result,
+ * court and time, turned around if the pairs now play on the other side.
+ */
+function regroup(data: TournamentData, changes: Partial<TournamentData>): EditResult {
+  const next = { ...data, ...changes };
+  const rebuilt = buildMatches(next);
+  const before = new Map(
+    data.matches
+      .filter((m) => m.phase === 'group')
+      .map((m) => [[m.pairA, m.pairB].sort().join('|'), m]),
+  );
+  const matches = rebuilt.matches.map((m) => {
+    const old = m.phase === 'group' ? before.get([m.pairA, m.pairB].sort().join('|')) : undefined;
+    if (!old) return m;
+    const sets = old.pairA === m.pairA ? old.sets : swapSides(old.sets);
+    return { ...m, sets, courtId: old.courtId, timeSlotId: old.timeSlotId };
+  });
+  return { data: refreshTournament({ ...next, matches, brackets: rebuilt.brackets }) };
+}
+
+/** Checks the groups as the wizard does, with their new sizes. */
+function checkRegroup(data: TournamentData, groups: TournamentData['groups']): Issue[] {
+  const pairCount = groups.reduce((n, g) => n + g.pairIds.length, 0);
+  if (pairCount < LIMITS.minPairs || pairCount > LIMITS.maxPairs) {
+    return [{ code: 'PAIR_COUNT_RANGE', params: { min: LIMITS.minPairs, max: LIMITS.maxPairs } }];
+  }
+  if (data.structure.type !== 'groups_knockout') return [];
+  return checkGroups(
+    pairCount,
+    data.structure,
+    groups.map((g) => g.pairIds.length),
+  );
+}
+
+/**
+ * A new pair (no names yet) at the end of a group, while the knockout hasn't started: it gets
+ * its group matches, the others keep their results. Tournaments with groups only.
+ */
+export function addPair(data: TournamentData, groupId: unknown): EditResult {
+  const group = data.groups.find((g) => g.id === groupId);
+  if (!group) return fail('NOT_FOUND');
+  if (knockoutStarted(data)) return fail('KNOCKOUT_STARTED');
+
+  // After every id in use, like courts and slots
+  const id = nextIds(
+    'p',
+    data.pairs.map((p) => p.id),
+  )();
+  const groups = data.groups.map((g) =>
+    g.id === group.id ? { ...g, pairIds: [...g.pairIds, id] } : g,
+  );
+  const issues = checkRegroup(data, groups);
+  if (issues.length > 0) return { issues };
+  const players = data.format === 'singles' ? [''] : ['', ''];
+  return regroup(data, { pairs: [...data.pairs, { id, players }], groups });
+}
+
+/**
+ * Removes a pair from its group, with its group matches (and their results), while the
+ * knockout hasn't started. The groups must still be valid as in the wizard.
+ */
+export function removePair(data: TournamentData, pairId: string): EditResult {
+  const group = data.groups.find((g) => g.pairIds.includes(pairId));
+  if (!group) return fail('NOT_FOUND');
+  if (knockoutStarted(data)) return fail('KNOCKOUT_STARTED');
+
+  const groups = data.groups.map((g) =>
+    g.id === group.id ? { ...g, pairIds: g.pairIds.filter((p) => p !== pairId) } : g,
+  );
+  const issues = checkRegroup(data, groups);
+  if (issues.length > 0) return { issues };
+  return regroup(data, { pairs: data.pairs.filter((p) => p.id !== pairId), groups });
+}
+
 export function setPlayers(data: TournamentData, pairId: string, players: unknown): EditResult {
   const pair = data.pairs.find((p) => p.id === pairId);
   if (!pair) return fail('NOT_FOUND');

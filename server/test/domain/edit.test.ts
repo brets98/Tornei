@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import {
+  addPair,
   draw,
+  removePair,
   resetBracket,
   resetResults,
   setGroups,
@@ -383,5 +385,69 @@ describe('resetBracket', () => {
     expect(match(reset, 'B0-0')).toMatchObject({ sets: [], state: 'todo', courtId: 'c1' });
     expect(reset.brackets.map((b) => b.champion)).toEqual([match(t, 'A0-0').winner, null]);
     expect(reset.groups.every((g) => g.complete)).toBe(true);
+  });
+});
+
+describe('addPair and removePair', () => {
+  // 12 pairs, 4 groups of 3 (A: p1 p2 p3, …), 2 to bracket A and 1 to bracket B
+  it('adds a pair at the end of a group, keeping the group results', () => {
+    let t = ok(updateMatch(build(), 'p1-p2', { sets: sets('6-4 6-4'), courtId: 'c1' }));
+    t = ok(addPair(t, 'A'));
+
+    expect(t.pairs.at(-1)).toEqual({ id: 'p13', players: ['', ''] });
+    expect(t.groups[0].pairIds).toEqual(['p1', 'p2', 'p3', 'p13']);
+    expect(t.matches.filter((m) => m.groupId === 'A')).toHaveLength(6);
+    expect(match(t, 'p1-p2')).toMatchObject({ state: 'done', courtId: 'c1', winner: 'p1' });
+    expect(t.matches.some((m) => m.groupId === 'A' && m.pairB === 'p13')).toBe(true);
+  });
+
+  it('removes a pair with its group matches, keeping the others', () => {
+    let t = ok(addPair(build(), 'A'));
+    t = ok(updateMatch(t, 'p1-p2', { sets: sets('6-4 6-4') }));
+    const withNew = t.matches.find((m) => m.pairB === 'p13' || m.pairA === 'p13')!;
+    t = ok(updateMatch(t, withNew.id, { sets: sets('6-1 6-1') }));
+
+    t = ok(removePair(t, 'p13'));
+    expect(t.pairs.map((p) => p.id)).not.toContain('p13');
+    expect(t.matches.some((m) => m.pairA === 'p13' || m.pairB === 'p13')).toBe(false);
+    expect(match(t, 'p1-p2').state).toBe('done');
+  });
+
+  it('turns a kept result around when the pairs change sides', () => {
+    // p1-p2 stored the other way round, as p2-p1 with the score from p2's side
+    const t = ok(updateMatch(build(), 'p1-p2', { sets: sets('6-4 3-6 7-6(5)') }));
+    const flipped: TournamentData = {
+      ...t,
+      matches: t.matches.map((m) =>
+        m.id === 'p1-p2'
+          ? { ...m, id: 'p2-p1', pairA: 'p2', pairB: 'p1', sets: sets('4-6 6-3 6-7(5)') }
+          : m,
+      ),
+    };
+    const added = ok(addPair(flipped, 'A'));
+    expect(match(added, 'p1-p2')).toMatchObject({
+      sets: sets('6-4 3-6 7-6(5)'),
+      winner: 'p1',
+      state: 'done',
+    });
+  });
+
+  it('refuses groups that become too small, unknown groups, and a started knockout', () => {
+    const t = build({
+      pairCount: 4,
+      structure: { type: 'groups_knockout', groupCount: 2, advanceA: 1 },
+    });
+    // 3 pairs can't make 2 groups
+    expect(codes(removePair(t, 'p1'))).toEqual(['GROUP_COUNT_RANGE']);
+    expect(codes(addPair(t, 'Z'))).toEqual(['NOT_FOUND']);
+    expect(codes(removePair(t, 'p99'))).toEqual(['NOT_FOUND']);
+    const knockout = build({ pairCount: 4, structure: { type: 'knockout' } });
+    expect(codes(addPair(knockout, 'A'))).toEqual(['NOT_FOUND']);
+
+    let started = ok(updateMatch(t, 'p1-p2', { sets: sets('6-1 6-1') }));
+    started = ok(updateMatch(started, 'p3-p4', { sets: sets('6-1 6-1') }));
+    started = ok(updateMatch(started, 'A0-0', { sets: sets('6-1 6-1') }));
+    expect(codes(addPair(started, 'A'))).toEqual(['KNOCKOUT_STARTED']);
+    expect(codes(removePair(started, 'p1'))).toEqual(['KNOCKOUT_STARTED']);
   });
 });

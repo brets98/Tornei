@@ -874,6 +874,24 @@ button.danger {
   padding: 0.25rem 0;
 }
 
+/* Groups tab: remove an entry (×), add one at the end of each group */
+.pair-row .remove-entry {
+  border: 0;
+  background: transparent;
+  color: var(--muted-text);
+  font-size: 1.1rem;
+}
+
+.pair-row .remove-entry:hover {
+  color: var(--error);
+}
+
+.add-entry {
+  margin-top: 0.5rem;
+  padding: 0.25rem 0.6rem;
+  font-size: 0.875rem;
+}
+
 .player-inputs {
   display: flex;
   flex: 1;

@@ -25,6 +25,10 @@ export interface TournamentActions {
   setLevel: (pairId: string, level: number) => void;
   updateMatch: (matchId: string, changes: MatchChanges) => void;
   setGroups: (groups: { id: string; pairIds: string[] }[]) => void;
+  /** A new entry (no names) at the end of a group, until the knockout starts */
+  addPair: (groupId: string) => void;
+  /** Removes an entry and its group matches, until the knockout starts */
+  removePair: (pairId: string) => void;
   draw: () => void;
   updateSettings: (changes: SettingsChanges) => void;
   resetResults: () => void;

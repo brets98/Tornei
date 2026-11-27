@@ -112,6 +112,8 @@ export function TournamentPage() {
           }),
         ),
       setGroups: (groups) => save(() => apiPut(`${path}/groups`, { groups })),
+      addPair: (groupId) => save(() => apiPost(`${path}/pairs`, { groupId })),
+      removePair: (pairId) => save(() => apiDeleteFor(`${path}/pairs/${pairId}`)),
       draw: () => save(() => apiPost(`${path}/draw`)),
       updateSettings: (changes) => save(() => apiPatch(`${path}/settings`, changes)),
       resetResults: () => save(() => apiPost(`${path}/reset`)),

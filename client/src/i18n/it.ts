@@ -333,6 +333,12 @@ export const it: Messages = {
     confirmDraw: 'Ridistribuire tutti a caso? I gironi attuali verranno sostituiti.',
     playerName: 'Giocatore {n} di {pair}',
     groupOf: 'Girone di {pair}',
+    addEntry: 'Aggiungi {entry}',
+    addEntryTo: 'Aggiungi {entry} al girone {group}',
+    removeEntry: 'Togli {pair}',
+    confirmRemove: 'Togliere {pair} dal torneo?',
+    confirmRemoveResults:
+      'Togliere {pair} dal torneo? Verranno cancellati anche i risultati delle sue partite nel girone ({count}).',
     matches: 'Partite',
     match: 'Partita',
     score: 'Risultato',
@@ -533,6 +539,8 @@ export const it: Messages = {
     SLOT_INVALID: '"{time}" non è un orario valido (formato HH:MM).',
     SLOT_DUPLICATE: "L'orario {time} compare due volte.",
     STRUCTURE_LOCKED: 'Ci sono già risultati: gironi e sorteggio non si possono più modificare.',
+    KNOCKOUT_STARTED:
+      'L’eliminazione diretta è iniziata: non si possono più aggiungere o togliere iscritti.',
     GROUPS_INVALID: 'Assegnazione ai gironi non valida.',
     PLAYERS_INVALID: 'Nomi dei giocatori non validi (al massimo {max} caratteri).',
     PLAYERS_INCOMPLETE: 'L’iscrizione {n} è incompleta: scrivi il nome di ogni giocatore.',

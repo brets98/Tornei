@@ -1,5 +1,12 @@
 import { describe, expect, it } from 'vitest';
-import { setGroups, setPlayers, updateMatch, updateSettings } from '../../src/domain/edit.js';
+import {
+  addPair,
+  removePair,
+  setGroups,
+  setPlayers,
+  updateMatch,
+  updateSettings,
+} from '../../src/domain/edit.js';
 import { parseSetup } from '../../src/domain/setup.js';
 import { buildTournament } from '../../src/domain/tournament.js';
 import { exportTournament, importTournament } from '../../src/domain/transfer.js';
@@ -43,7 +50,7 @@ describe('export and import', () => {
 
   it('leaves the derived state out of the file', () => {
     const file = exportTournament(played());
-    expect(file).toMatchObject({ format: 'tornei.tournament', version: 3 });
+    expect(file).toMatchObject({ format: 'tornei.tournament', version: 4 });
     expect(file.tournament).not.toHaveProperty('summary');
     expect(file.tournament.matches[0]).not.toHaveProperty('state');
   });
@@ -75,6 +82,14 @@ describe('export and import', () => {
     expect(result.data!.groupMatchFormat).toBeNull();
   });
 
+  it('keeps pair ids with gaps, after pairs were removed', () => {
+    let t = buildTournament(parseSetup(validSetup).setup);
+    t = updateMatch(t, 'p1-p2', { sets: sets('6-4 6-4') }).data!;
+    t = removePair(addPair(addPair(t, 'A').data!, 'B').data!, 'p13').data!;
+    expect(t.pairs.map((p) => p.id)).toContain('p14');
+    expect(roundTrip(t).data).toEqual(t);
+  });
+
   it('refuses files that are not tournaments, or from an unknown version', () => {
     const file = exportTournament(played());
     const codes = (value: unknown) => importTournament(value).issues?.map((i) => i.code);
@@ -84,7 +99,9 @@ describe('export and import', () => {
     expect(codes({ ...file, version: 99 })).toEqual(['IMPORT_VERSION']);
     const edit = (changes: object) =>
       codes({ ...file, tournament: { ...file.tournament, ...changes } });
-    expect(edit({ pairs: [...file.tournament.pairs].reverse() })).toEqual(['IMPORT_INVALID']);
+    const [first, ...others] = file.tournament.pairs;
+    expect(edit({ pairs: [first, first, ...others.slice(1)] })).toEqual(['IMPORT_INVALID']);
+    expect(edit({ pairs: [{ ...first, id: 'x1' }, ...others] })).toEqual(['IMPORT_INVALID']);
     expect(edit({ courts: [{ id: 'x', name: 'A' }] })).toEqual(['IMPORT_INVALID']);
     expect(edit({ matches: [{ id: 'nope', sets: [] }] })).toEqual(['IMPORT_INVALID']);
   });
