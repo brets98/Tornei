@@ -281,6 +281,15 @@ export const it: Messages = {
     refreshError: 'Aggiornamento non riuscito: mostro gli ultimi dati, riprovo tra 30 secondi.',
     complete: 'concluso',
     open: 'Vista live',
+    general: 'Generale',
+    noneActive:
+      'Nessun torneo in corso: la vista generale mostra i tornei in fase a gironi o a eliminazione diretta.',
+    rotation: 'Rotazione',
+    previous: 'Precedente',
+    next: 'Successivo',
+    pause: 'Pausa',
+    play: 'Riprendi',
+    position: '{n} di {total}',
   },
   organizers: {
     title: 'Organizzatori',

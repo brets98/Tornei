@@ -214,13 +214,17 @@ export function LivePage({ mode = 'live' }: { mode?: LiveMode }) {
       {!id && list && list.length > 0 && (
         <>
           <p className="muted">{mode === 'live' ? t.live.pick : t.organizers.pick}</p>
-          {mode === 'organizers' && (
-            <p>
+          <p>
+            {mode === 'organizers' ? (
               <Link className="button" to="/organizers/all">
                 {t.organizers.all}
               </Link>
-            </p>
-          )}
+            ) : (
+              <Link className="button" to="/live/general">
+                {t.live.general}
+              </Link>
+            )}
+          </p>
           <ul className="tournament-cards">
             {list.map((item) => (
               <li key={item.id}>
