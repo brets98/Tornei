@@ -7,6 +7,7 @@ import { CircuitPage } from './pages/CircuitPage';
 import { CircuitsPage } from './pages/CircuitsPage';
 import { ChangePasswordPage } from './pages/ChangePasswordPage';
 import { LivePage } from './pages/LivePage';
+import { SharedSchedulePage } from './pages/SharedSchedulePage';
 import { NewTournamentPage } from './pages/NewTournamentPage';
 import { NotFoundPage } from './pages/NotFoundPage';
 import { PlayersPage } from './pages/PlayersPage';
@@ -52,6 +53,7 @@ export function App() {
         <Route path="live" element={<LivePage />} />
         <Route path="live/:id" element={<LivePage />} />
         <Route path="organizers" element={<LivePage key="organizers" mode="organizers" />} />
+        <Route path="organizers/all" element={<SharedSchedulePage />} />
         <Route path="organizers/:id" element={<LivePage key="organizers" mode="organizers" />} />
         <Route path="results" element={<ResultsPage isAdmin={isAdmin} />} />
         <Route path="users" element={<UsersPage />} />

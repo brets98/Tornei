@@ -291,6 +291,9 @@ export const en = {
     noneScheduled: 'No match has a time yet: set courts and times in the overview.',
     unscheduled: 'Without a time',
     clash: 'Clash',
+    all: 'All tournaments',
+    date: 'Day',
+    courts: 'Courts shown',
   },
   images: {
     title: 'Images',

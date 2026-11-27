@@ -301,6 +301,31 @@ export function matchPhase(t: Messages, tournament: Pick<Tournament, 'brackets'>
   });
 }
 
+/**
+ * Matches in the order they are played: by time slot, then court; those without a time (or
+ * court) after, in their usual order.
+ */
+export function inScheduleOrder<M extends Pick<Match, 'courtId' | 'timeSlotId'>>(
+  tournament: Pick<Tournament, 'courts' | 'timeSlots'>,
+  matches: M[],
+): M[] {
+  const position = (ids: string[], id: string | null) => {
+    const index = id ? ids.indexOf(id) : -1;
+    return index === -1 ? Infinity : index;
+  };
+  const slots = tournament.timeSlots.map((s) => s.id);
+  const courts = tournament.courts.map((c) => c.id);
+  return matches
+    .map((m, order) => ({ m, order }))
+    .sort(
+      (a, b) =>
+        position(slots, a.m.timeSlotId) - position(slots, b.m.timeSlotId) ||
+        position(courts, a.m.courtId) - position(courts, b.m.courtId) ||
+        a.order - b.order,
+    )
+    .map(({ m }) => m);
+}
+
 /** Where and when a match is played: 'Bigi · 19:00', 'Bigi', '19:00', or '' if not scheduled. */
 export function scheduleLabel(
   tournament: Pick<Tournament, 'courts' | 'timeSlots'>,

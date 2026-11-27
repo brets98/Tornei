@@ -3,6 +3,7 @@ import { Link, useParams, useSearchParams } from 'react-router';
 import { BracketView } from '../components/tournament/BracketView';
 import { GroupsBoard } from '../components/tournament/GroupsBoard';
 import { ScheduleBoard } from '../components/tournament/ScheduleBoard';
+import { Freshness } from '../components/Freshness';
 import { TournamentLogo } from '../components/tournament/Images';
 import { fill, useI18n } from '../i18n/context';
 import { ApiError, apiGet } from '../lib/api';
@@ -140,36 +141,6 @@ type Shown =
   | { id: string; status: 'notFound' }
   | { id: string; status: 'ok'; tournament: Tournament; at: Date; failed: boolean };
 
-/** How old the data may get before the dot turns yellow, orange, red (minutes). */
-const FRESHNESS = [
-  { level: 'fresh', under: 2 },
-  { level: 'aging', under: 5 },
-  { level: 'stale', under: 10 },
-] as const;
-
-/**
- * A dot for how recent the shown data is: green under 2 minutes, yellow under 5, orange under
- * 10, red after (only when updates fail). The time is in its label and tooltip.
- */
-function Freshness({ at, label }: { at: Date; label: string }) {
-  const [now, setNow] = useState(() => Date.now());
-  useEffect(() => {
-    const timer = setInterval(() => setNow(Date.now()), 15_000);
-    return () => clearInterval(timer);
-  }, []);
-  const minutes = (now - at.getTime()) / 60_000;
-  const level = FRESHNESS.find((f) => minutes < f.under)?.level ?? 'old';
-  return (
-    <span
-      className={`freshness ${level}`}
-      role="status"
-      aria-label={label}
-      title={label}
-      data-level={level}
-    />
-  );
-}
-
 /**
  * Groups and brackets of one tournament, read-only, reloaded every 30 seconds: to follow a
  * tournament, e.g. on a screen at the club.
@@ -243,6 +214,13 @@ export function LivePage({ mode = 'live' }: { mode?: LiveMode }) {
       {!id && list && list.length > 0 && (
         <>
           <p className="muted">{mode === 'live' ? t.live.pick : t.organizers.pick}</p>
+          {mode === 'organizers' && (
+            <p>
+              <Link className="button" to="/organizers/all">
+                {t.organizers.all}
+              </Link>
+            </p>
+          )}
           <ul className="tournament-cards">
             {list.map((item) => (
               <li key={item.id}>

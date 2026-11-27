@@ -288,6 +288,9 @@ export const it: Messages = {
     noneScheduled: 'Nessuna partita ha ancora un orario: imposta campi e orari nel riepilogo.',
     unscheduled: 'Senza orario',
     clash: 'Sovrapposizione',
+    all: 'Tutti i tornei',
+    date: 'Giorno',
+    courts: 'Campi visualizzati',
   },
   images: {
     title: 'Immagini',

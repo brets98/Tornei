@@ -1624,6 +1624,12 @@ label.button.disabled {
   border-left-color: var(--error);
 }
 
+.schedule-tournament {
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: var(--navy);
+}
+
 .schedule-phase {
   font-size: 0.75rem;
   text-transform: uppercase;
@@ -1647,4 +1653,29 @@ label.button.disabled {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(16rem, 1fr));
   gap: 0.5rem;
+}
+
+/* Shared schedule: one chip per court, switched off ones are left out of the grid */
+.court-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  margin: 0.75rem 0;
+}
+
+.court-chip {
+  padding: 0.25rem 0.75rem;
+  border-radius: 999px;
+  border: 1px solid var(--panel-border);
+  background: transparent;
+  color: var(--muted-text);
+  font-size: 0.875rem;
+  text-decoration: line-through;
+}
+
+.court-chip.active {
+  background: var(--navy);
+  border-color: var(--navy);
+  color: Canvas;
+  text-decoration: none;
 }
