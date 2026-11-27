@@ -1,6 +1,6 @@
 import { fill, useI18n } from '../../i18n/context';
 import { formatResult } from '../../lib/score';
-import { pairLabel, scheduleLabel, type Tournament } from '../../lib/tournaments';
+import { inScheduleOrder, pairLabel, scheduleLabel, type Tournament } from '../../lib/tournaments';
 import { watermark } from '../../lib/images';
 import { StandingsTable } from './StandingsTable';
 
@@ -30,31 +30,28 @@ export function GroupsBoard({ tournament }: { tournament: Tournament }) {
             <div className="table-wrap">
               <table className="matches">
                 <tbody>
-                  {tournament.matches
-                    .filter((m) => m.groupId === group.id)
-                    .map((match) => (
-                      <tr key={match.id} className={`match state-${match.state}`}>
-                        <td>
-                          <span
-                            className={match.winner === match.pairA ? 'match-winner' : undefined}
-                          >
-                            {pairLabel(tournament, match.pairA!)}
-                          </span>
-                          <span className="versus"> vs </span>
-                          <span
-                            className={match.winner === match.pairB ? 'match-winner' : undefined}
-                          >
-                            {pairLabel(tournament, match.pairB!)}
-                          </span>
-                        </td>
-                        <td className="nowrap">
-                          {match.state === 'done' ? formatResult(match.sets) : ''}
-                        </td>
-                        <td className="nowrap muted">
-                          {match.state === 'done' ? '' : scheduleLabel(tournament, match)}
-                        </td>
-                      </tr>
-                    ))}
+                  {inScheduleOrder(
+                    tournament,
+                    tournament.matches.filter((m) => m.groupId === group.id),
+                  ).map((match) => (
+                    <tr key={match.id} className={`match state-${match.state}`}>
+                      <td>
+                        <span className={match.winner === match.pairA ? 'match-winner' : undefined}>
+                          {pairLabel(tournament, match.pairA!)}
+                        </span>
+                        <span className="versus"> vs </span>
+                        <span className={match.winner === match.pairB ? 'match-winner' : undefined}>
+                          {pairLabel(tournament, match.pairB!)}
+                        </span>
+                      </td>
+                      <td className="nowrap">
+                        {match.state === 'done' ? formatResult(match.sets) : ''}
+                      </td>
+                      <td className="nowrap muted">
+                        {match.state === 'done' ? '' : scheduleLabel(tournament, match)}
+                      </td>
+                    </tr>
+                  ))}
                 </tbody>
               </table>
             </div>

@@ -74,3 +74,31 @@ describe('GroupsView: adding and removing entries', () => {
     expect(screen.queryByRole('button', { name: /^Togli / })).not.toBeInTheDocument();
   });
 });
+
+describe('GroupsView: match order', () => {
+  it('lists each group’s matches by time, then court, unscheduled last', () => {
+    const groupA = tournament.groups[0];
+    const base = tournament.matches.find((m) => m.groupId === 'A')!;
+    const three: Tournament = {
+      ...tournament,
+      groups: [{ ...groupA, pairIds: ['p1', 'p2', 'p3'] }, tournament.groups[1]],
+      matches: [
+        { ...base, id: 'p1-p2', pairA: 'p1', pairB: 'p2', timeSlotId: null, courtId: 'c1' },
+        { ...base, id: 'p1-p3', pairA: 'p1', pairB: 'p3', timeSlotId: 't2', courtId: 'c1' },
+        { ...base, id: 'p2-p3', pairA: 'p2', pairB: 'p3', timeSlotId: 't1', courtId: 'c2' },
+        ...tournament.matches.filter((m) => m.groupId !== 'A'),
+      ],
+    };
+    renderGroups(three);
+    const card = screen.getByText('GIRONE A').closest('article')!;
+    const results = [...card.querySelectorAll('input[aria-label^="Risultato di"]')].map((i) =>
+      i.getAttribute('aria-label'),
+    );
+    expect(results).toEqual([
+      // 19:00, then 19:30, then the one without a time
+      'Risultato di A2 – A3',
+      'Risultato di Rossi / Bianchi – A3',
+      'Risultato di Rossi / Bianchi – A2',
+    ]);
+  });
+});

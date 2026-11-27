@@ -1,6 +1,7 @@
 import { fill, useI18n } from '../../i18n/context';
 import {
   entriesLabel,
+  inScheduleOrder,
   isStructureLocked,
   pairCode,
   pairLabel,
@@ -62,7 +63,10 @@ function GroupCard({
   actions,
 }: Props & { group: Group; locked: boolean }) {
   const { t } = useI18n();
-  const matches = tournament.matches.filter((m) => m.groupId === group.id);
+  const matches = inScheduleOrder(
+    tournament,
+    tournament.matches.filter((m) => m.groupId === group.id),
+  );
   const canMove = !locked && tournament.groups.length > 1;
   // Entries can be added and removed until the knockout has a result
   const canEdit = !tournament.matches.some((m) => m.phase === 'knockout' && m.sets.length > 0);
