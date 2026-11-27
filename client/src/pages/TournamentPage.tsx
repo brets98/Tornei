@@ -157,7 +157,8 @@ export function TournamentPage() {
       : t.tournament.tabs[name as Exclude<Tab, `bracket-${string}`>];
 
   return (
-    <article className="tournament">
+    // Editing the groups uses the whole width: each group card has a row of fields per pair
+    <article className={`tournament${tab === 'groups' ? ' full-width' : ''}`}>
       <header className="tournament-head">
         <div className="eyebrow">
           {fill(t.tournament.eyebrow, { sport: t.sport[tournament.sport] })}

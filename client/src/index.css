@@ -587,6 +587,10 @@ button.danger {
   max-width: 94rem;
 }
 
+.tournament.full-width {
+  max-width: none;
+}
+
 .tournament-head {
   border-bottom: 4px solid var(--navy);
   padding-bottom: 0.75rem;
