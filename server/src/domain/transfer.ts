@@ -6,9 +6,9 @@ import type { SetScore, TournamentData } from './types.js';
 
 /** Identifies an exported tournament file; bump the version when the format changes. */
 export const EXPORT_FORMAT = 'tornei.tournament';
-export const EXPORT_VERSION = 2;
-/** Versions still read: 1 is version 2 without `groupMatchFormat`. */
-const READ_VERSIONS: unknown[] = [1, 2];
+export const EXPORT_VERSION = 3;
+/** Versions still read: 1 has no `groupMatchFormat`, 1 and 2 no `restToB`/`crossRanking`. */
+const READ_VERSIONS: unknown[] = [1, 2, 3];
 
 /**
  * What a tournament file holds: the setup, pairs, groups or seeding, and each match's result

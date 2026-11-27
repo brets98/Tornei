@@ -43,7 +43,7 @@ describe('export and import', () => {
 
   it('leaves the derived state out of the file', () => {
     const file = exportTournament(played());
-    expect(file).toMatchObject({ format: 'tornei.tournament', version: 2 });
+    expect(file).toMatchObject({ format: 'tornei.tournament', version: 3 });
     expect(file.tournament).not.toHaveProperty('summary');
     expect(file.tournament.matches[0]).not.toHaveProperty('state');
   });

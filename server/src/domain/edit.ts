@@ -100,9 +100,7 @@ export function setGroups(data: TournamentData, groups: unknown): EditResult {
   if (structure.type === 'groups_knockout') {
     const issues = checkGroups(
       data.pairs.length,
-      structure.groupCount,
-      structure.advanceA,
-      structure.advanceB,
+      structure,
       list.map((g) => (g.pairIds as string[]).length),
     );
     if (issues.length > 0) return { issues };

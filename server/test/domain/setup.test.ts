@@ -140,6 +140,23 @@ describe('parseSetup', () => {
     ]);
   });
 
+  it('can send every pair not in bracket A to bracket B, and rank pairs across groups', () => {
+    const structure = { type: 'groups_knockout', groupCount: 6, advanceA: 2, advanceB: 1 };
+    const bronze = { ...validSetup, pairCount: 19 };
+    expect(
+      parseSetup({ ...bronze, structure: { ...structure, restToB: true, crossRanking: true } })
+        .setup.structure,
+    ).toEqual({ ...structure, advanceB: 0, restToB: true, crossRanking: true });
+    expect(parseSetup({ ...bronze, structure }).setup.structure).toMatchObject({
+      restToB: false,
+      crossRanking: false,
+    });
+    // 13 pairs, 6 groups, 2 each to A: 1 left for bracket B
+    expect(
+      codes({ ...validSetup, pairCount: 13, structure: { ...structure, restToB: true } }),
+    ).toEqual(['BRACKET_TOO_SMALL']);
+  });
+
   it('ignores group fields that do not apply to the structure', () => {
     const knockout = parseSetup({ ...validSetup, structure: { type: 'knockout', groupCount: 9 } });
     const groups = parseSetup({ ...validSetup, structure: { type: 'groups', advanceA: 3 } });

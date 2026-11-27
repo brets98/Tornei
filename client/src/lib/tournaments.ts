@@ -46,6 +46,8 @@ export type MatchState = 'todo' | 'done' | 'invalid' | 'bye' | 'stale';
 /** Where a knockout side comes from. */
 export type Source =
   | { kind: 'group'; groupId: string; position: number }
+  /** Ranking across groups: the `rank`-th best pair among those at `position` */
+  | { kind: 'ranked'; position: number; rank: number }
   | { kind: 'seed'; index: number }
   | { kind: 'winner'; matchId: string }
   /** Consolation: whoever loses their first match among those who started in this match */
@@ -102,7 +104,16 @@ export interface Tournament extends TournamentListItem {
   updatedAt: string;
   courts: { id: string; name: string }[];
   timeSlots: { id: string; time: string }[];
-  structure: { type: StructureType; groupCount: number; advanceA: number; advanceB: number };
+  structure: {
+    type: StructureType;
+    groupCount: number;
+    advanceA: number;
+    advanceB: number;
+    /** Bracket B takes every pair not in bracket A */
+    restToB?: boolean;
+    /** Brackets seeded by ranking pairs of the same position across groups */
+    crossRanking?: boolean;
+  };
   matchFormat: MatchFormat;
   /** Groups + knockout only: how group matches are played, null = like `matchFormat` */
   groupMatchFormat: MatchFormat | null;
@@ -232,6 +243,8 @@ export function sideLabel(
   switch (source?.kind) {
     case 'group':
       return fill(t.bracket.groupPosition, { group: source.groupId, position: source.position });
+    case 'ranked':
+      return fill(t.bracket.ranked, { position: source.position, rank: source.rank });
     case 'seed':
       return fill(t.bracket.seed, { n: source.index + 1 });
     case 'winner': {

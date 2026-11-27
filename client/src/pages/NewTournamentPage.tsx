@@ -40,7 +40,11 @@ interface Form extends GroupFormatChoice {
   groupCount: string;
   advanceA: string;
   withB: boolean;
+  /** Bracket B takes every pair not in A, instead of `advanceB` per group */
+  restToB: boolean;
   advanceB: string;
+  /** Seeds ranked across groups (the byes go to the best), instead of by group letter */
+  crossRanking: boolean;
   courts: string[];
   timeSlots: string[];
   /** A stage of this circuit, or null */
@@ -125,6 +129,8 @@ const initialForm = (t: Messages, circuitId: string | null): Form => ({
   advanceA: '2',
   withB: true,
   advanceB: '1',
+  restToB: true,
+  crossRanking: true,
   courts: [1, 2, 3, 4].map((n) => defaultCourt(t, n)),
   timeSlots: generateSlots('19:00', '23:00', 30),
   // 'New stage' from a circuit: its first category, chosen once the circuits are loaded
@@ -160,7 +166,9 @@ function toSetup(form: Form) {
       type: form.structureType,
       groupCount: number(form.groupCount),
       advanceA: number(form.advanceA),
-      advanceB: form.withB ? number(form.advanceB) : 0,
+      advanceB: form.withB && !form.restToB ? number(form.advanceB) : 0,
+      restToB: form.withB && form.restToB,
+      crossRanking: form.crossRanking,
     },
     matchFormat: buildMatchFormat(form.sets, form.decider),
     groupMatchFormat: groupFormatOf(form),
@@ -427,6 +435,28 @@ function StructureStep({
         </label>
       )}
       {withGroups && form.withB && (
+        <div className="choice column">
+          <label className="checkbox">
+            <input
+              type="radio"
+              name="bracketB"
+              checked={form.restToB}
+              onChange={() => update({ restToB: true })}
+            />
+            {t.wizard.restToB}
+          </label>
+          <label className="checkbox">
+            <input
+              type="radio"
+              name="bracketB"
+              checked={!form.restToB}
+              onChange={() => update({ restToB: false })}
+            />
+            {t.wizard.nextPositions}
+          </label>
+        </div>
+      )}
+      {withGroups && form.withB && !form.restToB && (
         <label>
           {t.wizard.advanceB}
           <input
@@ -435,6 +465,18 @@ function StructureStep({
             value={form.advanceB}
             onChange={(e) => update({ advanceB: e.target.value })}
           />
+        </label>
+      )}
+      {withGroups && (
+        <label className="checkbox">
+          <input
+            type="checkbox"
+            checked={form.crossRanking}
+            onChange={(e) => update({ crossRanking: e.target.checked })}
+          />
+          <span>
+            {t.wizard.crossRanking} <span className="muted">— {t.wizard.crossRankingHint}</span>
+          </span>
         </label>
       )}
       <MatchFormatsFields

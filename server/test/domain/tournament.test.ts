@@ -146,3 +146,84 @@ describe('refreshTournament', () => {
     expect(byId(t, 'A1-0').state).toBe('done');
   });
 });
+
+describe('cross ranking and every other pair to bracket B', () => {
+  /**
+   * 19 pairs in 6 groups (A has 4): the first two of each group to bracket A, all the others
+   * to B. In every match the pair entered first wins 9 to the group's `lost` games.
+   */
+  function bronze() {
+    let t = build({
+      pairCount: 19,
+      structure: {
+        type: 'groups_knockout',
+        groupCount: 6,
+        advanceA: 2,
+        restToB: true,
+        crossRanking: true,
+      },
+      groupMatchFormat: { bestOf: 1, gamesPerSet: 9, decider: 'set' },
+    });
+    const lost: Record<string, number> = { A: 7, B: 0, C: 1, D: 2, E: 3, F: 4 };
+    for (const m of t.matches.filter((m) => m.phase === 'group')) {
+      const g = t.groups.find((g) => g.id === m.groupId)!;
+      const aFirst = g.pairIds.indexOf(m.pairA!) < g.pairIds.indexOf(m.pairB!);
+      t = score(t, m.id, aFirst ? `9-${lost[g.id]}` : `${lost[g.id]}-9`);
+    }
+    return t;
+  }
+  const at = (t: TournamentData, group: string, position: number) =>
+    t.groups.find((g) => g.id === group)!.standings[position - 1].pairId;
+  const groupOf = (t: TournamentData, pairId: string) =>
+    t.groups.find((g) => g.pairIds.includes(pairId))!.id;
+
+  it('waits for every group, showing each slot by its rank', () => {
+    const t = build({
+      pairCount: 19,
+      structure: {
+        type: 'groups_knockout',
+        groupCount: 6,
+        advanceA: 2,
+        restToB: true,
+        crossRanking: true,
+      },
+    });
+    expect(t.brackets.map((b) => b.size)).toEqual([16, 8]);
+    const first = t.matches.filter((m) => m.bracket === 'A' && m.round === 0);
+    expect(first[0].sourceA).toEqual({ kind: 'ranked', position: 1, rank: 1 });
+    expect(first.filter((m) => m.state === 'bye')).toHaveLength(4);
+    const b = t.matches.filter((m) => m.bracket === 'B' && m.round === 0);
+    expect(b.flatMap((m) => [m.sourceA, m.sourceB])).toContainEqual({
+      kind: 'ranked',
+      position: 4,
+      rank: 1,
+    });
+    expect(t.matches.every((m) => m.phase === 'group' || m.pairA === null)).toBe(true);
+  });
+
+  it('gives the byes to the best across groups, leaving out matches against a 4th', () => {
+    const t = bronze();
+    const firstRound = (bracket: string) =>
+      t.matches.filter((m) => m.bracket === bracket && m.round === 0);
+
+    // A1 has 3 wins, but only 2 count, with the worst games difference
+    const byesA = firstRound('A')
+      .filter((m) => m.state === 'bye')
+      .map((m) => m.winner);
+    expect(byesA.sort()).toEqual(['B', 'C', 'D', 'E'].map((g) => at(t, g, 1)).sort());
+    const playingA = firstRound('A').filter((m) => m.state !== 'bye');
+    expect(playingA.flatMap((m) => [m.pairA, m.pairB]).sort()).toEqual(
+      [at(t, 'A', 1), at(t, 'F', 1), ...'ABCDEF'.split('').map((g) => at(t, g, 2))].sort(),
+    );
+    for (const m of playingA) expect(groupOf(t, m.pairA!)).not.toBe(groupOf(t, m.pairB!));
+
+    // Bracket B: the six 3rds and the 4th of A; the best 3rd (A's, on 2 matches) has the bye
+    const byesB = firstRound('B').filter((m) => m.state === 'bye');
+    expect(byesB.map((m) => m.winner)).toEqual([at(t, 'A', 3)]);
+    expect(
+      firstRound('B')
+        .flatMap((m) => [m.pairA, m.pairB])
+        .filter(Boolean),
+    ).toContain(at(t, 'A', 4));
+  });
+});

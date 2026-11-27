@@ -51,6 +51,13 @@ export interface Structure {
   advanceA: number;
   /** Following positions of each group that go to bracket B (0 = no bracket B) */
   advanceB: number;
+  /** Groups + knockout: bracket B takes every pair not in bracket A (`advanceB` is then 0) */
+  restToB?: boolean;
+  /**
+   * Groups + knockout: pairs of the same position are ranked across groups (`rankAcross()`)
+   * to seed the brackets, instead of by group letter
+   */
+  crossRanking?: boolean;
 }
 
 export interface Court {
@@ -102,6 +109,12 @@ export interface Group {
 /** Where a knockout side comes from. */
 export type Source =
   | { kind: 'group'; groupId: string; position: number }
+  /**
+   * With `crossRanking`: the `rank`-th best pair across groups among those at `position`. It
+   * says where the slot stands before the groups end; the pairs are then placed in the bracket
+   * by `placeSeeds()`, which keeps pairs of the same group apart.
+   */
+  | { kind: 'ranked'; position: number; rank: number }
   | { kind: 'seed'; index: number }
   | { kind: 'winner'; matchId: string }
   /**

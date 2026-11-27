@@ -152,10 +152,49 @@ describe('NewTournamentPage', () => {
       pairCount: 12,
       courts: ['Bigi', 'Campo 2', 'Campo 3', 'Campo 4'],
       timeSlots: ['19:00', '19:30', '20:00', '20:30', '21:00', '21:30', '22:00', '22:30', '23:00'],
-      structure: { type: 'groups_knockout', groupCount: 4, advanceA: 2, advanceB: 1 },
+      // Bracket B with every pair not in A, seeds ranked across groups, unless chosen otherwise
+      structure: {
+        type: 'groups_knockout',
+        groupCount: 4,
+        advanceA: 2,
+        advanceB: 0,
+        restToB: true,
+        crossRanking: true,
+      },
       // Padel: a super tie-break instead of the third set, unless chosen otherwise
       matchFormat: { bestOf: 3, gamesPerSet: 6, decider: 'superTiebreak' },
       groupMatchFormat: null,
+    });
+  });
+
+  it('can send a number of positions per group to bracket B, and seed by group letter', async () => {
+    const fetchMock = stubApi({
+      'POST /api/tournaments/preview': previewFor as never,
+      'POST /api/tournaments': () => json({ id: 't1' }, 201),
+    });
+    renderPage();
+    type('Nome', 'Torneo di primavera');
+    await previewChecked();
+    next();
+    await screen.findByText('Girone A: 3 coppie');
+    expect(screen.queryByLabelText('Passano al tabellone B (per girone)')).not.toBeInTheDocument();
+    fireEvent.click(screen.getByLabelText('Le posizioni successive di ogni girone'));
+    type('Passano al tabellone B (per girone)', '1');
+    fireEvent.click(screen.getByLabelText(/Classifica tra gironi per i tabelloni/));
+    next();
+    type('Nome campo 1', 'Bigi');
+    next();
+    fireEvent.click(screen.getByRole('button', { name: 'Crea torneo' }));
+
+    await screen.findByText('Pagina del torneo');
+    const [, init] = fetchMock.mock.calls.filter(([url]) => url === '/api/tournaments').at(-1)!;
+    expect(JSON.parse(init!.body as string).structure).toEqual({
+      type: 'groups_knockout',
+      groupCount: 4,
+      advanceA: 2,
+      advanceB: 1,
+      restToB: false,
+      crossRanking: false,
     });
   });
 

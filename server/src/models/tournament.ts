@@ -19,9 +19,14 @@ const embedded = (definition: SchemaDefinition) =>
   new Schema(definition, { _id: false, id: false });
 
 const sourceSchema = embedded({
-  kind: { type: String, enum: ['group', 'seed', 'winner', 'firstLoser', 'bye'], required: true },
+  kind: {
+    type: String,
+    enum: ['group', 'ranked', 'seed', 'winner', 'firstLoser', 'bye'],
+    required: true,
+  },
   groupId: String,
   position: Number,
+  rank: Number,
   index: Number,
   matchId: String,
 });
@@ -93,6 +98,8 @@ const tournamentSchema = createSchema<Tournament>({
     groupCount: Number,
     advanceA: Number,
     advanceB: Number,
+    restToB: { type: Boolean, default: false },
+    crossRanking: { type: Boolean, default: false },
   }),
   matchFormat: matchFormatSchema,
   groupMatchFormat: { type: matchFormatSchema, default: null },
