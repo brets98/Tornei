@@ -1679,3 +1679,30 @@ label.button.disabled {
   color: Canvas;
   text-decoration: none;
 }
+
+/* Live view, general: one phase of one tournament at a time, with its controls */
+.slide-controls {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.slide-dots {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  margin: 0.6rem 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.slide-dots li {
+  width: 0.55rem;
+  height: 0.55rem;
+  border-radius: 50%;
+  background: var(--border);
+}
+
+.slide-dots li.active {
+  background: var(--gold);
+}

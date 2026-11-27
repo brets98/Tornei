@@ -284,6 +284,15 @@ export const en = {
     refreshError: 'Could not update: showing the last data, trying again in 30 seconds.',
     complete: 'complete',
     open: 'Live view',
+    general: 'General',
+    noneActive:
+      'No tournament is under way: the general view shows tournaments in the group or knockout phase.',
+    rotation: 'Rotation',
+    previous: 'Previous',
+    next: 'Next',
+    pause: 'Pause',
+    play: 'Resume',
+    position: '{n} of {total}',
   },
   organizers: {
     title: 'Organizers',

@@ -8,6 +8,7 @@ import { CircuitsPage } from './pages/CircuitsPage';
 import { ChangePasswordPage } from './pages/ChangePasswordPage';
 import { LivePage } from './pages/LivePage';
 import { SharedSchedulePage } from './pages/SharedSchedulePage';
+import { GeneralLivePage } from './pages/GeneralLivePage';
 import { NewTournamentPage } from './pages/NewTournamentPage';
 import { NotFoundPage } from './pages/NotFoundPage';
 import { PlayersPage } from './pages/PlayersPage';
@@ -51,6 +52,7 @@ export function App() {
         <Route path="circuits/:id" element={<CircuitPage />} />
         <Route path="players" element={<PlayersPage />} />
         <Route path="live" element={<LivePage />} />
+        <Route path="live/general" element={<GeneralLivePage />} />
         <Route path="live/:id" element={<LivePage />} />
         <Route path="organizers" element={<LivePage key="organizers" mode="organizers" />} />
         <Route path="organizers/all" element={<SharedSchedulePage />} />
