@@ -7,6 +7,7 @@ import {
   type MatchFormat,
   type Setup,
   type Sport,
+  type Structure,
   type StructureType,
 } from './types.js';
 
@@ -141,9 +142,7 @@ export function parseSetup(input: unknown): { setup: Setup; issues: Issue[] } {
   if (duplicateSlot) issues.push({ code: 'SLOT_DUPLICATE', params: { time: duplicateSlot } });
 
   if (type === 'groups_knockout' && pairCount >= LIMITS.minPairs) {
-    issues.push(
-      ...checkGroups(pairCount, structure.groupCount, structure.advanceA, structure.advanceB),
-    );
+    issues.push(...checkGroups(pairCount, structure));
   }
 
   // Not sent: the usual best of 3 sets
@@ -221,8 +220,13 @@ function normalizeStructure(type: StructureType, raw: Record<string, unknown>) {
         type,
         groupCount: integer(raw.groupCount),
         advanceA: integer(raw.advanceA),
-        // No bracket B unless asked for
-        advanceB: raw.advanceB === undefined || raw.advanceB === null ? 0 : integer(raw.advanceB),
+        // No bracket B unless asked for; with every other pair in it, no count per group
+        advanceB:
+          raw.restToB === true || raw.advanceB === undefined || raw.advanceB === null
+            ? 0
+            : integer(raw.advanceB),
+        restToB: raw.restToB === true,
+        crossRanking: raw.crossRanking === true,
       };
   }
 }
@@ -233,9 +237,7 @@ function normalizeStructure(type: StructureType, raw: Record<string, unknown>) {
  */
 export function checkGroups(
   pairCount: number,
-  groupCount: number,
-  advanceA: number,
-  advanceB: number,
+  { groupCount, advanceA, advanceB, restToB }: Structure,
   sizes: number[] = groupSizes(pairCount, groupCount),
 ): Issue[] {
   const maxGroups = Math.min(LIMITS.maxGroups, Math.floor(pairCount / MIN_GROUP_SIZE));
@@ -261,7 +263,8 @@ export function checkGroups(
     }
     if (groupCount * advanceA < 2)
       issues.push({ code: 'BRACKET_TOO_SMALL', params: { bracket: 'A' } });
-    if (advanceB > 0 && groupCount * advanceB < 2) {
+    const toB = restToB ? pairCount - groupCount * advanceA : groupCount * advanceB;
+    if ((restToB || advanceB > 0) && toB < 2) {
       issues.push({ code: 'BRACKET_TOO_SMALL', params: { bracket: 'B' } });
     }
   }

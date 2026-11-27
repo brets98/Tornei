@@ -2,7 +2,7 @@ import { bracketMatches, knockoutMatchId, placeSeeds } from './bracket.js';
 import { findConflicts } from './conflicts.js';
 import { distribute, groupId, roundRobin, shuffle } from './groups.js';
 import { formatOf, outcome } from './score.js';
-import { computeStandings, resultState } from './standings.js';
+import { computeStandings, rankAcross, resultState } from './standings.js';
 import type {
   Bracket,
   BracketId,
@@ -34,16 +34,30 @@ export function groupMatches(group: { id: string; pairIds: string[] }): Match[] 
   }));
 }
 
-/** Bracket entrants, strongest first: by group position, then group letter (A1, B1, …, A2, B2, …). */
-function bracketSources(structure: Structure, groupIds: string[], pairCount: number) {
+/**
+ * Bracket entrants, strongest first: by group position, then group letter (A1, B1, …, A2, B2,
+ * …), or with `crossRanking` by rank across groups (best 1st, second best 1st, …), placed once
+ * the groups end. A position counts only the groups that have it (e.g. 4th of a group of 4).
+ */
+function bracketSources(
+  structure: Structure,
+  groups: { id: string; size: number }[],
+  pairCount: number,
+) {
   const fromGroups = (first: number, count: number) =>
-    Array.from({ length: count }, (_, p) =>
-      groupIds.map((id) => ({
-        source: { kind: 'group', groupId: id, position: first + p } as Source,
-        group: id,
-        tier: first + p,
-      })),
-    ).flat();
+    Array.from({ length: count }, (_, p) => {
+      const position = first + p;
+      const having = groups.filter((g) => g.size >= position);
+      return having.map(({ id }, i) =>
+        structure.crossRanking
+          ? { source: { kind: 'ranked', position, rank: i + 1 } as Source, tier: position }
+          : {
+              source: { kind: 'group', groupId: id, position } as Source,
+              group: id,
+              tier: position,
+            },
+      );
+    }).flat();
 
   const brackets: { id: BracketId; seeds: { source: Source; group?: string; tier: number }[] }[] =
     [];
@@ -57,8 +71,10 @@ function bracketSources(structure: Structure, groupIds: string[], pairCount: num
     });
   } else if (structure.type === 'groups_knockout') {
     brackets.push({ id: 'A', seeds: fromGroups(1, structure.advanceA) });
-    if (structure.advanceB > 0) {
-      brackets.push({ id: 'B', seeds: fromGroups(structure.advanceA + 1, structure.advanceB) });
+    const largest = Math.max(...groups.map((g) => g.size));
+    const advanceB = structure.restToB ? largest - structure.advanceA : structure.advanceB;
+    if (advanceB > 0) {
+      brackets.push({ id: 'B', seeds: fromGroups(structure.advanceA + 1, advanceB) });
     }
   }
   return brackets;
@@ -74,7 +90,7 @@ export function buildMatches(
   const previous = new Map(data.matches.map((m) => [m.id, m]));
   const brackets = bracketSources(
     data.structure,
-    data.groups.map((g) => g.id),
+    data.groups.map((g) => ({ id: g.id, size: g.pairIds.length })),
     data.pairs.length,
   ).map(({ id, seeds }) => {
     const slots = placeSeeds(seeds).map((seed) => seed?.source ?? null);
@@ -191,6 +207,36 @@ export function refreshTournament<T extends TournamentData>(data: T): T & Derive
   });
   const groupsById = new Map(groups.map((g) => [g.id, g]));
 
+  // Cross ranking: once every group is done, each bracket's pairs are ranked across groups
+  // and placed (byes to the best, pairs of the same group kept apart)
+  const placed = new Map<string, (string | null)[]>();
+  if (data.structure.crossRanking && groups.length > 0 && groups.every((g) => g.complete)) {
+    const played = [...matches.values()];
+    const format = data.groupMatchFormat ?? data.matchFormat;
+    for (const bracket of data.brackets) {
+      const positions = new Set(
+        data.matches
+          .filter((m) => m.bracket === bracket.id && m.round === 0)
+          .flatMap((m) => [m.sourceA, m.sourceB])
+          .flatMap((s) => (s?.kind === 'ranked' ? [s.position] : [])),
+      );
+      if (positions.size === 0) continue;
+      const seeds = [...positions]
+        .sort((a, b) => a - b)
+        .flatMap((position) =>
+          rankAcross(groups, played, format, position).map(({ pairId, groupId }) => ({
+            pairId,
+            group: groupId,
+            tier: position,
+          })),
+        );
+      placed.set(
+        bracket.id,
+        placeSeeds(seeds).map((seed) => seed?.pairId ?? null),
+      );
+    }
+  }
+
   /** The pair on one side, null while not known, NOBODY when the side turned out empty. */
   const resolve = (source: Source | undefined): string | null | typeof NOBODY => {
     switch (source?.kind) {
@@ -227,8 +273,11 @@ export function refreshTournament<T extends TournamentData>(data: T): T & Derive
       (a, b) => a.bracket!.localeCompare(b.bracket!) || a.round! - b.round! || a.index! - b.index!,
     );
   for (const m of knockout) {
-    const sideA = resolve(m.sourceA);
-    const sideB = resolve(m.sourceB);
+    const slots = m.round === 0 ? placed.get(m.bracket!) : undefined;
+    const side = (source: Source | undefined, k: number) =>
+      source?.kind === 'ranked' ? (slots?.[2 * m.index! + k] ?? null) : resolve(source);
+    const sideA = side(m.sourceA, 0);
+    const sideB = side(m.sourceB, 1);
     const pairA = sideA === NOBODY ? null : sideA;
     const pairB = sideB === NOBODY ? null : sideB;
     const resolved = { ...m, pairA, pairB };

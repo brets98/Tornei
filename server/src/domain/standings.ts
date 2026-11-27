@@ -90,3 +90,39 @@ export function computeStandings(
   }
   return result;
 }
+
+/**
+ * Pairs at `position` across groups, best first: wins → sets difference → games difference →
+ * games won → group letter. Groups larger than the smallest one leave out the matches against
+ * their pairs ranked below the smallest size (e.g. the 4th of a group of 4 when the others
+ * have 3), so every pair is compared on the same number of matches. Groups must be complete.
+ */
+export function rankAcross(
+  groups: { id: string; pairIds: string[]; standings: StandingRow[] }[],
+  matches: (ScoredMatch & { groupId?: string })[],
+  format: MatchFormat,
+  position: number,
+): { pairId: string; groupId: string }[] {
+  const smallest = Math.min(...groups.map((g) => g.pairIds.length));
+  const rows = groups
+    .filter((g) => g.standings.length >= position)
+    .map((g) => {
+      const counted = g.standings.slice(0, smallest).map((row) => row.pairId);
+      const own = matches.filter((m) => m.groupId === g.id);
+      const pairId = g.standings[position - 1].pairId;
+      // A pair below the smallest size is compared on its matches against the counted ones
+      const pairIds = counted.includes(pairId) ? counted : [...counted, pairId];
+      const row = computeStandings(pairIds, own, format).find((r) => r.pairId === pairId)!;
+      return { row, groupId: g.id };
+    });
+  return rows
+    .sort(
+      (a, b) =>
+        b.row.wins - a.row.wins ||
+        setDiff(b.row) - setDiff(a.row) ||
+        gameDiff(b.row) - gameDiff(a.row) ||
+        b.row.gamesFor - a.row.gamesFor ||
+        a.groupId.localeCompare(b.groupId),
+    )
+    .map(({ row, groupId }) => ({ pairId: row.pairId, groupId }));
+}

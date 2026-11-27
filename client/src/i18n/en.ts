@@ -199,6 +199,11 @@ export const en = {
     advanceA: 'Go to bracket A (per group)',
     bracketB: 'Bracket B for the next positions',
     advanceB: 'Go to bracket B (per group)',
+    restToB: 'All the pairs not in bracket A',
+    nextPositions: 'The next positions of each group',
+    crossRanking: 'Rank the pairs across groups for the brackets',
+    crossRankingHint:
+      'the byes go to the best pairs of each position, comparing groups by wins, sets and games; a larger group leaves out its matches against the pairs below the smallest group size',
     preview: 'Preview',
     groupSize: 'Group {group}: {count} {entries}',
     bracket: 'Bracket {id}: {count} {entries}, starting from the {round}',
@@ -354,6 +359,8 @@ export const en = {
     consolationHint:
       'Everyone who loses their first match plays here. Winners advance automatically.',
     groupPosition: 'Group {group} #{position}',
+    /** A slot filled by ranking across groups, e.g. the second best group winner */
+    ranked: '#{position} place, best no. {rank}',
     seed: 'Seed {n}',
     bye: 'Bye',
     match: '{round} {n}',
