@@ -100,12 +100,20 @@ button.link {
   min-height: 100vh;
 }
 
+/* As tall as the window and fixed while the page scrolls; scrolls itself if it doesn't fit */
 .sidebar {
   display: flex;
   flex-direction: column;
   gap: 1.5rem;
   padding: 1.5rem 1rem;
   border-right: 1px solid var(--border);
+  position: sticky;
+  top: 0;
+  align-self: start;
+  height: 100vh;
+  height: 100dvh;
+  box-sizing: border-box;
+  overflow-y: auto;
 }
 
 .brand {
@@ -238,6 +246,9 @@ td {
   .sidebar {
     border-right: none;
     border-bottom: 1px solid var(--border);
+    position: static;
+    height: auto;
+    overflow-y: visible;
   }
 
   .content {
