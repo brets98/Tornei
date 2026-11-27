@@ -8,7 +8,6 @@ import { ApiError, apiGet } from '../lib/api';
 import {
   bracketName,
   formatDate,
-  type BracketId,
   type Tournament,
   type TournamentListItem,
 } from '../lib/tournaments';
@@ -38,27 +37,31 @@ function TournamentCard({ item }: { item: TournamentListItem }) {
 }
 
 /** 'groups' or 'bracket-A' / 'bracket-B'. */
-type View = 'groups' | `bracket-${string}`;
+type View = 'groups' | 'brackets';
 
 /**
- * Groups or one bracket, with a switch between them (kept in the address, `?view=`). Until one
- * is chosen it follows the tournament: the groups while they are played, then bracket A.
+ * The groups or every bracket on one page, with a switch between them (kept in the address,
+ * `?view=`; `bracket-A` from older links means the brackets). Until one is chosen it follows
+ * the tournament: the groups while they are played, then the brackets.
  */
-function Board({ tournament, updated }: { tournament: Tournament; updated: string }) {
+function Board({ tournament, at, updated }: { tournament: Tournament; at: Date; updated: string }) {
   const { t } = useI18n();
   const [searchParams, setSearchParams] = useSearchParams();
   const { ref, fullscreen, toggle } = useFullscreen<HTMLDivElement>();
   const views: View[] = [
     ...(tournament.groups.length > 0 ? ['groups' as const] : []),
-    ...tournament.brackets.map((b): View => `bracket-${b.id}`),
+    ...(tournament.brackets.length > 0 ? ['brackets' as const] : []),
   ];
-  const requested = searchParams.get('view') as View | null;
+  const param = searchParams.get('view');
+  const requested = param?.startsWith('bracket-') ? 'brackets' : (param as View | null);
   const inKnockout = ['knockout', 'finished'].includes(tournament.summary.status);
   const view =
     requested && views.includes(requested)
       ? requested
-      : (views.find((v) => v.startsWith('bracket-') === inKnockout) ?? views[0]);
-  const bracket = tournament.brackets.find((b) => view === `bracket-${b.id}`);
+      : (views.find((v) => (v === 'brackets') === inKnockout) ?? views[0]);
+  // One bracket is named as such ('Bracket A'); more are 'Brackets'
+  const bracketsLabel =
+    tournament.brackets.length === 1 ? bracketName(t, tournament.brackets[0].id) : t.live.brackets;
 
   return (
     <div ref={ref} className={`live-board${fullscreen ? ' fullscreen' : ''}`}>
@@ -69,7 +72,7 @@ function Board({ tournament, updated }: { tournament: Tournament; updated: strin
               <TournamentLogo tournament={tournament} />
               {tournament.name}
             </b>
-            <span className="muted">{updated}</span>
+            <Freshness at={at} label={updated} />
           </div>
         )}
         {views.length > 1 && (
@@ -82,9 +85,7 @@ function Board({ tournament, updated }: { tournament: Tournament; updated: strin
                 aria-current={name === view ? 'page' : undefined}
                 onClick={() => setSearchParams({ view: name }, { replace: true })}
               >
-                {name === 'groups'
-                  ? t.groups.title
-                  : bracketName(t, name.slice('bracket-'.length) as BracketId)}
+                {name === 'groups' ? t.groups.title : bracketsLabel}
               </button>
             ))}
           </nav>
@@ -101,7 +102,13 @@ function Board({ tournament, updated }: { tournament: Tournament; updated: strin
           <GroupsBoard tournament={tournament} />
         </section>
       )}
-      {bracket && <BracketView tournament={tournament} bracket={bracket} />}
+      {view === 'brackets' && (
+        <div className="live-brackets">
+          {tournament.brackets.map((b) => (
+            <BracketView key={b.id} tournament={tournament} bracket={b} />
+          ))}
+        </div>
+      )}
     </div>
   );
 }
@@ -110,6 +117,36 @@ function Board({ tournament, updated }: { tournament: Tournament; updated: strin
 type Shown =
   | { id: string; status: 'notFound' }
   | { id: string; status: 'ok'; tournament: Tournament; at: Date; failed: boolean };
+
+/** How old the data may get before the dot turns yellow, orange, red (minutes). */
+const FRESHNESS = [
+  { level: 'fresh', under: 2 },
+  { level: 'aging', under: 5 },
+  { level: 'stale', under: 10 },
+] as const;
+
+/**
+ * A dot for how recent the shown data is: green under 2 minutes, yellow under 5, orange under
+ * 10, red after (only when updates fail). The time is in its label and tooltip.
+ */
+function Freshness({ at, label }: { at: Date; label: string }) {
+  const [now, setNow] = useState(() => Date.now());
+  useEffect(() => {
+    const timer = setInterval(() => setNow(Date.now()), 15_000);
+    return () => clearInterval(timer);
+  }, []);
+  const minutes = (now - at.getTime()) / 60_000;
+  const level = FRESHNESS.find((f) => minutes < f.under)?.level ?? 'old';
+  return (
+    <span
+      className={`freshness ${level}`}
+      role="status"
+      aria-label={label}
+      title={label}
+      data-level={level}
+    />
+  );
+}
 
 /**
  * Groups and brackets of one tournament, read-only, reloaded every 30 seconds: to follow a
@@ -171,11 +208,13 @@ export function LivePage() {
       : '';
 
   return (
-    <article className="page wide live">
-      <div className="page-head">
-        <h1>{t.live.title}</h1>
-        {id && <Link to="/live">{t.live.all}</Link>}
-      </div>
+    <article className="page live-page">
+      {/* A tournament speaks for itself: its name is the title, the cards page has this one */}
+      {!id && (
+        <div className="page-head">
+          <h1>{t.live.title}</h1>
+        </div>
+      )}
 
       {!id && list === null && <p>{t.common.loading}</p>}
       {!id && list?.length === 0 && <p className="muted">{t.list.empty}</p>}
@@ -196,23 +235,26 @@ export function LivePage() {
       {id && shown.status === 'ok' && (
         <>
           <header className="tournament-head">
-            <div className="eyebrow">
-              {fill(t.tournament.eyebrow, { sport: t.sport[shown.tournament.sport] })}
-            </div>
-            <div className="tournament-title">
-              <TournamentLogo tournament={shown.tournament} />
-              <h2>
-                {shown.tournament.name}
-                {shown.tournament.subtitle && <span>{shown.tournament.subtitle}</span>}
-              </h2>
-            </div>
-            <div className="live-status">
-              <span className="muted" role="status">
-                {updated}
-              </span>
-              <button type="button" className="secondary" onClick={() => load()}>
-                {t.live.refresh}
-              </button>
+            <div className="live-head-row">
+              <div className="tournament-title">
+                <TournamentLogo tournament={shown.tournament} />
+                <h1>
+                  {shown.tournament.name}
+                  {shown.tournament.subtitle && <span>{shown.tournament.subtitle}</span>}
+                </h1>
+              </div>
+              <div className="live-status">
+                <Freshness at={shown.at} label={updated} />
+                <button
+                  type="button"
+                  className="secondary icon-button"
+                  aria-label={t.live.refresh}
+                  title={t.live.refresh}
+                  onClick={() => load()}
+                >
+                  ↻
+                </button>
+              </div>
             </div>
             {shown.failed && (
               <p className="error" role="alert">
@@ -220,7 +262,7 @@ export function LivePage() {
               </p>
             )}
           </header>
-          <Board tournament={shown.tournament} updated={updated} />
+          <Board tournament={shown.tournament} at={shown.at} updated={updated} />
         </>
       )}
     </article>

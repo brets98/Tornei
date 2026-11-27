@@ -25,6 +25,8 @@ export const it: Messages = {
     users: 'Utenti',
     changePassword: 'Cambia password',
     signOut: 'Esci',
+    hide: 'Nascondi menu',
+    show: 'Mostra menu',
   },
   auth: {
     signIn: 'Accedi',
@@ -269,7 +271,8 @@ export const it: Messages = {
     all: '← Tutti i tornei',
     pick: 'Scegli un torneo per seguirne gironi e tabelloni. La pagina si aggiorna da sola ogni 30 secondi.',
     updated: 'Aggiornato alle {time} · si aggiorna ogni 30 secondi',
-    switch: 'Gironi o tabellone',
+    switch: 'Gironi o tabelloni',
+    brackets: 'Tabelloni',
     fullscreen: 'Schermo intero',
     exitFullscreen: 'Esci dallo schermo intero',
     refresh: 'Aggiorna ora',
