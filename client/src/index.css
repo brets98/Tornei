@@ -1311,3 +1311,81 @@ label.button.disabled {
   padding-left: 1rem;
   font-size: 0.9rem;
 }
+
+/* Tournament images: the logo beside the name, the background as a watermark */
+.tournament-title {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.tournament-logo {
+  height: 3.5rem;
+  width: auto;
+  max-width: 8rem;
+  object-fit: contain;
+  flex: none;
+}
+
+.live-title .tournament-logo {
+  height: 2.25rem;
+}
+
+/*
+ * The background as a faint layer behind the content. It blends with the card, so an image
+ * with its own white backdrop shows only its drawing: multiply drops the white in light mode;
+ * in dark mode the image is inverted (a dark logo turns light) and screen drops the black.
+ */
+.watermarked {
+  position: relative;
+  isolation: isolate;
+  /* What the layer blends with: without it the image would show its own backdrop */
+  background-color: var(--panel);
+}
+
+.watermarked::before {
+  content: '';
+  position: absolute;
+  inset: 1.5rem;
+  z-index: -1;
+  pointer-events: none;
+  background: var(--watermark) center / contain no-repeat;
+  filter: grayscale(1);
+  mix-blend-mode: multiply;
+  opacity: 0.16;
+}
+
+@media (prefers-color-scheme: dark) {
+  .watermarked::before {
+    filter: grayscale(1) invert(1);
+    mix-blend-mode: screen;
+    opacity: 0.2;
+  }
+}
+
+.image-fields {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(16rem, 1fr));
+  gap: 1rem;
+}
+
+.image-field h4 {
+  margin: 0 0 0.25rem;
+}
+
+.image-preview {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 8rem;
+  margin: 0.5rem 0;
+  border: 1px dashed var(--panel-border);
+  border-radius: 0.5rem;
+  overflow: hidden;
+}
+
+.image-preview img {
+  max-width: 100%;
+  max-height: 100%;
+  object-fit: contain;
+}

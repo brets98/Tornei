@@ -37,6 +37,7 @@ export const mockActions = (): TournamentActions => ({
   draw: vi.fn(),
   updateSettings: vi.fn(),
   resetResults: vi.fn(),
+  setImage: vi.fn(),
   reportUnreadable: vi.fn(),
 });
 

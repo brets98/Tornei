@@ -1,5 +1,5 @@
-import { Router, type Request, type Response } from 'express';
-import { isValidObjectId } from 'mongoose';
+import express, { Router, type Request, type Response } from 'express';
+import { isValidObjectId, type Types } from 'mongoose';
 import {
   draw,
   resetBracket,
@@ -14,6 +14,7 @@ import { exportTournament, importTournament } from '../domain/transfer.js';
 import { LIMITS, parseSetup } from '../domain/setup.js';
 import { buildMatches, buildTournament, refreshTournament } from '../domain/tournament.js';
 import type { TournamentData } from '../domain/types.js';
+import { ImageModel, imageType, MAX_IMAGE_BYTES } from '../models/image.js';
 import type { Tournament } from '../models/tournament.js';
 import { TournamentModel } from '../models/tournament.js';
 import { findStageLink } from './circuits.js';
@@ -177,6 +178,7 @@ tournamentsRouter.delete('/:id', async (req, res) => {
     return;
   }
   await tournament.deleteOne();
+  await ImageModel.deleteMany({ _id: { $in: imageIds(tournament) } });
   res.status(204).end();
 });
 
@@ -196,6 +198,11 @@ tournamentsRouter.post('/:id/duplicate', async (req, res) => {
   const tournament = await TournamentModel.create({
     ...refreshTournament({ ...copy, ...buildMatches(copy) }),
     ownerId: req.user!.id,
+    // Its own copy of each image, so deleting one tournament leaves the other's
+    images: {
+      logo: await copyImage(original.images?.logo),
+      background: await copyImage(original.images?.background),
+    },
   });
   res.status(201).json(tournament);
 });
@@ -250,4 +257,64 @@ tournamentsRouter.post('/:id/draw', (req, res) => applyEdit(req, res, (data) => 
 
 tournamentsRouter.patch('/:id/matches/:matchId', (req, res) =>
   applyEdit(req, res, (data) => updateMatch(data, req.params.matchId, req.body)),
+);
+
+const IMAGE_KINDS = ['logo', 'background'] as const;
+type ImageKind = (typeof IMAGE_KINDS)[number];
+
+const imageIds = (tournament: Pick<Tournament, 'images'>) =>
+  IMAGE_KINDS.map((kind) => tournament.images?.[kind]).filter((id) => id);
+
+async function copyImage(id: Types.ObjectId | null | undefined) {
+  const image = id ? await ImageModel.findById(id) : null;
+  if (!image) return null;
+  const copy = await ImageModel.create({
+    ownerId: image.ownerId,
+    contentType: image.contentType,
+    data: image.data,
+  });
+  return copy._id;
+}
+
+/**
+ * Sets (the image file as the body) or removes one of the tournament's images: `logo`, shown
+ * beside its name, or `background`, behind its groups and brackets. Answers the tournament.
+ */
+async function setImage(req: Request<{ id: string; kind: string }>, res: Response, data?: Buffer) {
+  const kind = IMAGE_KINDS.find((k) => k === req.params.kind) as ImageKind | undefined;
+  const tournament = kind ? await findOwned(req) : null;
+  if (!kind || !tournament) {
+    res.status(404).json({ error: 'Not found' });
+    return;
+  }
+  const contentType = data ? imageType(data) : null;
+  if (data && !contentType) {
+    res.status(400).json({ error: 'Not an image', issues: [{ code: 'IMAGE_INVALID' }] });
+    return;
+  }
+  const old = tournament.images?.[kind] ?? null;
+  const image =
+    data && contentType
+      ? await ImageModel.create({ ownerId: req.user!.id, contentType, data })
+      : null;
+  tournament.set(`images.${kind}`, image?._id ?? null);
+  try {
+    await tournament.save();
+  } catch (err) {
+    if (image) await image.deleteOne();
+    throw err;
+  }
+  if (old) await ImageModel.deleteOne({ _id: old });
+  res.json(tournament);
+}
+
+tournamentsRouter.put(
+  '/:id/images/:kind',
+  express.raw({ type: () => true, limit: MAX_IMAGE_BYTES }),
+  (req: Request<{ id: string; kind: string }>, res) =>
+    setImage(req, res, Buffer.isBuffer(req.body) ? req.body : Buffer.alloc(0)),
+);
+
+tournamentsRouter.delete('/:id/images/:kind', (req: Request<{ id: string; kind: string }>, res) =>
+  setImage(req, res),
 );

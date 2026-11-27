@@ -1,4 +1,5 @@
 import type { StageLink } from '../../lib/circuits';
+import type { ImageKind } from '../../lib/images';
 import type { MatchFormat } from '../../lib/score';
 import type { BracketId } from '../../lib/tournaments';
 import type { MatchChanges } from './MatchRow';
@@ -27,6 +28,8 @@ export interface TournamentActions {
   draw: () => void;
   updateSettings: (changes: SettingsChanges) => void;
   resetResults: () => void;
+  /** Uploads (a file) or removes (null) the logo or the background */
+  setImage: (kind: ImageKind, file: Blob | null) => void;
   /** Clears one bracket's results (bracket A also clears the consolation it fills) */
   resetBracket: (bracketId: BracketId) => void;
   /** A typed result that can't be read: explain it, save nothing */

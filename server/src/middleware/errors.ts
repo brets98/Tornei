@@ -24,6 +24,12 @@ export const errorHandler: ErrorRequestHandler = (err, _req, res, _next) => {
     return;
   }
 
+  // Request bodies refused by the parsers: too large, malformed JSON
+  if (err?.expose && err.status >= 400 && err.status < 500) {
+    res.status(err.status).json({ error: err.message });
+    return;
+  }
+
   console.error(err);
   res.status(500).json({ error: 'Internal server error' });
 };

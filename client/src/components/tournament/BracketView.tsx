@@ -13,6 +13,7 @@ import {
   type Tournament,
 } from '../../lib/tournaments';
 import type { TournamentActions } from './actions';
+import { watermark } from '../../lib/images';
 import { CourtSelect, ResultInput, TimeSelect } from './MatchFields';
 
 interface Props {
@@ -40,6 +41,7 @@ export function BracketView({ tournament, bracket, actions }: Props) {
         ? t.bracket.fromGroups
         : t.bracket.knockout;
 
+  const background = watermark(tournament);
   const cleared = bracketsCleared(tournament, bracket.id);
   const results = tournament.matches.filter(
     (m) => m.bracket && cleared.includes(m.bracket) && m.sets.length > 0,
@@ -67,7 +69,10 @@ export function BracketView({ tournament, bracket, actions }: Props) {
           </button>
         </div>
       )}
-      <div className="panel bracket-wrap">
+      <div
+        className={`panel bracket-wrap${background ? ` ${background.className}` : ''}`}
+        style={background?.style}
+      >
         <div
           className="bracket"
           style={{ gridTemplateColumns: `repeat(${rounds.length + 1}, minmax(15rem, 1fr))` }}

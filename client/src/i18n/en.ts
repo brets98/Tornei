@@ -279,6 +279,21 @@ export const en = {
     complete: 'complete',
     open: 'Live view',
   },
+  images: {
+    title: 'Images',
+    hint: 'Saved as soon as you choose them. PNG, JPEG or WebP; large images are shrunk.',
+    logo: 'Logo',
+    background: 'Background',
+    hints: {
+      logo: 'Shown beside the tournament name, also in the live view.',
+      background: 'Shown faded behind each group and each bracket, like a watermark.',
+    },
+    none: 'No image',
+    choose: 'Choose image',
+    replace: 'Replace image',
+    remove: 'Remove',
+    unreadable: 'This file cannot be read as an image.',
+  },
   settings: {
     title: 'Settings',
     hint: 'Changes apply everywhere: groups, brackets and overview.',

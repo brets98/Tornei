@@ -276,6 +276,21 @@ export const it: Messages = {
     complete: 'concluso',
     open: 'Vista live',
   },
+  images: {
+    title: 'Immagini',
+    hint: 'Si salvano appena le scegli. PNG, JPEG o WebP; le immagini grandi vengono ridotte.',
+    logo: 'Logo',
+    background: 'Sfondo',
+    hints: {
+      logo: 'Compare accanto al nome del torneo, anche nella vista live.',
+      background: 'Compare in trasparenza dietro ogni girone e ogni tabellone, come una filigrana.',
+    },
+    none: 'Nessuna immagine',
+    choose: 'Scegli immagine',
+    replace: 'Sostituisci immagine',
+    remove: 'Rimuovi',
+    unreadable: 'Questo file non si riesce a leggere come immagine.',
+  },
   settings: {
     title: 'Impostazioni',
     hint: 'Le modifiche valgono ovunque: gironi, tabelloni e riepilogo.',
